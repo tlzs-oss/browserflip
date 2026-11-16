@@ -11,6 +11,8 @@ BrowserFlip は、PC にインストールされている Web ブラウザーを
 
 ![BrowserFlip のスクリーンショット](docs/images/screenshot.png)
 
+![BrowserFlip のコンパクトバー](docs/images/compact-bar.png)
+
 > スクリーンショットは最初のリリースまでに追加予定です。
 
 > **ステータス:** プレリリース(0.1.0 MVP と 0.2.0 デスクトップ機能を開発中)。リリースはまだ公開されていません。
