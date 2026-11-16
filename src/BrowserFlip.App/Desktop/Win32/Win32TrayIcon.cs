@@ -1,7 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 
 namespace BrowserFlip.App.Desktop.Win32;
@@ -35,6 +32,7 @@ public sealed class Win32TrayIcon : ITrayIcon
     private bool _ownsIcon;
     private bool _added;
     private bool _version4;
+    private bool _tracking;
     private bool _visible;
     private string _toolTip = string.Empty;
     private long? _lastActivation;
@@ -145,11 +143,20 @@ public sealed class Win32TrayIcon : ITrayIcon
         ArgumentNullException.ThrowIfNull(items);
         VerifyAccess();
 
+        // TrackPopupMenuEx runs a modal loop that still dispatches to this window: ignore a nested request
+        // (it would fail with ERROR_POPUP_ALREADY_ACTIVE and confuse the caller's "menu open" state).
+        if (_tracking)
+        {
+            return;
+        }
+
         var actions = new List<Action?>();
         var menus = new List<IntPtr>();
-        var root = Build(items, actions, menus);
+        var root = IntPtr.Zero;
+        _tracking = true;
         try
         {
+            root = Build(items, actions, menus);
             if (!NativeMethods.GetCursorPos(out var pt))
             {
                 return;
@@ -171,7 +178,12 @@ public sealed class Win32TrayIcon : ITrayIcon
         finally
         {
             // Destroying the root also destroys attached submenus.
-            _ = NativeMethods.DestroyMenu(root);
+            if (root != IntPtr.Zero)
+            {
+                _ = NativeMethods.DestroyMenu(root);
+            }
+
+            _tracking = false;
         }
     }
 
@@ -195,7 +207,11 @@ public sealed class Win32TrayIcon : ITrayIcon
             if (item.Children is { Count: > 0 } children)
             {
                 var sub = Build(children, actions, menus);
-                _ = NativeMethods.AppendMenuW(menu, flags | NativeMethods.MfPopup, sub, item.Text);
+                if (!NativeMethods.AppendMenuW(menu, flags | NativeMethods.MfPopup, sub, item.Text))
+                {
+                    _ = NativeMethods.DestroyMenu(sub); // not attached: the root would not free it
+                }
+
                 continue;
             }
 
