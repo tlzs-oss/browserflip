@@ -72,6 +72,7 @@ jobs:
               '-p:SelfContained=true',
               '-p:PublishSingleFile=true',
               '-p:IncludeNativeLibrariesForSelfExtract=true',
+              '-p:EnableCompressionInSingleFile=true',
               '-p:DebugType=none'
             )
             if ($env:VERSION) { $props += "-p:Version=$($env:VERSION)" }
