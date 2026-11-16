@@ -56,6 +56,7 @@ public sealed class DesktopCoordinator : IDisposable
     private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
     private int _overflowRelayouts;          // BF-05: consecutive re-layouts because the browser list did not fit
     private bool _incompleteMeasure;         // BF-05: the bar was sized before its browser buttons existed
+    private bool _lengthCapped;              // the bar is as long as the screen allows (a scroll bar shows)
     private PixelRect? _mainRestore;         // main window rectangle before a drag that docked it (undo a Windows snap)
     private bool _closedUnderPointer;        // docked bar retracted by Alt+F4: no edge expansion until the cursor leaves the zone once
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
@@ -272,6 +273,7 @@ public sealed class DesktopCoordinator : IDisposable
             else if (!_bar.IsVisible)
             {
                 _bar.Show(); // sized again once its browser buttons exist (BF-05, see LayoutUpdated)
+                ScheduleLayout(); // also re-checks DPI / placement once the window is live
             }
         }
         else
@@ -727,6 +729,7 @@ public sealed class DesktopCoordinator : IDisposable
             // Longer than the screen allows: a scroll bar along the bar, with the bar made thicker by the scroll bar so
             // the browser buttons are not covered (browsers never disappear silently).
             var overflow = (vertical ? dip.Height : dip.Width) >= maxLength - 0.5;
+            _lengthCapped = overflow;
             _bar.ShowOverflowScrollBar(overflow);
             if (overflow)
             {
@@ -1143,6 +1146,7 @@ public sealed class DesktopCoordinator : IDisposable
             _trayOnly = false;
             Layout(); // restore the saved floating position / docked place before showing
             _bar.Show(); // sized again once its browser buttons exist (BF-05, see LayoutUpdated)
+            ScheduleLayout(); // also re-checks DPI / placement once the window is live
         }
 
         RaiseBar();
@@ -1171,9 +1175,9 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        if (_exiting || !_shell.IsCompact || _shell.IsBarCollapsed || _bar.IsDragging || !_bar.IsVisible)
+        if (_exiting || !_shell.IsCompact || _shell.IsBarCollapsed || _bar.IsDragging || !_bar.IsVisible || _lengthCapped)
         {
-            return;
+            return; // a bar as long as the screen allows overflows by design (its scroll bar shows)
         }
 
         if (!_bar.BrowsersOverflow)
