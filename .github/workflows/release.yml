@@ -11,6 +11,14 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+  # Validate the release build itself when the packaging inputs change (artifacts only, no attestation).
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "src/**/*.csproj"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
 
 permissions:
   contents: read
@@ -99,6 +107,8 @@ jobs:
   provenance:
     name: Build provenance attestation
     needs: build
+    # Pull-request builds are validation only: never attest them.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # Only this job can mint an OIDC token / write attestations. No secrets are used:
