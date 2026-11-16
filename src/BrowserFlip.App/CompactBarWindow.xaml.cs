@@ -176,6 +176,24 @@ public partial class CompactBarWindow : Window
 
     private void OnTabClick(object sender, RoutedEventArgs e) => TabInvoked?.Invoke(this, EventArgs.Empty);
 
+    private void OnCloseClick(object sender, RoutedEventArgs e) => Close(); // the coordinator cancels and retracts / hides
+
+    /// <summary>
+    /// Brings the bar above other (non-topmost) windows without activating it: a bar that is not "always on
+    /// top" must still be visible when it expands from its edge.
+    /// </summary>
+    public void BringToFront()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd != IntPtr.Zero && !Topmost)
+        {
+            const uint SwpNoSize = 0x0001;
+            const uint SwpNoMove = 0x0002;
+            _ = Desktop.Win32.NativeMethods.SetWindowPos(hwnd, IntPtr.Zero /* HWND_TOP */, 0, 0, 0, 0,
+                SwpNoSize | SwpNoMove | Desktop.Win32.NativeMethods.SwpNoActivate | Desktop.Win32.NativeMethods.SwpNoOwnerZOrder);
+        }
+    }
+
     private void OnBrowserScrollerMouseWheel(object sender, MouseWheelEventArgs e)
     {
         // Horizontal bar: map the vertical wheel to horizontal scrolling.
@@ -211,6 +229,7 @@ public partial class CompactBarWindow : Window
         DockPanel.SetDock(HomeButton, start);
         DockPanel.SetDock(PinButton, start);
         DockPanel.SetDock(OptionsButton, end);
+        DockPanel.SetDock(CloseButton, end);
     }
 
     private static bool IsWithinButton(DependencyObject? source)

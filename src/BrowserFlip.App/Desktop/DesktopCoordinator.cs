@@ -23,6 +23,11 @@ namespace BrowserFlip.App.Desktop;
 public sealed class DesktopCoordinator : IDisposable
 {
     private const double SnapThresholdDip = 24;
+
+    // The main window docks only when the cursor is pushed against the edge (or onto the taskbar) when the
+    // drag ends: a window that merely ends up near an edge never switches mode (BF-01).
+    private const int MainDockThresholdPx = 2;
+    private const double MainDockPreviewLengthDip = 240;
     private const double DockMarginDip = 4;
     private const double CursorHysteresisDip = 8;
     private const double TriggerAlongMarginDip = 8;
@@ -47,7 +52,8 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _exiting;
     private bool _menuOpen;
     private bool _barMenuOpen;      // the bar's own context menu (keyboard use continues inside it)
-    private bool _trayOnly;          // floating bar hidden by closing the main window (tray only)
+    private bool _trayOnly;          // every window hidden, only the notification-area icon (X on the main window / floating bar)
+    private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
     private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
     private PixelRect _expandedRect;
@@ -133,6 +139,9 @@ public sealed class DesktopCoordinator : IDisposable
         _bar.Activated += (_, _) => _main.OnActivated();
         _bar.Deactivated += (_, _) => _main.OnDeactivated();
 
+        _mainWindow.UserMoving += (_, _) => UpdateMainDragPreview();
+        _mainWindow.UserMoveCompleted += (_, start) => OnMainDragCompleted(start);
+        _shell.EnterCompactRequested += (_, _) => EnterCompactNearMain();
         _shell.PropertyChanged += OnShellChanged;
         _shell.ShowMainRequested += (_, _) => ShowMain();
         _shell.ExitRequested += (_, _) => Exit();
@@ -172,10 +181,10 @@ public sealed class DesktopCoordinator : IDisposable
     internal PixelRect TriggerZone => _triggerZone;
 
     /// <summary>
-    /// A docked bar stays on top (it must be reachable from its edge even over maximized windows),
-    /// except while a full-screen app or presentation runs. A floating bar follows the user setting.
+    /// "Always on top" (the pin) alone decides the window layer, for the bar like for the main window; docking and
+    /// auto-hide do not change it (BF-02). A bar that is not on top is raised without activation when it expands.
     /// </summary>
-    private bool BarTopmost => _shell.DockEnabled ? !_shell.IsFullScreenAppActive : _shell.EffectiveTopmost;
+    private bool BarTopmost => _shell.EffectiveTopmost;
 
     public CompactBarWindow Bar => _bar;
 
@@ -255,6 +264,7 @@ public sealed class DesktopCoordinator : IDisposable
             _bar.Hide();
             _trayOnly = false; // the main window is the visible surface now; the bar shows normally next time
             _enterCollapsed = false;
+            _floatingCenter = null;
 
             // Leaving compact mode always brings the main window back (never "tray only").
             ShowMainWindow(activate: false);
@@ -300,50 +310,65 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        // Closing the window minimizes BrowserFlip (Owner decision): it keeps running in the notification
-        // area. Only "Exit" (tray / bar menu), logoff or shutdown end the process.
+        // X on the main window hides BrowserFlip to the notification area (BF-04): no mode switch, no bar,
+        // no exit. Only "Exit" (tray / bar menu), logoff or shutdown end the process.
         e.Cancel = true;
-        SaveMainBounds();
-        _mainWindow.Dispatcher.BeginInvoke(MinimizeToTray);
+        _mainWindow.Dispatcher.BeginInvoke(HideToTray);
     }
 
     /// <summary>
-    /// Main window closed (X): never changes docking, edge, monitor, orientation or saved positions.
-    /// Docked bar: stays at its edge, collapsed to the 3-5 px strip (expands on approach). Floating bar:
-    /// hidden with the window (tray only); the tray brings it back where it was.
+    /// Tray only: hides every window and keeps the notification-area icon. The mode, dock state, edge,
+    /// monitor, orientation and saved positions are not changed; the tray restores the same surface.
     /// </summary>
-    internal void MinimizeToTray()
+    internal void HideToTray()
     {
         if (_exiting)
         {
             return;
         }
 
-        _trayOnly = !_shell.DockEnabled;
-        _enterCollapsed = _shell.DockEnabled;
+        SaveMainBounds();
+        _trayOnly = true;
+        _mainWindow.Hide();
+        _bar.Hide();
+        HideDragPreview();
+        UpdateTimers();
+    }
+
+    /// <summary>Every window is hidden; only the notification-area icon is left.</summary>
+    internal bool IsTrayOnly => _trayOnly;
+
+    /// <summary>
+    /// Tray click (and a second start): brings back the surface that was in use, where it was: the main window
+    /// (also from minimized), the floating bar, or the docked bar (expanded).
+    /// </summary>
+    internal void RestoreFromTray()
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        _trayOnly = false;
         if (_shell.IsCompact)
         {
-            ApplyMode();
+            Expand(activate: true);
         }
         else
         {
-            _shell.IsCompact = true; // ApplyMode applies the flags above
+            ShowMainWindow(activate: true);
         }
-    }
 
-    /// <summary>The bar is hidden with only the notification-area icon left (floating bar, window closed).</summary>
-    internal bool IsTrayOnly => _trayOnly;
+        UpdateTimers();
+    }
 
     /// <summary>BrowserFlip was started again while running: bring the current surface forward.</summary>
     internal void ShowRunningInstance()
     {
-        if (!_exiting)
-        {
-            ShowMain();
-        }
+        RestoreFromTray();
     }
 
-    /// <summary>Shows the compact bar (expanded) and hides the main window: tray click / tray menu.</summary>
+    /// <summary>Tray menu "show compact bar": like the compact button when coming from the main window.</summary>
     internal void ShowToolbar()
     {
         if (_exiting)
@@ -354,15 +379,115 @@ public sealed class DesktopCoordinator : IDisposable
         _trayOnly = false;
         if (!_shell.IsCompact)
         {
-            _shell.IsCompact = true; // ApplyMode hides the main window and shows the bar
+            EnterCompactNearMain();
         }
 
         Expand(activate: true);
     }
 
     /// <summary>
-    /// Alt+F4 (or any WM_CLOSE) on the compact bar must never destroy it: that would leave the
-    /// process running with no surface. Instead return to the normal window.
+    /// Compact button (BF-03): the bar appears floating at the center of the main window, in the user's floating
+    /// orientation, kept inside that monitor's work area. Never jumps to a corner or another monitor.
+    /// </summary>
+    internal void EnterCompactNearMain()
+    {
+        if (_exiting || _shell.IsCompact)
+        {
+            return;
+        }
+
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        var main = hwnd != IntPtr.Zero && _mainWindow.IsVisible && _mainWindow.WindowState == WindowState.Normal
+            ? _placement.GetBounds(hwnd)
+            : _shell.Settings.MainBounds ?? default;
+        _trayOnly = false;
+        _shell.DockEnabled = false; // a manual switch floats; docking is done by dragging to an edge
+        if (!main.IsEmpty)
+        {
+            var center = (main.Left + (main.Width / 2), main.Top + (main.Height / 2));
+            _floatingCenter = center;
+            var size = _shell.Settings.CompactBounds is { } b ? (b.Width, b.Height) : (100, 100);
+            _shell.Settings.CompactBounds = PixelRect.FromSize(center.Item1 - (size.Item1 / 2), center.Item2 - (size.Item2 / 2), size.Item1, size.Item2);
+        }
+
+        _shell.IsCompact = true; // ApplyMode hides the main window and lays the bar out around the center
+    }
+
+    /// <summary>
+    /// The user dragged the main window and released it with the cursor pushed against a screen edge (BF-01):
+    /// switch to the compact bar docked to that edge of that monitor, already retracted to its strip. The main
+    /// window goes back to where it was before the drag (undoing a Windows snap) for when it is shown again.
+    /// </summary>
+    internal void OnMainDragCompleted(PixelRect before)
+    {
+        HideDragPreview();
+        if (_exiting || _shell.IsCompact || _mainWindow.WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        var cursor = _monitors.GetCursorPosition();
+        if (cursor is not { } c)
+        {
+            return;
+        }
+
+        var monitor = _monitors.FromPoint(c.X, c.Y);
+        if (DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, c) is not { } edge)
+        {
+            return; // an ordinary move
+        }
+
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        if (hwnd != IntPtr.Zero && !before.IsEmpty && _placement.GetBounds(hwnd) != before)
+        {
+            // Put the window back (position and width; the height follows the content) before it is hidden.
+            var scale = _monitors.FromPoint(before.Left + (before.Width / 2), before.Top + (before.Height / 2)).Scale;
+            _mainWindow.Width = Math.Max(_mainWindow.MinWidth, before.Width / scale);
+            _placement.Move(hwnd, before.Left, before.Top);
+        }
+
+        _shell.Settings.DockMonitor = monitor.DeviceName;
+        _shell.Settings.DockPosition = DockLayout.PositionAlong(PixelRect.FromSize(c.X, c.Y, 1, 1), monitor.WorkArea, edge);
+        _floatingCenter = null;
+        _shell.DockEdge = edge;
+        _shell.DockEnabled = true;
+        _enterCollapsed = true; // retracted at once; the cursor at the edge expands it
+        _trayOnly = false;
+        _shell.Settings.Save();
+        _shell.IsCompact = true;
+    }
+
+    /// <summary>Edge the main window would dock to if released now (null = none).</summary>
+    internal DockEdge? MainDragPreviewEdge { get; private set; }
+
+    /// <summary>While the main window is dragged: outline the docked bar when the cursor is pushed against an edge.</summary>
+    internal void UpdateMainDragPreview()
+    {
+        if (_exiting || _shell.IsCompact || _monitors.GetCursorPosition() is not { } c)
+        {
+            return;
+        }
+
+        var monitor = _monitors.FromPoint(c.X, c.Y);
+        MainDragPreviewEdge = DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, c);
+        if (MainDragPreviewEdge is not { } edge)
+        {
+            HideDragPreview();
+            return;
+        }
+
+        var vertical = edge is DockEdge.Left or DockEdge.Right;
+        var thickness = Px(_shell.BarThicknessFor(vertical), monitor.Scale);
+        var length = Px(MainDockPreviewLengthDip, monitor.Scale);
+        var position = DockLayout.PositionAlong(PixelRect.FromSize(c.X, c.Y, 1, 1), monitor.WorkArea, edge);
+        ShowPreview(monitor, DockLayout.Docked(monitor.WorkArea, edge, vertical ? thickness : length, vertical ? length : thickness,
+            position, Px(DockMarginDip, monitor.Scale)));
+    }
+
+    /// <summary>
+    /// X button / Alt+F4 on the compact bar never destroys it (BF-04): a docked bar retracts into its edge
+    /// (same edge, monitor and position; it expands again on approach); a floating bar hides to the tray.
     /// </summary>
     private void OnBarClosing(object? sender, CancelEventArgs e)
     {
@@ -372,17 +497,25 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         e.Cancel = true;
-        _bar.Dispatcher.BeginInvoke(() =>
+        _bar.Dispatcher.BeginInvoke(CloseBar);
+    }
+
+    internal void CloseBar()
+    {
+        if (_exiting || !_shell.IsCompact)
         {
-            if (_shell.IsCompact)
-            {
-                _shell.IsCompact = false; // ApplyMode shows the main window
-            }
-            else
-            {
-                ShowMainWindow(activate: true);
-            }
-        });
+            return;
+        }
+
+        if (_shell.IsAutoHideActive)
+        {
+            _keyboardEngaged = false;
+            _autoHide.CollapseNow(Now());
+            ApplyCollapsed();
+            return;
+        }
+
+        HideToTray();
     }
 
     private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
@@ -479,8 +612,8 @@ public sealed class DesktopCoordinator : IDisposable
             _autoHideTimer.Stop();
         }
 
-        // Full-screen detection suspends "on top": needed for the topmost setting and for a docked bar.
-        if ((_shell.IsTopmost || (_shell.IsCompact && _shell.DockEnabled)) && !_exiting)
+        // Full-screen detection suspends "on top".
+        if (_shell.IsTopmost && !_exiting)
         {
             _fullScreenTimer.Start();
         }
@@ -537,7 +670,9 @@ public sealed class DesktopCoordinator : IDisposable
             {
                 var saved = _shell.Settings.CompactBounds;
                 // Default floating position is well outside the snap zone (24 DIP).
-                var origin = saved ?? PixelRect.FromSize(work.Right - width - Px(64, monitor.Scale), work.Top + Px(64, monitor.Scale), width, height);
+                var origin = _floatingCenter is { } center
+                    ? PixelRect.FromSize(center.X - (width / 2), center.Y - (height / 2), width, height) // BF-03: around the main window's center
+                    : saved ?? PixelRect.FromSize(work.Right - width - Px(64, monitor.Scale), work.Top + Px(64, monitor.Scale), width, height);
                 var rect = PixelRect.FromSize(origin.Left, origin.Top, width, height);
                 target = DockLayout.EnsureVisible(rect, _monitors.GetMonitors(), Px(32, monitor.Scale));
                 target = DockLayout.ClampInto(target, _monitors.FromPoint(target.Left + (target.Width / 2), target.Top + (target.Height / 2)).WorkArea);
@@ -545,6 +680,10 @@ public sealed class DesktopCoordinator : IDisposable
                 _tabRect = default;
                 _triggerZone = default;
                 _shell.IsBarCollapsed = false;
+                if (_floatingCenter is not null)
+                {
+                    _shell.Settings.CompactBounds = target; // the next restore / restart starts here
+                }
             }
 
             // Keep WPF's own DIP size in sync, otherwise WPF re-applies a stale size after a DPI change.
@@ -628,6 +767,7 @@ public sealed class DesktopCoordinator : IDisposable
 
     internal void OnBarDragStarted()
     {
+        _floatingCenter = null;
         _autoHide.ForceExpand(Now());
         var hwnd = new WindowInteropHelper(_bar).Handle;
         _dragStartRect = hwnd == IntPtr.Zero ? default : _placement.GetBounds(hwnd);
@@ -733,6 +873,16 @@ public sealed class DesktopCoordinator : IDisposable
         var position = DockLayout.PositionAlong(rect, monitor.WorkArea, e);
         var target = DockLayout.Docked(monitor.WorkArea, e, vertical ? thickness : length, vertical ? length : thickness, position, Px(DockMarginDip, monitor.Scale));
 
+        ShowPreview(monitor, target);
+    }
+
+    private void ShowPreview(MonitorInfo monitor, PixelRect target)
+    {
+        if (!ShowDragPreview)
+        {
+            return;
+        }
+
         _preview ??= new DockPreviewWindow();
         _preview.Width = target.Width / monitor.Scale;
         _preview.Height = target.Height / monitor.Scale;
@@ -748,6 +898,7 @@ public sealed class DesktopCoordinator : IDisposable
     private void HideDragPreview()
     {
         PreviewEdge = null;
+        MainDragPreviewEdge = null;
         _preview?.Hide();
     }
 
@@ -908,6 +1059,8 @@ public sealed class DesktopCoordinator : IDisposable
             ScheduleLayout();
         }
 
+        _bar.BringToFront();
+
         if (activate)
         {
             _keyboardEngaged = false; // our own activation is not keyboard use (T13); the tray handler re-evaluates it
@@ -948,6 +1101,8 @@ public sealed class DesktopCoordinator : IDisposable
             Layout();
         }
 
+        _bar.BringToFront(); // visible above other windows even when "always on top" is off
+
         _bar.PlayExpandAnimation();
     }
 
@@ -962,7 +1117,7 @@ public sealed class DesktopCoordinator : IDisposable
             _tray = _trayFactory();
             _tray.Activated += (_, _) =>
             {
-                ShowToolbar();
+                RestoreFromTray();
                 // Win+B, arrows, Enter: the user continues on the bar with the keyboard; a click does not.
                 _keyboardEngaged = _tray?.LastActivationWasKeyboard == true;
             };
@@ -1032,7 +1187,8 @@ public sealed class DesktopCoordinator : IDisposable
     /// <summary>One menu definition for both the notification-area menu and the compact bar menu.</summary>
     internal IReadOnlyList<TrayMenuItem> BuildMenuModel() =>
     [
-        new(Loc.Instance["Menu_ShowToolbar"], ShowToolbar) { IsDefault = true },
+        new(Loc.Instance["Menu_Show"], RestoreFromTray) { IsDefault = true },
+        new(Loc.Instance["Menu_ShowToolbar"], ShowToolbar),
         new(Loc.Instance["Menu_Settings"], () => _shell.OpenOptionsCommand.Execute(null)),
         TrayMenuItem.Separator,
         new(Loc.Instance["Menu_Topmost"], () => _shell.ToggleTopmostCommand.Execute(null)) { IsChecked = _shell.IsTopmost },

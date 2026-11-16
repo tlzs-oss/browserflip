@@ -178,4 +178,10 @@
   <data name="Options_FloatingOrientationHint" xml:space="preserve">
     <value>コンパクトバーを画面端にドッキングしていないときの向きです。バーを画面端へドラッグするとドッキングし、上下の端では横、左右の端では縦に自動で切り替わります。</value>
   </data>
+  <data name="Menu_Show" xml:space="preserve">
+    <value>BrowserFlip を表示</value>
+  </data>
+  <data name="Bar_Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
 </root>

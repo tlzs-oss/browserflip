@@ -147,6 +147,23 @@ public static class DockLayout
             : new PixelRect(left, workArea.Bottom - depth, right, workArea.Bottom + (workArea.Bottom == monitorBounds.Bottom ? overshoot : 0));
     }
 
+    /// <summary>
+    /// Edge of <paramref name="workArea"/> the cursor is pushed against: within <paramref name="threshold"/>
+    /// pixels of it, or past it (onto a taskbar). Used when the main window is dragged to a screen edge: only a
+    /// deliberate push to the edge counts, never a window that merely ends up near it.
+    /// </summary>
+    public static DockEdge? PushedEdge(PixelRect workArea, int threshold, (int X, int Y) cursor)
+    {
+        var nearest = new (DockEdge Edge, int Distance)[]
+        {
+            (DockEdge.Left, cursor.X - workArea.Left),
+            (DockEdge.Right, workArea.Right - 1 - cursor.X),
+            (DockEdge.Top, cursor.Y - workArea.Top),
+            (DockEdge.Bottom, workArea.Bottom - 1 - cursor.Y),
+        }.MinBy(d => d.Distance);
+        return nearest.Distance <= threshold ? nearest.Edge : null;
+    }
+
     /// <summary>Thickness of the visible strip left by a collapsed bar: about 2 DIP, kept within 3-5 pixels.</summary>
     public static int HintThickness(double scale) => Math.Clamp((int)Math.Round(2 * scale), 3, 5);
 

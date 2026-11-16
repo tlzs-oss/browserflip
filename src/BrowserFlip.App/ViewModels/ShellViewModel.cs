@@ -49,7 +49,18 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         ];
 
         ToggleTopmostCommand = new RelayCommand(_ => IsTopmost = !IsTopmost);
-        EnterCompactCommand = new RelayCommand(_ => IsCompact = true);
+        EnterCompactCommand = new RelayCommand(_ =>
+        {
+            // The coordinator places the bar next to the main window (BF-03); without one, just switch.
+            if (EnterCompactRequested is { } handler)
+            {
+                handler(this, EventArgs.Empty);
+            }
+            else
+            {
+                IsCompact = true;
+            }
+        });
         ShowNormalCommand = new RelayCommand(_ =>
         {
             IsCompact = false;
@@ -66,6 +77,9 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
         Loc.Instance.PropertyChanged += OnLanguageChanged;
     }
+
+    /// <summary>The user asked to switch from the main window to the compact bar (compact button).</summary>
+    public event EventHandler? EnterCompactRequested;
 
     /// <summary>The main window should be shown and activated.</summary>
     public event EventHandler? ShowMainRequested;

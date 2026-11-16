@@ -70,6 +70,18 @@ public partial class MainWindow : Window
     }
 
     private bool _inSizeMove;
+    private bool _movedInSizeMove;
+    private bool _sizedInSizeMove;
+    private Desktop.PixelRect _sizeMoveStart;
+
+    /// <summary>The user is dragging the window (WM_MOVING inside a move loop).</summary>
+    internal event EventHandler? UserMoving;
+
+    /// <summary>
+    /// The user finished dragging the window (moved, not resized). The argument is the window rectangle
+    /// before the drag (physical pixels), so a snap or dock can be undone.
+    /// </summary>
+    internal event EventHandler<Desktop.PixelRect>? UserMoveCompleted;
 
     /// <summary>
     /// A content-sized utility window has nothing to gain from maximizing (and the height cap would stop
@@ -160,13 +172,34 @@ public partial class MainWindow : Window
     {
         const int WmEnterSizeMove = 0x0231;
         const int WmExitSizeMove = 0x0232;
+        const int WmMoving = 0x0216;
+        const int WmSizing = 0x0214;
         if (msg == WmEnterSizeMove)
         {
             _inSizeMove = true;
+            _movedInSizeMove = false;
+            _sizedInSizeMove = false;
+            _sizeMoveStart = NativeMethods.GetWindowRect(hwnd, out var start) ? start.ToPixelRect() : default;
+        }
+        else if (msg == WmMoving && _inSizeMove)
+        {
+            _movedInSizeMove = true;
+            UserMoving?.Invoke(this, EventArgs.Empty);
+        }
+        else if (msg == WmSizing)
+        {
+            _sizedInSizeMove = true;
         }
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
+            if (_movedInSizeMove && !_sizedInSizeMove && !_sizeMoveStart.IsEmpty)
+            {
+                // After Windows has finished the move (and any snap): docking may replace the window (BF-01).
+                var start = _sizeMoveStart;
+                _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+                    () => UserMoveCompleted?.Invoke(this, start));
+            }
 
             // A move or resize may have ended under the taskbar (or grown during the drag): fix it once now.
             _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);

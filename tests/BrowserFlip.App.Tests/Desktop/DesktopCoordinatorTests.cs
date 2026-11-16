@@ -303,20 +303,26 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
-    // ------------------------------------------------------------------ T13: main window X = minimize
+    // ------------------------------------------------------------------ shared helpers (BF-01..04, T13)
 
     /// <summary>
-    /// Worst case for auto-hide: the bar has keyboard focus and WPF reports the last input as keyboard
-    /// (what a window activation by the app itself looks like). Nothing was typed on the bar.
+    /// Worst case for auto-hide: the bar has keyboard focus and WPF would report the last input as keyboard
+    /// (what an activation by the app itself looks like). Nothing was typed on the bar (T13).
     /// </summary>
-    private static void BarActivatedByTheApp(Harness h)
-    {
-        h.Coordinator.BarHasKeyboardFocus = () => true;
-    }
+    private static void BarActivatedByTheApp(Harness h) => h.Coordinator.BarHasKeyboardFocus = () => true;
 
     private static UserSettings MainWindowOpen(UserSettings s)
     {
-        s.Mode = WindowMode.Normal; // the main window is showing when the user clicks X
+        s.Mode = WindowMode.Normal; // the main window is the surface in use
+        return s;
+    }
+
+    private static UserSettings FloatingAt(PixelRect bounds)
+    {
+        var s = Docked(DockEdge.Right);
+        s.DockEnabled = false;
+        s.FloatingOrientation = BarOrientation.Vertical;
+        s.CompactBounds = bounds;
         return s;
     }
 
@@ -326,163 +332,161 @@ public sealed class DesktopCoordinatorTests
         Harness.Pump();
     }
 
+    private static void CloseBar(Harness h)
+    {
+        h.Coordinator.Bar.Close(); // X button and Alt+F4 both end in Window.Close
+        Harness.Pump();
+    }
+
+    private static void ClickTray(Harness h)
+    {
+        h.Tray!.Click();
+        Harness.Pump();
+    }
+
+    /// <summary>Main window shown at <paramref name="bounds"/> (the fake placement knows its rectangle).</summary>
+    private static void PlaceMain(Harness h, PixelRect bounds) => h.Placement.SetBounds(h.MainHandle, bounds);
+
+    // ------------------------------------------------------------------ BF-04: close, minimize, tray, exit
+
     [Theory]
-    [MemberData(nameof(AllEdges))]
-    public void Closing_the_main_window_collapses_a_docked_bar_in_place(DockEdge edge)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Main_window_X_hides_everything_to_the_tray_and_the_tray_brings_the_main_window_back(bool dockedBarSettings)
     {
         Run(() =>
         {
-            var settings = MainWindowOpen(Docked(edge));
-            settings.DockPosition = 0.3;
-            settings.FloatingOrientation = BarOrientation.Vertical;
+            var settings = MainWindowOpen(Docked(DockEdge.Right));
+            settings.DockEnabled = dockedBarSettings;
             using var h = new Harness(settings, Primary);
-            BarActivatedByTheApp(h);
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
 
             CloseMainWindow(h);
 
+            Assert.True(h.Coordinator.IsTrayOnly);
             Assert.False(h.Coordinator.MainWindow.IsVisible);
-            Assert.True(h.Coordinator.Bar.IsVisible);
-            Assert.True(h.Coordinator.IsCollapsed, $"docked {edge}: hidden at its edge right away");
+            Assert.False(h.Coordinator.Bar.IsVisible); // no bar appears (no mode switch)
+            Assert.False(h.Shell.IsCompact);
             Assert.True(h.Tray!.Visible);
-            Assert.Equal(edge, settings.DockEdge); // docking, edge, monitor, position, orientation unchanged
-            Assert.True(settings.DockEnabled);
+            Assert.False(h.Tray.Disposed); // still running
+            Assert.Equal(dockedBarSettings, settings.DockEnabled);
+
+            ClickTray(h);
+            Assert.False(h.Coordinator.IsTrayOnly);
+            Assert.True(h.Coordinator.MainWindow.IsVisible);
+            Assert.False(h.Coordinator.Bar.IsVisible);
+            Assert.Equal(PixelRect.FromSize(900, 400, 1170, 800), h.Placement.GetBounds(h.MainHandle)); // same place
+        });
+    }
+
+    [Fact]
+    public void Minimized_main_window_is_restored_by_the_tray()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            h.Coordinator.MainWindow.WindowState = WindowState.Minimized; // "-" button
+            Harness.Pump();
+            Assert.False(h.Coordinator.IsTrayOnly);
+            Assert.False(h.Shell.IsCompact);
+
+            ClickTray(h);
+            Assert.Equal(WindowState.Normal, h.Coordinator.MainWindow.WindowState);
+            Assert.True(h.Coordinator.MainWindow.IsVisible);
+        });
+    }
+
+    [Fact]
+    public void Floating_bar_X_hides_to_the_tray_and_the_tray_restores_it_in_place()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary);
+            var before = h.BarBounds;
+            CloseBar(h);
+
+            Assert.True(h.Coordinator.IsTrayOnly);
+            Assert.False(h.Coordinator.Bar.IsVisible);
+            Assert.False(h.Coordinator.MainWindow.IsVisible);
+            Assert.True(h.Shell.IsCompact); // mode kept
+            Assert.False(h.Shell.DockEnabled); // not moved to an edge
+
+            ClickTray(h);
+            Assert.True(h.Coordinator.Bar.IsVisible);
+            Assert.Equal(before, h.BarBounds);
+            Assert.True(before.Height > before.Width); // vertical floating orientation kept
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(AllEdges))]
+    public void Docked_bar_X_retracts_into_its_edge_and_comes_back_on_approach(DockEdge edge)
+    {
+        Run(() =>
+        {
+            var settings = Docked(edge);
+            settings.DockPosition = 0.3;
+            using var h = new Harness(settings, Primary);
+            BarActivatedByTheApp(h);
+            var expanded = h.BarBounds;
+
+            CloseBar(h);
+
+            Assert.False(h.Coordinator.IsTrayOnly);
+            Assert.True(h.Coordinator.Bar.IsVisible);
+            Assert.True(h.Coordinator.IsCollapsed, $"docked {edge}: retracted at once");
+            Assert.False(h.Coordinator.MainWindow.IsVisible); // never switches to the main window
+            Assert.Equal(edge, settings.DockEdge);
             Assert.Equal(Primary.DeviceName, settings.DockMonitor);
             Assert.Equal(0.3, settings.DockPosition);
-            Assert.Equal(BarOrientation.Vertical, settings.FloatingOrientation);
-
             var strip = h.BarBounds;
             Assert.InRange(Math.Min(strip.Width, strip.Height), 3, 5);
-            Assert.Equal(edge is DockEdge.Left or DockEdge.Right, strip.Height > strip.Width); // left/right vertical, top/bottom horizontal
+            Assert.Equal(Math.Max(expanded.Width, expanded.Height), Math.Max(strip.Width, strip.Height));
 
             var (x, y) = PointAtEdge(Primary.WorkArea, edge, strip);
             h.Hover(x, y, 300);
-            Assert.False(h.Coordinator.IsCollapsed); // approaching expands it
-            var expanded = h.BarBounds;
-            Assert.Equal(Math.Max(expanded.Width, expanded.Height), Math.Max(strip.Width, strip.Height));
-            h.Hover(1000, 1000, 1000);
-            Assert.True(h.Coordinator.IsCollapsed); // leaving hides it again
-            Assert.Equal(strip, h.BarBounds);
-        });
-    }
-
-    [Fact]
-    public void Closing_the_main_window_hides_a_floating_bar_to_the_tray_without_moving_it()
-    {
-        Run(() =>
-        {
-            var settings = MainWindowOpen(Docked(DockEdge.Right));
-            settings.DockEnabled = false;
-            settings.FloatingOrientation = BarOrientation.Vertical;
-            settings.CompactBounds = PixelRect.FromSize(1200, 600, 100, 100);
-            using var h = new Harness(settings, Primary);
-            BarActivatedByTheApp(h);
-
-            CloseMainWindow(h);
-
-            Assert.False(h.Coordinator.MainWindow.IsVisible);
-            Assert.False(h.Coordinator.Bar.IsVisible);
-            Assert.True(h.Coordinator.IsTrayOnly);
-            Assert.True(h.Tray!.Visible);
-            Assert.False(settings.DockEnabled); // not moved to an edge
-            Assert.Equal(PixelRect.FromSize(1200, 600, 100, 100), settings.CompactBounds);
-
-            h.Tray.Click(); // restore from the tray: same place, same orientation
-            Harness.Pump();
-            Assert.False(h.Coordinator.IsTrayOnly);
-            Assert.True(h.Coordinator.Bar.IsVisible);
-            var bar = h.BarBounds;
-            Assert.Equal(1200, bar.Left);
-            Assert.Equal(600, bar.Top);
-            Assert.True(bar.Height > bar.Width, "floating orientation (vertical) kept");
-            Assert.False(settings.DockEnabled);
-        });
-    }
-
-    [Fact]
-    public void After_tray_only_opening_settings_then_switching_to_the_bar_shows_the_floating_bar()
-    {
-        Run(() =>
-        {
-            var settings = MainWindowOpen(Docked(DockEdge.Right));
-            settings.DockEnabled = false;
-            settings.CompactBounds = PixelRect.FromSize(1200, 600, 100, 100);
-            using var h = new Harness(settings, Primary);
-            CloseMainWindow(h);
-            Assert.True(h.Coordinator.IsTrayOnly);
-
-            h.Shell.OpenOptionsCommand.Execute(null); // tray menu "Settings..."
-            Harness.Pump();
-            Assert.True(h.Coordinator.MainWindow.IsVisible);
-            Assert.False(h.Coordinator.IsTrayOnly);
-
-            h.Shell.EnterCompactCommand.Execute(null); // "switch to the compact bar" button
-            Harness.Pump();
-            Assert.True(h.Coordinator.Bar.IsVisible);
-            Assert.Equal(1200, h.BarBounds.Left);
-        });
-    }
-
-    [Fact]
-    public void First_start_then_closing_the_main_window_hides_the_bar_at_the_right_edge_of_the_primary()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(UserSettings.InMemory(), Primary, RightNeighbor); // no settings file yet
-            Assert.False(h.Shell.IsCompact); // first start shows the main window
-            BarActivatedByTheApp(h);
-
-            CloseMainWindow(h);
-
-            Assert.True(h.Coordinator.IsCollapsed);
-            var strip = h.BarBounds;
-            Assert.Equal(Primary.WorkArea.Right, strip.Right);
-            Assert.True(strip.Height > strip.Width);
-        });
-    }
-
-    [Fact]
-    public void Closing_the_main_window_with_the_bar_docked_on_a_150_percent_monitor_at_negative_coordinates()
-    {
-        Run(() =>
-        {
-            var settings = MainWindowOpen(Docked(DockEdge.Left));
-            settings.DockMonitor = LeftNegative150.DeviceName;
-            using var h = new Harness(settings, Primary, LeftNegative150);
-
-            CloseMainWindow(h);
-
-            Assert.True(h.Coordinator.IsCollapsed);
-            var strip = h.BarBounds;
-            Assert.Equal(LeftNegative150.WorkArea.Left, strip.Left);
-            Assert.InRange(strip.Width, 3, 5);
-            h.Hover(LeftNegative150.WorkArea.Left, strip.Top + (strip.Height / 2), 300);
             Assert.False(h.Coordinator.IsCollapsed);
-            Assert.Equal(LeftNegative150.DeviceName, settings.DockMonitor);
+            Assert.Equal(expanded, h.BarBounds);
+            h.Hover(1000, 1000, 1000);
+            Assert.True(h.Coordinator.IsCollapsed); // T13: hides again even though the app activated the bar
         });
     }
 
     [Fact]
-    public void Old_settings_file_with_removed_options_still_minimizes_and_auto_hides()
+    public void Tray_restore_of_a_docked_bar_expands_it_and_it_hides_again_when_left_alone()
     {
         Run(() =>
         {
-            var path = Path.Combine(Path.GetTempPath(), "browserflip-t13-" + Guid.NewGuid().ToString("N") + ".json");
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            CloseBar(h);
+            BarActivatedByTheApp(h); // the tray click activates the bar
+            ClickTray(h);
+            Assert.False(h.Coordinator.IsCollapsed);
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
+    public void Old_settings_file_with_removed_options_still_hides_and_restores()
+    {
+        Run(() =>
+        {
+            var path = Path.Combine(Path.GetTempPath(), "browserflip-r2-" + Guid.NewGuid().ToString("N") + ".json");
             try
             {
                 File.WriteAllText(path, """
-                    { "Language": "ja", "Mode": "Normal", "DockEnabled": true, "DockEdge": "Top",
+                    { "Language": "ja", "Mode": "Compact", "DockEnabled": true, "DockEdge": "Top",
                       "AutoHide": false, "TrayEnabled": false, "CloseToTray": false }
                     """);
                 var settings = UserSettings.Load(path);
                 using var h = new Harness(settings, Primary);
-                Assert.True(h.Tray!.Visible); // the tray icon is fixed behavior
-
-                CloseMainWindow(h);
-
-                Assert.True(h.Coordinator.IsCollapsed); // auto-hide is fixed for a docked bar
-                var strip = h.BarBounds;
-                Assert.True(strip.Width > strip.Height); // top edge: horizontal
-                Assert.DoesNotContain("AutoHide", File.ReadAllText(path), StringComparison.Ordinal);
+                Assert.True(h.Tray!.Visible);
+                CloseBar(h);
+                Assert.True(h.Coordinator.IsCollapsed);
+                Assert.True(h.BarBounds.Width > h.BarBounds.Height); // top: horizontal
+                settings.Save();
+                Assert.DoesNotContain("AutoHide", File.ReadAllText(path), StringComparison.Ordinal); // removed keys are dropped on save
             }
             finally
             {
@@ -491,134 +495,75 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
-    [Fact]
-    public void Bar_restored_from_the_tray_hides_again_when_left_alone()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
-            CloseMainWindow(h);
-            BarActivatedByTheApp(h); // the tray click activates the bar
-            h.Tray!.Click();
-            Harness.Pump();
-            Assert.False(h.Coordinator.IsCollapsed);
-
-            h.Hover(1000, 1000, 2500);
-            Assert.True(h.Coordinator.IsCollapsed);
-        });
-    }
-
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void Closing_and_restoring_twenty_times_keeps_the_layout(bool docked)
+    [InlineData("main")]
+    [InlineData("floating")]
+    [InlineData("docked")]
+    public void Twenty_close_and_restore_cycles_keep_the_layout(string surface)
     {
         Run(() =>
         {
-            var settings = MainWindowOpen(Docked(DockEdge.Bottom));
-            settings.DockEnabled = docked;
-            settings.CompactBounds = PixelRect.FromSize(1500, 700, 100, 100);
+            var settings = surface switch
+            {
+                "main" => MainWindowOpen(Docked(DockEdge.Right)),
+                "floating" => FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)),
+                _ => Docked(DockEdge.Bottom),
+            };
             using var h = new Harness(settings, Primary);
+            if (surface == "main")
+            {
+                PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            }
+
             BarActivatedByTheApp(h);
-            PixelRect? strip = null;
-            PixelRect? shown = null;
+            var bar = h.BarBounds;
             for (var i = 0; i < 20; i++)
             {
-                h.Shell.ShowNormalCommand.Execute(null); // main window again
-                Harness.Pump();
-                Assert.True(h.Coordinator.MainWindow.IsVisible, $"cycle {i}: main window shown");
-
-                CloseMainWindow(h);
-                Assert.Equal(docked, h.Coordinator.Bar.IsVisible);
-                Assert.Equal(!docked, h.Coordinator.IsTrayOnly);
-                if (docked)
+                if (surface == "main")
                 {
-                    Assert.True(h.Coordinator.IsCollapsed, $"cycle {i}: collapsed");
-                    strip ??= h.BarBounds;
-                    Assert.Equal(strip, h.BarBounds);
+                    CloseMainWindow(h);
+                    Assert.True(h.Coordinator.IsTrayOnly, $"cycle {i}");
+                    ClickTray(h);
+                    Assert.True(h.Coordinator.MainWindow.IsVisible, $"cycle {i}");
+                    Assert.Equal(PixelRect.FromSize(900, 400, 1170, 800), h.Placement.GetBounds(h.MainHandle));
                 }
-
-                h.Tray!.Click();
-                Harness.Pump();
-                Assert.True(h.Coordinator.Bar.IsVisible, $"cycle {i}: restored");
-                shown ??= h.BarBounds;
-                Assert.Equal(shown, h.BarBounds);
-                if (docked)
+                else if (surface == "floating")
                 {
-                    h.Hover(1000, 1000, 2500);
-                    Assert.True(h.Coordinator.IsCollapsed, $"cycle {i}: hides again");
+                    CloseBar(h);
+                    Assert.False(h.Coordinator.Bar.IsVisible, $"cycle {i}");
+                    ClickTray(h);
+                    Assert.Equal(bar, h.BarBounds);
+                }
+                else
+                {
+                    CloseBar(h);
+                    Assert.True(h.Coordinator.IsCollapsed, $"cycle {i}");
+                    var strip = h.BarBounds;
+                    h.Hover(strip.Left + (strip.Width / 2), Primary.WorkArea.Bottom - 1, 300);
+                    Assert.False(h.Coordinator.IsCollapsed, $"cycle {i}");
+                    Assert.Equal(bar, h.BarBounds);
                 }
             }
 
-            Assert.Equal(docked, settings.DockEnabled);
-            Assert.Equal(DockEdge.Bottom, settings.DockEdge);
+            Assert.Equal(surface != "floating", settings.DockEnabled); // close / restore never changes docking
         });
     }
 
     [Fact]
-    public void Layout_after_closing_is_restored_after_a_restart()
-    {
-        Run(() =>
-        {
-            var settings = MainWindowOpen(Docked(DockEdge.Left));
-            settings.DockPosition = 0.7;
-            PixelRect expandedBefore;
-            using (var h = new Harness(settings, Primary))
-            {
-                CloseMainWindow(h);
-                var strip = h.BarBounds;
-                h.Hover(Primary.WorkArea.Left, strip.Top + (strip.Height / 2), 300);
-                expandedBefore = h.BarBounds;
-            }
-
-            using var restarted = new Harness(settings, Primary);
-            Assert.True(restarted.Shell.IsCompact);
-            Assert.Equal(DockEdge.Left, restarted.Shell.DockEdge);
-            Assert.Equal(expandedBefore, restarted.BarBounds);
-        });
-    }
-
-    private static UserSettings FloatingAt(PixelRect bounds)
-    {
-        var s = MainWindowOpen(Docked(DockEdge.Right));
-        s.DockEnabled = false;
-        s.FloatingOrientation = BarOrientation.Vertical;
-        s.CompactBounds = bounds;
-        return s;
-    }
-
-    [Fact]
-    public void Starting_again_while_tray_only_shows_the_floating_bar_where_it_was()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary);
-            CloseMainWindow(h);
-            Assert.True(h.Coordinator.IsTrayOnly);
-
-            h.Coordinator.ShowRunningInstance(); // second start signals the running instance
-            Harness.Pump();
-            Assert.True(h.Coordinator.Bar.IsVisible);
-            Assert.False(h.Coordinator.IsTrayOnly);
-            Assert.Equal(1200, h.BarBounds.Left);
-        });
-    }
-
-    [Fact]
-    public void Display_change_while_tray_only_keeps_the_bar_hidden_and_the_tray_restores_it()
+    public void Tray_only_then_a_second_start_or_a_display_change_restores_the_previous_surface()
     {
         Run(() =>
         {
             using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary, RightNeighbor);
-            CloseMainWindow(h);
+            CloseBar(h);
 
-            h.Monitors.All = [Primary]; // a monitor was disconnected while only the tray icon shows
+            h.Monitors.All = [Primary];
             h.Monitors.RaiseDisplayChanged();
             Harness.Pump();
-            Assert.False(h.Coordinator.Bar.IsVisible);
             Assert.True(h.Coordinator.IsTrayOnly);
+            Assert.False(h.Coordinator.Bar.IsVisible);
 
-            h.Tray!.Click();
+            h.Coordinator.ShowRunningInstance(); // BrowserFlip started again
             Harness.Pump();
             Assert.True(h.Coordinator.Bar.IsVisible);
             Assert.Equal(1200, h.BarBounds.Left);
@@ -630,7 +575,7 @@ public sealed class DesktopCoordinatorTests
     {
         Run(() =>
         {
-            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary);
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
             CloseMainWindow(h);
             h.Coordinator.Exit();
             Harness.Pump();
@@ -640,60 +585,306 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
+    // ------------------------------------------------------------------ BF-03: compact button next to the window
+
+    [Theory]
+    [InlineData(BarOrientation.Horizontal)]
+    [InlineData(BarOrientation.Vertical)]
+    public void Compact_button_shows_a_floating_bar_at_the_main_window_center_in_the_user_orientation(BarOrientation orientation)
+    {
+        Run(() =>
+        {
+            var settings = MainWindowOpen(Docked(DockEdge.Right)); // docked before: the button still floats
+            settings.FloatingOrientation = orientation;
+            using var h = new Harness(settings, Primary);
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800)); // center (1485, 800)
+
+            h.Shell.EnterCompactCommand.Execute(null);
+            Harness.Pump();
+
+            Assert.True(h.Shell.IsCompact);
+            Assert.False(h.Shell.DockEnabled);
+            Assert.False(h.Coordinator.MainWindow.IsVisible);
+            var bar = h.BarBounds;
+            Assert.Equal(orientation == BarOrientation.Vertical, bar.Height > bar.Width);
+            Assert.InRange(bar.Left + (bar.Width / 2), 1485 - 2, 1485 + 2);
+            Assert.InRange(bar.Top + (bar.Height / 2), 800 - 2, 800 + 2);
+        });
+    }
+
     [Fact]
-    public void Closing_the_main_window_with_the_bar_docked_on_a_secondary_100_percent_monitor()
+    public void Compact_button_near_a_screen_edge_keeps_the_bar_inside_the_work_area_and_on_that_monitor()
     {
         Run(() =>
         {
             var settings = MainWindowOpen(Docked(DockEdge.Right));
-            settings.DockMonitor = RightNeighbor.DeviceName;
-            using var h = new Harness(settings, Primary, RightNeighbor);
-
-            CloseMainWindow(h);
-
-            Assert.True(h.Coordinator.IsCollapsed);
-            var strip = h.BarBounds;
-            Assert.Equal(RightNeighbor.WorkArea.Right, strip.Right);
-            Assert.InRange(strip.Width, 3, 5);
-            Assert.Equal(RightNeighbor.DeviceName, settings.DockMonitor);
-        });
-    }
-
-    [Fact]
-    public void Tray_restore_on_a_150_percent_monitor_expands_the_bar_there()
-    {
-        Run(() =>
-        {
-            var settings = MainWindowOpen(Docked(DockEdge.Left));
-            settings.DockMonitor = LeftNegative150.DeviceName;
+            settings.FloatingOrientation = BarOrientation.Horizontal;
             using var h = new Harness(settings, Primary, LeftNegative150);
-            CloseMainWindow(h);
+            PlaceMain(h, PixelRect.FromSize(-2600, 1300, 600, 300)); // mostly off the left monitor's bottom-left corner
 
-            h.Tray!.Click();
+            h.Shell.EnterCompactCommand.Execute(null);
             Harness.Pump();
 
-            Assert.False(h.Coordinator.IsCollapsed);
             var bar = h.BarBounds;
-            Assert.Equal(LeftNegative150.WorkArea.Left + 6, bar.Left); // 4 DIP margin at 150 %
-            Assert.True(bar.Height > bar.Width);
+            var work = LeftNegative150.WorkArea;
+            Assert.True(bar.Left >= work.Left && bar.Right <= work.Right && bar.Top >= work.Top && bar.Bottom <= work.Bottom,
+                $"bar {bar} inside {work}");
         });
     }
 
     [Fact]
-    public void Keyboard_tray_restore_keeps_the_bar_open_for_the_keyboard_user()
+    public void Back_to_the_main_window_restores_its_place_and_size()
     {
         Run(() =>
         {
             using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
-            CloseMainWindow(h);
-            BarActivatedByTheApp(h);
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            h.Shell.EnterCompactCommand.Execute(null);
+            Harness.Pump();
 
-            h.Tray!.KeySelect(); // Win+B, arrows, Enter
+            h.Shell.ShowNormalCommand.Execute(null);
+            Harness.Pump();
+
+            Assert.True(h.Coordinator.MainWindow.IsVisible);
+            Assert.False(h.Coordinator.Bar.IsVisible);
+            Assert.Equal(PixelRect.FromSize(900, 400, 1170, 800), h.Placement.GetBounds(h.MainHandle));
+        });
+    }
+
+    [Fact]
+    public void Main_window_on_a_disconnected_monitor_comes_back_on_a_visible_one()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary, RightNeighbor);
+            PlaceMain(h, PixelRect.FromSize(4000, 200, 1000, 600)); // on the right monitor
+            h.Shell.EnterCompactCommand.Execute(null);
+            Harness.Pump();
+
+            h.Monitors.All = [Primary]; // the right monitor is disconnected
+            h.Monitors.RaiseDisplayChanged();
+            Harness.Pump();
+            h.Shell.ShowNormalCommand.Execute(null);
+            Harness.Pump();
+
+            var main = h.Placement.GetBounds(h.MainHandle);
+            Assert.True(Primary.WorkArea.Intersect(main).Width >= 48, $"main window {main} visible on the primary");
+        });
+    }
+
+    // ------------------------------------------------------------------ BF-01: drag the main window to an edge
+
+    [Theory]
+    [MemberData(nameof(AllEdges))]
+    public void Dragging_the_main_window_against_an_edge_docks_the_bar_there_retracted(DockEdge edge)
+    {
+        Run(() =>
+        {
+            var settings = MainWindowOpen(Docked(DockEdge.Right));
+            settings.DockEnabled = false;
+            settings.FloatingOrientation = edge is DockEdge.Top or DockEdge.Bottom ? BarOrientation.Vertical : BarOrientation.Horizontal;
+            using var h = new Harness(settings, Primary);
+            var before = PixelRect.FromSize(900, 400, 1170, 800);
+            PlaceMain(h, PixelRect.FromSize(0, 0, 1920, 2292)); // Windows snapped it to half the screen
+            var cursor = PointAtEdge(Primary.WorkArea, edge, PixelRect.FromSize(1500, 1000, 1, 1));
+            h.Monitors.Cursor = cursor;
+
+            h.Coordinator.OnMainDragCompleted(before);
+            Harness.Pump();
+
+            Assert.True(h.Shell.IsCompact);
+            Assert.True(h.Shell.DockEnabled);
+            Assert.Equal(edge, h.Shell.DockEdge);
+            Assert.Equal(Primary.DeviceName, settings.DockMonitor);
+            Assert.True(h.Coordinator.IsCollapsed, "retracted right away");
+            Assert.False(h.Coordinator.MainWindow.IsVisible);
+            var strip = h.BarBounds;
+            Assert.Equal(edge is DockEdge.Left or DockEdge.Right, strip.Height > strip.Width);
+            var main = h.Placement.GetBounds(h.MainHandle);
+            Assert.Equal((before.Left, before.Top), (main.Left, main.Top)); // the snap was undone
+
+            var (x, y) = PointAtEdge(Primary.WorkArea, edge, strip);
+            h.Hover(x, y, 300);
+            Assert.False(h.Coordinator.IsCollapsed); // approaching expands it
+            h.Hover(1500, 1000, 1000);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Theory]
+    [InlineData(30, 1000)]   // near the left edge, not pushed against it
+    [InlineData(1500, 1000)] // middle of the screen
+    [InlineData(1500, 3)]    // 3 px below the top: an ordinary "window at the top" move
+    public void An_ordinary_move_of_the_main_window_never_switches_mode(int x, int y)
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            h.Monitors.Cursor = (x, y);
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(800, 400, 1170, 800));
+            Harness.Pump();
+            Assert.False(h.Shell.IsCompact);
+            Assert.True(h.Coordinator.MainWindow.IsVisible);
+        });
+    }
+
+    [Fact]
+    public void Dragging_the_main_window_onto_the_taskbar_docks_to_the_bottom()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            PlaceMain(h, PixelRect.FromSize(900, 1500, 1170, 800));
+            h.Monitors.Cursor = (1500, 2350); // on the taskbar
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 400, 1170, 800));
+            Harness.Pump();
+            Assert.Equal(DockEdge.Bottom, h.Shell.DockEdge);
+            Assert.True(h.Shell.IsCompact);
+        });
+    }
+
+    [Fact]
+    public void Dragging_the_main_window_to_an_edge_of_another_monitor_docks_on_that_monitor()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary, RightNeighbor);
+            PlaceMain(h, PixelRect.FromSize(4200, 200, 1000, 600));
+            h.Monitors.Cursor = (RightNeighbor.Bounds.Right - 1, 500);
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(4000, 200, 1000, 600));
+            Harness.Pump();
+
+            Assert.Equal(RightNeighbor.DeviceName, h.Settings.DockMonitor);
+            Assert.Equal(DockEdge.Right, h.Shell.DockEdge);
+            Assert.Equal(RightNeighbor.WorkArea.Right, h.BarBounds.Right);
+        });
+    }
+
+    [Fact]
+    public void Main_window_drag_preview_appears_only_when_pushed_against_an_edge()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            h.Monitors.Cursor = (1500, 1000);
+            h.Coordinator.UpdateMainDragPreview();
+            Assert.Null(h.Coordinator.MainDragPreviewEdge);
+            h.Monitors.Cursor = (0, 1000);
+            h.Coordinator.UpdateMainDragPreview();
+            Assert.Equal(DockEdge.Left, h.Coordinator.MainDragPreviewEdge);
+            h.Monitors.Cursor = (1500, 1000);
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 400, 1170, 800));
+            Assert.Null(h.Coordinator.MainDragPreviewEdge);
+        });
+    }
+
+    // ------------------------------------------------------------------ BF-02: the pin alone decides "on top"
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Always_on_top_is_independent_of_docking(bool docked)
+    {
+        Run(() =>
+        {
+            var settings = Docked(DockEdge.Right);
+            settings.DockEnabled = docked;
+            using var h = new Harness(settings, Primary);
+            Assert.False(h.Coordinator.Bar.Topmost); // pin off: not on top, even when docked
+            h.Shell.IsTopmost = true;
+            Harness.Pump();
+            Assert.True(h.Coordinator.Bar.Topmost);
+            Assert.True(h.Coordinator.MainWindow.Topmost);
+            h.Shell.IsTopmost = false;
+            Harness.Pump();
+            Assert.False(h.Coordinator.Bar.Topmost);
+            Assert.Equal(docked, h.Shell.DockEnabled); // docking unchanged by the pin
+        });
+    }
+
+    // ------------------------------------------------------------------ keyboard use (T13 regressions)
+
+    [Fact]
+    public void Typing_on_the_bar_keeps_it_open_until_the_mouse_is_used_on_it()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            h.PressKeyOnBar(System.Windows.Input.Key.Tab);
+            h.Hover(1000, 1000, 3000);
+            Assert.False(h.Coordinator.IsCollapsed, "keyboard use on the bar keeps it open");
+            h.PressMouseOnBar();
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
+    public void Keyboard_tray_restore_keeps_the_bar_open_and_a_mouse_click_does_not()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            CloseBar(h);
+            h.Tray!.KeySelect();
             Harness.Pump();
             h.Hover(1000, 1000, 3000);
-            Assert.False(h.Coordinator.IsCollapsed, "a keyboard user keeps the bar while working on it");
+            Assert.False(h.Coordinator.IsCollapsed, "keyboard user keeps the bar");
+
+            CloseBar(h);
+            ClickTray(h);
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
+    public void Keyboard_menu_use_earlier_does_not_keep_a_bar_docked_later_with_the_mouse_open()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            h.PressKeyOnBar(System.Windows.Input.Key.Apps); // keyboard use on the bar ...
+            h.Shell.OpenOptionsCommand.Execute(null); // ... then "Settings..." (main window shown)
+            Harness.Pump();
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            h.Monitors.Cursor = (Primary.WorkArea.Right - 1, 1000); // drag the main window to the right edge (mouse)
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 400, 1170, 800));
+            Harness.Pump();
+            Assert.True(h.Coordinator.IsCollapsed);
+
+            var strip = h.BarBounds;
+            h.Hover(Primary.WorkArea.Right - 1, strip.Top + (strip.Height / 2), 300);
+            Assert.False(h.Coordinator.IsCollapsed);
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed, "earlier keyboard use must not keep the bar open");
+        });
+    }
+
+    [Fact]
+    public void Expanding_the_strip_with_Enter_keeps_the_bar_open_and_a_click_does_not()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            h.Collapse();
+            BarActivatedByTheApp(h);
+            h.PressKeyOnBar(System.Windows.Input.Key.Enter);
+            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Harness.Pump();
+            h.Hover(1000, 1000, 3000);
+            Assert.False(h.Coordinator.IsCollapsed);
 
             h.PressMouseOnBar();
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+            h.PressMouseOnBar();
+            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Harness.Pump();
             h.Hover(1000, 1000, 2500);
             Assert.True(h.Coordinator.IsCollapsed);
         });
@@ -714,79 +905,6 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
-    [Fact]
-    public void Keyboard_menu_use_earlier_does_not_keep_a_bar_restored_with_the_mouse_open()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(Docked(DockEdge.Right), Primary);
-            BarActivatedByTheApp(h);
-            h.PressKeyOnBar(System.Windows.Input.Key.Apps); // keyboard use on the bar ...
-            h.Shell.OpenOptionsCommand.Execute(null); // ... then "Settings..." (bar hidden, main window shown)
-            Harness.Pump();
-            CloseMainWindow(h); // X with the mouse
-            h.Tray!.Click(); // restore with the mouse
-            Harness.Pump();
-
-            h.Hover(1000, 1000, 2500);
-            Assert.True(h.Coordinator.IsCollapsed, "a mouse restore must auto-hide again");
-        });
-    }
-
-    [Fact]
-    public void Expanding_the_strip_with_Enter_keeps_the_bar_open_for_the_keyboard_user()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(Docked(DockEdge.Right), Primary);
-            h.Collapse();
-            BarActivatedByTheApp(h);
-
-            h.PressKeyOnBar(System.Windows.Input.Key.Enter); // focus on the strip button, Enter
-            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-            Harness.Pump();
-            Assert.False(h.Coordinator.IsCollapsed);
-
-            h.Hover(1000, 1000, 3000);
-            Assert.False(h.Coordinator.IsCollapsed, "keyboard user keeps the bar after expanding it with Enter");
-        });
-    }
-
-    [Fact]
-    public void Clicking_the_strip_with_the_mouse_expands_and_then_hides_normally()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(Docked(DockEdge.Right), Primary);
-            h.Collapse();
-            BarActivatedByTheApp(h);
-
-            h.PressMouseOnBar();
-            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-            Harness.Pump();
-            Assert.False(h.Coordinator.IsCollapsed);
-
-            h.Hover(1000, 1000, 2500);
-            Assert.True(h.Coordinator.IsCollapsed);
-        });
-    }
-
-    [Fact]
-    public void A_mouse_tray_click_ends_earlier_keyboard_use()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(Docked(DockEdge.Right), Primary);
-            BarActivatedByTheApp(h);
-            h.Tray!.KeySelect();
-            Harness.Pump();
-            h.Tray.Click();
-            Harness.Pump();
-            h.Hover(1000, 1000, 2500);
-            Assert.True(h.Coordinator.IsCollapsed);
-        });
-    }
-
     [Theory]
     [InlineData(System.Windows.Input.Key.CapsLock, false)]
     [InlineData(System.Windows.Input.Key.BrowserHome, false)]
@@ -801,23 +919,6 @@ public sealed class DesktopCoordinatorTests
     [InlineData(System.Windows.Input.Key.PrintScreen, false)]
     public void Only_real_keyboard_use_counts(System.Windows.Input.Key key, bool counts)
         => Assert.Equal(counts, DesktopCoordinator.CountsAsKeyboardUse(key));
-
-    [Fact]
-    public void Typing_on_the_bar_keeps_it_open_until_the_mouse_is_used_on_it()
-    {
-        Run(() =>
-        {
-            using var h = new Harness(Docked(DockEdge.Right), Primary);
-            BarActivatedByTheApp(h);
-            h.PressKeyOnBar(System.Windows.Input.Key.Tab); // the user really uses the keyboard on the bar
-            h.Hover(1000, 1000, 3000);
-            Assert.False(h.Coordinator.IsCollapsed, "keyboard use on the bar keeps it open");
-
-            h.PressMouseOnBar(); // back to the mouse: normal auto-hide
-            h.Hover(1000, 1000, 2500);
-            Assert.True(h.Coordinator.IsCollapsed);
-        });
-    }
 
     // ------------------------------------------------------------------ T11: orientation follows the edge
 
@@ -1021,27 +1122,6 @@ public sealed class DesktopCoordinatorTests
     // ------------------------------------------------------------------ tray / lifetime (fixed behavior)
 
     [Fact]
-    public void Closing_the_main_window_keeps_running_with_the_bar_and_the_tray_icon()
-    {
-        Run(() =>
-        {
-            var settings = Docked(DockEdge.Right);
-            settings.Mode = WindowMode.Normal;
-            using var h = new Harness(settings, Primary);
-            Assert.True(h.Tray!.Visible);
-
-            h.Coordinator.MainWindow.Close();
-            Harness.Pump();
-
-            Assert.False(h.Coordinator.MainWindow.IsVisible);
-            Assert.True(h.Shell.IsCompact);
-            Assert.True(h.Coordinator.Bar.IsVisible);
-            Assert.False(h.Tray.Disposed);
-            Assert.True(h.Tray.Visible);
-        });
-    }
-
-    [Fact]
     public void Tray_click_brings_back_a_hidden_bar()
     {
         Run(() =>
@@ -1062,10 +1142,11 @@ public sealed class DesktopCoordinatorTests
         {
             using var h = new Harness(Docked(DockEdge.Right), Primary);
             var texts = h.Coordinator.BuildMenuModel().Where(i => !i.IsSeparator).Select(i => i.Text).ToList();
-            Assert.Equal(Loc("Menu_ShowToolbar"), texts[0]);
+            Assert.Equal(Loc("Menu_Show"), texts[0]); // left click = restore the surface in use
+            Assert.Equal(Loc("Menu_ShowToolbar"), texts[1]);
             Assert.Contains(Loc("Menu_Settings"), texts);
             Assert.Equal(Loc("Menu_Exit"), texts[^1]);
-            Assert.True(h.Coordinator.BuildMenuModel()[0].IsDefault); // left click = show the bar
+            Assert.True(h.Coordinator.BuildMenuModel()[0].IsDefault);
         });
     }
 
@@ -1195,6 +1276,8 @@ public sealed class DesktopCoordinatorTests
         public DesktopCoordinator Coordinator { get; }
 
         public IntPtr BarHandle => new WindowInteropHelper(Coordinator.Bar).Handle;
+
+        public IntPtr MainHandle => new WindowInteropHelper(Coordinator.MainWindow).Handle;
 
         public PixelRect BarBounds => Placement.GetBounds(BarHandle);
 

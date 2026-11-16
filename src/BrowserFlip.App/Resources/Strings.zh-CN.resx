@@ -178,4 +178,10 @@
   <data name="Options_FloatingOrientationHint" xml:space="preserve">
     <value>紧凑工具栏未停靠时使用的方向。将工具栏拖到屏幕边缘即可停靠：停靠在上下边缘时自动为横向，停靠在左右边缘时自动为纵向。</value>
   </data>
+  <data name="Menu_Show" xml:space="preserve">
+    <value>显示 BrowserFlip</value>
+  </data>
+  <data name="Bar_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
 </root>

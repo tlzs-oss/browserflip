@@ -178,4 +178,10 @@
   <data name="Options_FloatingOrientationHint" xml:space="preserve">
     <value>Used while the compact bar is not docked. Drag the bar to a screen edge to dock it: horizontal at the top or bottom, vertical at the left or right.</value>
   </data>
+  <data name="Menu_Show" xml:space="preserve">
+    <value>Show BrowserFlip</value>
+  </data>
+  <data name="Bar_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
 </root>
