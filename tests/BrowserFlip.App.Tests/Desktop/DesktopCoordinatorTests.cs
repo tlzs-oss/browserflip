@@ -312,7 +312,6 @@ public sealed class DesktopCoordinatorTests
     private static void BarActivatedByTheApp(Harness h)
     {
         h.Coordinator.BarHasKeyboardFocus = () => true;
-        h.Coordinator.LastInputWasKeyboard = () => true;
     }
 
     private static UserSettings MainWindowOpen(UserSettings s)
@@ -715,7 +714,44 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
+    [Fact]
+    public void Keyboard_menu_use_earlier_does_not_keep_a_bar_restored_with_the_mouse_open()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            h.PressKeyOnBar(System.Windows.Input.Key.Apps); // keyboard use on the bar ...
+            h.Shell.OpenOptionsCommand.Execute(null); // ... then "Settings..." (bar hidden, main window shown)
+            Harness.Pump();
+            CloseMainWindow(h); // X with the mouse
+            h.Tray!.Click(); // restore with the mouse
+            Harness.Pump();
+
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed, "a mouse restore must auto-hide again");
+        });
+    }
+
+    [Fact]
+    public void A_mouse_tray_click_ends_earlier_keyboard_use()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            h.Tray!.KeySelect();
+            Harness.Pump();
+            h.Tray.Click();
+            Harness.Pump();
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
     [Theory]
+    [InlineData(System.Windows.Input.Key.CapsLock, false)]
+    [InlineData(System.Windows.Input.Key.BrowserHome, false)]
     [InlineData(System.Windows.Input.Key.Tab, true)]
     [InlineData(System.Windows.Input.Key.Enter, true)]
     [InlineData(System.Windows.Input.Key.Down, true)]

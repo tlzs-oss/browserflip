@@ -46,6 +46,7 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _applying;
     private bool _exiting;
     private bool _menuOpen;
+    private bool _barMenuOpen;      // the bar's own context menu (keyboard use continues inside it)
     private bool _trayOnly;          // floating bar hidden by closing the main window (tray only)
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
     private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
@@ -102,7 +103,7 @@ public sealed class DesktopCoordinator : IDisposable
             // Focus leaving the bar ends keyboard use, except into the bar's own context menu. Focus entering
             // does not expand by itself: any window activation looks like keyboard input to WPF; the strip's
             // button expands with Enter / Space.
-            if (e.NewValue is not true && !_menuOpen)
+            if (e.NewValue is not true && !_barMenuOpen)
             {
                 _keyboardEngaged = false;
             }
@@ -147,9 +148,6 @@ public sealed class DesktopCoordinator : IDisposable
 
     /// <summary>Whether the bar has keyboard focus (replaceable in tests: activation cannot be done there).</summary>
     internal Func<bool> BarHasKeyboardFocus { get; set; }
-
-    /// <summary>Whether WPF's most recent input device is the keyboard (replaceable in tests).</summary>
-    internal Func<bool> LastInputWasKeyboard { get; set; } = IsKeyboardInput;
 
     /// <summary>False never activates (focuses) a window (tests on a shared desktop).</summary>
     internal bool AllowActivation { get; set; } = true;
@@ -219,6 +217,7 @@ public sealed class DesktopCoordinator : IDisposable
 
     private void ApplyMode()
     {
+        _keyboardEngaged = false; // a new surface: keyboard use starts again with a real key press on the bar
         if (_shell.IsCompact)
         {
             SaveMainBounds(); // remember the main window position before hiding it
@@ -397,10 +396,13 @@ public sealed class DesktopCoordinator : IDisposable
         or System.Windows.Input.Key.VolumeUp or System.Windows.Input.Key.VolumeDown or System.Windows.Input.Key.VolumeMute
         or System.Windows.Input.Key.MediaNextTrack or System.Windows.Input.Key.MediaPreviousTrack
         or System.Windows.Input.Key.MediaPlayPause or System.Windows.Input.Key.MediaStop
-        or System.Windows.Input.Key.PrintScreen or System.Windows.Input.Key.None);
-
-    private static bool IsKeyboardInput()
-        => System.Windows.Input.InputManager.Current.MostRecentInputDevice is System.Windows.Input.KeyboardDevice;
+        or System.Windows.Input.Key.PrintScreen or System.Windows.Input.Key.None
+        or System.Windows.Input.Key.CapsLock or System.Windows.Input.Key.NumLock or System.Windows.Input.Key.Scroll
+        or System.Windows.Input.Key.Sleep or System.Windows.Input.Key.SelectMedia
+        or System.Windows.Input.Key.LaunchMail or System.Windows.Input.Key.LaunchApplication1 or System.Windows.Input.Key.LaunchApplication2
+        or System.Windows.Input.Key.BrowserBack or System.Windows.Input.Key.BrowserForward or System.Windows.Input.Key.BrowserRefresh
+        or System.Windows.Input.Key.BrowserStop or System.Windows.Input.Key.BrowserSearch or System.Windows.Input.Key.BrowserFavorites
+        or System.Windows.Input.Key.BrowserHome);
 
     // ---------------------------------------------------------------- shell state
 
@@ -899,9 +901,13 @@ public sealed class DesktopCoordinator : IDisposable
             ScheduleLayout();
         }
 
-        if (activate && AllowActivation)
+        if (activate)
         {
-            _ = _bar.Activate();
+            _keyboardEngaged = false; // our own activation is not keyboard use (T13); the tray handler re-evaluates it
+            if (AllowActivation)
+            {
+                _ = _bar.Activate();
+            }
         }
     }
 
@@ -950,10 +956,8 @@ public sealed class DesktopCoordinator : IDisposable
             _tray.Activated += (_, _) =>
             {
                 ShowToolbar();
-                if (_tray?.LastActivationWasKeyboard == true)
-                {
-                    _keyboardEngaged = true; // Win+B, arrows, Enter: the user continues on the bar with the keyboard
-                }
+                // Win+B, arrows, Enter: the user continues on the bar with the keyboard; a click does not.
+                _keyboardEngaged = _tray?.LastActivationWasKeyboard == true;
             };
             _tray.MenuRequested += (_, _) => ShowMenu(fromTray: true);
             UpdateTrayTooltip();
@@ -993,14 +997,29 @@ public sealed class DesktopCoordinator : IDisposable
         // a keyboard user who dismisses the menu (Esc) is still working on the bar.
         var keyboardBeforeMenu = _keyboardEngaged;
         _menuOpen = true;
+        _barMenuOpen = true;
         menu.Closed += (_, _) =>
         {
             _menuOpen = false;
-            _keyboardEngaged |= keyboardBeforeMenu;
+            _barMenuOpen = false;
+
+            // The focus returns to the bar after Closed. Keep keyboard use only if it really did (Esc);
+            // a command that hid the bar or moved elsewhere ends it.
+            _ = _bar.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+                _keyboardEngaged = keyboardBeforeMenu && _bar.IsVisible && BarHasKeyboardFocus());
         };
         menu.PlacementTarget = _bar;
         menu.Placement = PlacementMode.MousePoint;
-        menu.IsOpen = true;
+        try
+        {
+            menu.IsOpen = true;
+        }
+        catch
+        {
+            _menuOpen = false;
+            _barMenuOpen = false;
+            throw;
+        }
     }
 
     /// <summary>One menu definition for both the notification-area menu and the compact bar menu.</summary>
