@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  SOLUTION: BrowserFlip.slnx
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  build-test:
+    name: Build, test & checks
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore $env:SOLUTION
+
+      - name: Build (warnings are errors)
+        run: dotnet build $env:SOLUTION -c Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test $env:SOLUTION -c Release --no-build
+          --collect "XPlat Code Coverage"
+          --logger trx
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results
+          path: TestResults/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Format check (whitespace + code style)
+        if: ${{ !cancelled() }}
+        run: |
+          dotnet format whitespace $env:SOLUTION --verify-no-changes --verbosity diagnostic
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet format style $env:SOLUTION --verify-no-changes --no-restore --severity warn --verbosity diagnostic
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Vulnerable package check
+        if: ${{ !cancelled() }}
+        run: |
+          $raw = dotnet list $env:SOLUTION package --vulnerable --include-transitive --format json
+          if ($LASTEXITCODE -ne 0) { $raw | Write-Host; throw "dotnet list package --vulnerable failed ($LASTEXITCODE)" }
+          $report = ($raw -join "`n") | ConvertFrom-Json
+          $found = @()
+          foreach ($project in @($report.projects)) {
+            foreach ($fw in @($project.frameworks | Where-Object { $_ })) {
+              foreach ($pkg in @($fw.topLevelPackages) + @($fw.transitivePackages) | Where-Object { $_ }) {
+                foreach ($v in @($pkg.vulnerabilities | Where-Object { $_ })) {
+                  $found += "$($pkg.id) $($pkg.resolvedVersion) [$($fw.framework)] severity=$($v.severity) $($v.advisoryurl)"
+                }
+              }
+            }
+          }
+          if ($found.Count -gt 0) {
+            $found | Sort-Object -Unique | ForEach-Object { Write-Host "::error::Vulnerable package: $_" }
+            exit 1
+          }
+          Write-Host "No vulnerable packages found."
+
+      - name: Dependency / License Check
+        if: ${{ !cancelled() }}
+        run: ./scripts/license-check.ps1 -Target $env:SOLUTION -VerifyOnline

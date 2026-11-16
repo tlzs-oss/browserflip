@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>BrowserFlip</value>
+  </data>
+  <data name="Tagline" xml:space="preserve">
+    <value>一键切换，你的浏览器。</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Language_Auto" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="OpenDefaultApps" xml:space="preserve">
+    <value>打开默认应用</value>
+  </data>
+  <data name="Section_Browsers" xml:space="preserve">
+    <value>已安装的浏览器</value>
+  </data>
+  <data name="Current_None" xml:space="preserve">
+    <value>尚未设置默认浏览器。</value>
+  </data>
+  <data name="Current_Consistent" xml:space="preserve">
+    <value>当前默认浏览器：{0}</value>
+  </data>
+  <data name="Current_Unrecognized" xml:space="preserve">
+    <value>当前默认：{0}（不在列表中）</value>
+  </data>
+  <data name="Current_Mismatch" xml:space="preserve">
+    <value>HTTP 与 HTTPS 的默认应用不一致 — HTTP：{0} / HTTPS：{1}</value>
+  </data>
+  <data name="Current_NotSet" xml:space="preserve">
+    <value>（未设置）</value>
+  </data>
+  <data name="Badge_Default" xml:space="preserve">
+    <value>默认</value>
+  </data>
+  <data name="Badge_HttpOnly" xml:space="preserve">
+    <value>仅 HTTP 默认</value>
+  </data>
+  <data name="Badge_HttpsOnly" xml:space="preserve">
+    <value>仅 HTTPS 默认</value>
+  </data>
+  <data name="Card_Hint" xml:space="preserve">
+    <value>点击设为默认</value>
+  </data>
+  <data name="Card_HintDefault" xml:space="preserve">
+    <value>点击在 Windows 设置中查看</value>
+  </data>
+  <data name="Card_HintTopPage" xml:space="preserve">
+    <value>点击打开“默认应用”，然后在其中选择</value>
+  </data>
+  <data name="Card_Missing" xml:space="preserve">
+    <value>未找到 — 可能已被卸载</value>
+  </data>
+  <data name="Empty_NoBrowsers" xml:space="preserve">
+    <value>未找到任何浏览器。</value>
+  </data>
+  <data name="Guide_AppPage" xml:space="preserve">
+    <value>已打开 Windows 设置。请为 {0} 选择“设为默认值”以完成。</value>
+  </data>
+  <data name="Guide_TopPage" xml:space="preserve">
+    <value>已打开 Windows 设置。请在“默认应用”中选择 {0} 以完成（Windows 10 中为“Web 浏览器”）。</value>
+  </data>
+  <data name="Guide_Waiting" xml:space="preserve">
+    <value>正在等待你在 Windows 设置中的更改…</value>
+  </data>
+  <data name="Status_Applied" xml:space="preserve">
+    <value>{0} 已成为默认浏览器。</value>
+  </data>
+  <data name="Status_Partial" xml:space="preserve">
+    <value>{0} 只成为 HTTP / HTTPS 其中之一的默认应用。请再次打开设置以同时设置两者。</value>
+  </data>
+  <data name="Status_ChangedOther" xml:space="preserve">
+    <value>默认浏览器已更改为 {0}。</value>
+  </data>
+  <data name="Status_NoChange" xml:space="preserve">
+    <value>默认浏览器未被更改。</value>
+  </data>
+  <data name="Status_AlreadyDefault" xml:space="preserve">
+    <value>{0} 已是默认浏览器。已打开 Windows 设置供你查看。</value>
+  </data>
+  <data name="Error_BrowserMissing" xml:space="preserve">
+    <value>找不到 {0}，可能已被卸载。请刷新列表。</value>
+  </data>
+  <data name="Error_Blocked" xml:space="preserve">
+    <value>组织策略禁止在此电脑上更改默认应用。</value>
+  </data>
+  <data name="Error_LaunchFailed" xml:space="preserve">
+    <value>无法打开 Windows 设置：{0}</value>
+  </data>
+  <data name="Warning_Managed" xml:space="preserve">
+    <value>默认应用由组织管理。重新登录后更改可能会被还原。</value>
+  </data>
+  <data name="Footer_Note" xml:space="preserve">
+    <value>BrowserFlip 绝不会擅自更改默认浏览器。每次更改都由你在 Windows 中确认。</value>
+  </data>
+</root>

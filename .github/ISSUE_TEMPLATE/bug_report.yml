@@ -1,0 +1,90 @@
+name: Bug report / 不具合報告
+description: Report something that does not work as expected. / 期待どおりに動作しない問題を報告します。
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! English, 日本語 and 简体中文 are all welcome.
+        **Security vulnerabilities must not be reported here** — use the Security tab → "Report a vulnerability" (see SECURITY.md).
+        Please do not include personal information (user names, file paths with your name, etc.) in logs or screenshots.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened? / 発生した問題
+      description: A clear description of the bug.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 再現手順
+      placeholder: |
+        1. Start BrowserFlip
+        2. Click the "..." card
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 期待される動作
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BrowserFlip version / バージョン
+      placeholder: "0.1.0 or commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and build / Windows のバージョンとビルド
+      description: Run `winver` to find it.
+      placeholder: "Windows 11 24H2 (26100.xxxx)"
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture / アーキテクチャ
+      options:
+        - x64
+        - Arm64
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: UI language / UI 言語
+      options:
+        - English
+        - 日本語
+        - 简体中文
+  - type: textarea
+    id: browsers
+    attributes:
+      label: Installed browsers / インストール済みブラウザー
+      description: Names, versions and how they were installed (per-user / per-machine / portable / Store / package manager).
+  - type: checkboxes
+    id: environment
+    attributes:
+      label: Environment / 環境
+      options:
+        - label: This PC is managed by an organization (Group Policy / MDM) / 組織管理下の PC
+        - label: I am running BrowserFlip as a standard (non-admin) user / 標準ユーザーで実行
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / スクリーンショット
+      description: Optional. Drag images here.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate. / 既存の Issue を検索しました。
+          required: true

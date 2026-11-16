@@ -1,0 +1,134 @@
+name: Release Build
+
+# Builds release binaries and checksums as WORKFLOW ARTIFACTS only.
+#
+# NOTE: This workflow intentionally does NOT create or publish a GitHub Release.
+# Publishing a release (creating the Release, attaching the zips + SHA256SUMS.txt,
+# writing release notes) is a manual maintainer step after reviewing these artifacts.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+  # Validate the release build itself when the packaging inputs change (artifacts only, no attestation).
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "src/**/*.csproj"
+      - "Directory.Build.props"
+      - "Directory.Packages.props"
+      - "global.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_PROJECT: src/BrowserFlip.App/BrowserFlip.App.csproj
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  build:
+    name: Publish win-x64 / win-arm64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Determine version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:REF_TYPE -eq 'tag') {
+            if ($env:REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Tag '$($env:REF_NAME)' is not vMAJOR.MINOR.PATCH" }
+            $version = $Matches[1]
+          } else {
+            $version = ''   # workflow_dispatch on a branch: keep the version from Directory.Build.props
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "label=$(if ($version) { "v$version" } else { "dev-$($env:GITHUB_SHA.Substring(0, 12))" })" >> $env:GITHUB_OUTPUT
+
+      - name: Publish and package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          LABEL: ${{ steps.version.outputs.label }}
+        run: |
+          $dist = Join-Path $PWD 'dist'
+          New-Item -ItemType Directory -Force $dist | Out-Null
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            $out = Join-Path $PWD "publish/$rid"
+            $props = @(
+              '-p:SelfContained=true',
+              '-p:PublishSingleFile=true',
+              '-p:IncludeNativeLibrariesForSelfExtract=true',
+              '-p:DebugType=none'
+            )
+            if ($env:VERSION) { $props += "-p:Version=$($env:VERSION)" }
+            dotnet publish $env:APP_PROJECT -c Release -r $rid --self-contained true -o $out @props
+            if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $rid" }
+            Copy-Item LICENSE (Join-Path $out 'LICENSE.txt')
+            $zip = Join-Path $dist "BrowserFlip-$($env:LABEL)-$rid.zip"
+            Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
+          }
+          # sha256sum-compatible format: "<lowercase hex>  <file name>", LF line endings.
+          $lines = Get-ChildItem $dist -Filter *.zip | Sort-Object Name | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"
+          }
+          [IO.File]::WriteAllText((Join-Path $dist 'SHA256SUMS.txt'), (($lines -join "`n") + "`n"))
+          Get-Content (Join-Path $dist 'SHA256SUMS.txt')
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browserflip-release
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  provenance:
+    name: Build provenance attestation
+    needs: build
+    # Pull-request builds are validation only: never attest them.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only this job can mint an OIDC token / write attestations. No secrets are used:
+    # signing is keyless via Sigstore (public-good instance for public repositories).
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: browserflip-release
+          path: dist
+
+      - name: Verify checksums
+        working-directory: dist
+        run: sha256sum --check --strict SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "dist/*.zip"

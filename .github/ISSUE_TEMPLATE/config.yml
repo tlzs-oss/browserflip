@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability / 脆弱性の報告
+    url: https://github.com/tlzs-oss/browserflip/security/advisories/new
+    about: Please report security issues privately, not as public issues. / 脆弱性は公開 Issue ではなく非公開で報告してください。
+  - name: Questions and ideas / 質問・アイデア
+    url: https://github.com/tlzs-oss/browserflip/discussions
+    about: Ask questions and share ideas in GitHub Discussions (if enabled). / GitHub Discussions で質問できます(有効な場合)。
