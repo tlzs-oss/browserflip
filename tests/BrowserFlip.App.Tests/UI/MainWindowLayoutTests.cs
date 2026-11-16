@@ -95,6 +95,7 @@ public sealed class MainWindowLayoutTests
         });
 
         Assert.Contains("Not found", shown);
+        Assert.DoesNotContain("Default", shown); // the badge must not overlap the hint
     }
 
     [Fact]

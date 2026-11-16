@@ -32,6 +32,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) =>
         {
             ThemeManager.ApplyTitleBar(this);
+            RemoveMaximizeBox();
             LimitHeightToWorkArea(); // before the first frame: never start taller than the work area
             HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(OnWindowMessage);
         };
@@ -55,19 +56,28 @@ public partial class MainWindow : Window
         };
         StateChanged += (_, _) =>
         {
-            // The height cap must not stop a maximized window from filling the work area.
-            if (WindowState == WindowState.Maximized)
+            if (WindowState == WindowState.Normal)
             {
-                MaxHeight = double.PositiveInfinity;
-            }
-            else
-            {
-                LimitHeightToWorkArea();
+                LimitHeightToWorkArea(); // a minimized window sits at -32000; measure only when restored
             }
         };
     }
 
     private bool _inSizeMove;
+
+    /// <summary>
+    /// A content-sized utility window has nothing to gain from maximizing (and the height cap would stop
+    /// it short of the taskbar). Removing WS_MAXIMIZEBOX disables the button, caption double-click,
+    /// Win+Up and snap-to-maximize together; width resizing stays available.
+    /// </summary>
+    private void RemoveMaximizeBox()
+    {
+        const int GwlStyle = -16;
+        const long WsMaximizeBox = 0x00010000;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var style = NativeMethods.GetWindowLongPtrW(hwnd, GwlStyle).ToInt64();
+        _ = NativeMethods.SetWindowLongPtrW(hwnd, GwlStyle, new IntPtr(style & ~WsMaximizeBox));
+    }
 
     /// <summary>Re-applies the height cap and keeps the bottom above the taskbar (display / work-area change).</summary>
     public void RefitToWorkArea()
@@ -83,7 +93,7 @@ public partial class MainWindow : Window
     internal void LimitHeightToWorkArea()
     {
         var source = PresentationSource.FromVisual(this);
-        if (WindowState == WindowState.Maximized || source?.CompositionTarget is null || !TryGetWorkArea(out var work))
+        if (WindowState != WindowState.Normal || source?.CompositionTarget is null || !TryGetWorkArea(out var work))
         {
             return;
         }
@@ -149,6 +159,9 @@ public partial class MainWindow : Window
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
+
+            // A move or resize may have ended under the taskbar (or grown during the drag): fix it once now.
+            _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
         }
 
         if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual)
