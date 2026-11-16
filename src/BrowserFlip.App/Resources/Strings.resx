@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>BrowserFlip</value>
+  </data>
+  <data name="Tagline" xml:space="preserve">
+    <value>One Click. Your Browser.</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Language_Auto" xml:space="preserve">
+    <value>System default</value>
+  </data>
+  <data name="OpenDefaultApps" xml:space="preserve">
+    <value>Open Default apps</value>
+  </data>
+  <data name="Section_Browsers" xml:space="preserve">
+    <value>Installed browsers</value>
+  </data>
+  <data name="Current_None" xml:space="preserve">
+    <value>No default browser is set.</value>
+  </data>
+  <data name="Current_Consistent" xml:space="preserve">
+    <value>Current default browser: {0}</value>
+  </data>
+  <data name="Current_Unrecognized" xml:space="preserve">
+    <value>Current default: {0} (not in this list)</value>
+  </data>
+  <data name="Current_Mismatch" xml:space="preserve">
+    <value>HTTP and HTTPS open in different apps — HTTP: {0} / HTTPS: {1}</value>
+  </data>
+  <data name="Current_NotSet" xml:space="preserve">
+    <value>(not set)</value>
+  </data>
+  <data name="Badge_Default" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="Badge_HttpOnly" xml:space="preserve">
+    <value>Default for HTTP only</value>
+  </data>
+  <data name="Badge_HttpsOnly" xml:space="preserve">
+    <value>Default for HTTPS only</value>
+  </data>
+  <data name="Card_Hint" xml:space="preserve">
+    <value>Click to make default</value>
+  </data>
+  <data name="Card_HintDefault" xml:space="preserve">
+    <value>Click to review in Windows Settings</value>
+  </data>
+  <data name="Card_Missing" xml:space="preserve">
+    <value>Not found — it may have been uninstalled</value>
+  </data>
+  <data name="Empty_NoBrowsers" xml:space="preserve">
+    <value>No browsers were found.</value>
+  </data>
+  <data name="Guide_AppPage" xml:space="preserve">
+    <value>Windows Settings is open. Select "Set default" for {0} to finish.</value>
+  </data>
+  <data name="Guide_TopPage" xml:space="preserve">
+    <value>Windows Settings is open. Choose {0} under Default apps ("Web browser" on Windows 10) to finish.</value>
+  </data>
+  <data name="Guide_Waiting" xml:space="preserve">
+    <value>Waiting for your change in Windows Settings…</value>
+  </data>
+  <data name="Status_Applied" xml:space="preserve">
+    <value>{0} is now your default browser.</value>
+  </data>
+  <data name="Status_Partial" xml:space="preserve">
+    <value>{0} is now the default for only one of HTTP / HTTPS. Open Settings again to set both.</value>
+  </data>
+  <data name="Status_ChangedOther" xml:space="preserve">
+    <value>The default browser changed to {0}.</value>
+  </data>
+  <data name="Status_NoChange" xml:space="preserve">
+    <value>The default browser was not changed.</value>
+  </data>
+  <data name="Status_AlreadyDefault" xml:space="preserve">
+    <value>{0} is already your default browser. Windows Settings is open if you want to review it.</value>
+  </data>
+  <data name="Error_BrowserMissing" xml:space="preserve">
+    <value>{0} could not be found. It may have been uninstalled. Refresh the list.</value>
+  </data>
+  <data name="Error_Blocked" xml:space="preserve">
+    <value>Your organization's policy prevents changing default apps on this PC.</value>
+  </data>
+  <data name="Error_LaunchFailed" xml:space="preserve">
+    <value>Windows Settings could not be opened: {0}</value>
+  </data>
+  <data name="Warning_Managed" xml:space="preserve">
+    <value>Your organization manages default apps. Changes may be reverted when you sign in again.</value>
+  </data>
+  <data name="Footer_Note" xml:space="preserve">
+    <value>BrowserFlip never changes your default browser silently. Windows asks you to confirm every change.</value>
+  </data>
+</root>

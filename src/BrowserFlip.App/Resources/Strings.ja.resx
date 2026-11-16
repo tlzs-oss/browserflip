@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitle" xml:space="preserve">
+    <value>BrowserFlip</value>
+  </data>
+  <data name="Tagline" xml:space="preserve">
+    <value>ワンクリックで、あなたのブラウザーへ。</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>再読み込み</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="Language_Auto" xml:space="preserve">
+    <value>システムに合わせる</value>
+  </data>
+  <data name="OpenDefaultApps" xml:space="preserve">
+    <value>既定のアプリを開く</value>
+  </data>
+  <data name="Section_Browsers" xml:space="preserve">
+    <value>インストール済みのブラウザー</value>
+  </data>
+  <data name="Current_None" xml:space="preserve">
+    <value>既定のブラウザーが設定されていません。</value>
+  </data>
+  <data name="Current_Consistent" xml:space="preserve">
+    <value>現在の既定のブラウザー: {0}</value>
+  </data>
+  <data name="Current_Unrecognized" xml:space="preserve">
+    <value>現在の既定: {0}（一覧にないアプリ）</value>
+  </data>
+  <data name="Current_Mismatch" xml:space="preserve">
+    <value>HTTP と HTTPS で既定のアプリが異なります — HTTP: {0} / HTTPS: {1}</value>
+  </data>
+  <data name="Current_NotSet" xml:space="preserve">
+    <value>（未設定）</value>
+  </data>
+  <data name="Badge_Default" xml:space="preserve">
+    <value>既定</value>
+  </data>
+  <data name="Badge_HttpOnly" xml:space="preserve">
+    <value>HTTP のみ既定</value>
+  </data>
+  <data name="Badge_HttpsOnly" xml:space="preserve">
+    <value>HTTPS のみ既定</value>
+  </data>
+  <data name="Card_Hint" xml:space="preserve">
+    <value>クリックして既定に設定</value>
+  </data>
+  <data name="Card_HintDefault" xml:space="preserve">
+    <value>クリックして Windows の設定で確認</value>
+  </data>
+  <data name="Card_Missing" xml:space="preserve">
+    <value>見つかりません — アンインストールされた可能性があります</value>
+  </data>
+  <data name="Empty_NoBrowsers" xml:space="preserve">
+    <value>ブラウザーが見つかりませんでした。</value>
+  </data>
+  <data name="Guide_AppPage" xml:space="preserve">
+    <value>Windows の設定が開きました。{0} の「既定値に設定」を選んで完了してください。</value>
+  </data>
+  <data name="Guide_TopPage" xml:space="preserve">
+    <value>Windows の設定が開きました。「既定のアプリ」で {0} を選んで完了してください（Windows 10 では「Web ブラウザー」）。</value>
+  </data>
+  <data name="Guide_Waiting" xml:space="preserve">
+    <value>Windows の設定での変更を待っています…</value>
+  </data>
+  <data name="Status_Applied" xml:space="preserve">
+    <value>{0} が既定のブラウザーになりました。</value>
+  </data>
+  <data name="Status_Partial" xml:space="preserve">
+    <value>{0} は HTTP / HTTPS の一方だけ既定になりました。もう一度設定を開いて両方を設定してください。</value>
+  </data>
+  <data name="Status_ChangedOther" xml:space="preserve">
+    <value>既定のブラウザーが {0} に変更されました。</value>
+  </data>
+  <data name="Status_NoChange" xml:space="preserve">
+    <value>既定のブラウザーは変更されませんでした。</value>
+  </data>
+  <data name="Status_AlreadyDefault" xml:space="preserve">
+    <value>{0} はすでに既定のブラウザーです。確認用に Windows の設定を開きました。</value>
+  </data>
+  <data name="Error_BrowserMissing" xml:space="preserve">
+    <value>{0} が見つかりません。アンインストールされた可能性があります。一覧を再読み込みしてください。</value>
+  </data>
+  <data name="Error_Blocked" xml:space="preserve">
+    <value>組織のポリシーにより、この PC では既定のアプリを変更できません。</value>
+  </data>
+  <data name="Error_LaunchFailed" xml:space="preserve">
+    <value>Windows の設定を開けませんでした: {0}</value>
+  </data>
+  <data name="Warning_Managed" xml:space="preserve">
+    <value>既定のアプリは組織によって管理されています。再サインイン時に変更が元に戻る場合があります。</value>
+  </data>
+  <data name="Footer_Note" xml:space="preserve">
+    <value>BrowserFlip が既定のブラウザーを勝手に変更することはありません。変更は必ず Windows 上であなたが確定します。</value>
+  </data>
+</root>
