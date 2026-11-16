@@ -88,6 +88,9 @@ public interface ITrayIcon : IDisposable
     /// <summary>Left click / keyboard select (NIN_SELECT / NIN_KEYSELECT / WM_LBUTTONUP).</summary>
     event EventHandler? Activated;
 
+    /// <summary>True when the last <see cref="Activated"/> came from the keyboard (NIN_KEYSELECT).</summary>
+    bool LastActivationWasKeyboard { get; }
+
     /// <summary>Right click / context-menu key. The handler should call <see cref="ShowMenu"/>.</summary>
     event EventHandler? MenuRequested;
 

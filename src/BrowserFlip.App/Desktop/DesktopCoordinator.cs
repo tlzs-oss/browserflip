@@ -99,19 +99,24 @@ public sealed class DesktopCoordinator : IDisposable
         _bar.MenuRequested += (_, _) => ShowMenu(fromTray: false);
         _bar.IsKeyboardFocusWithinChanged += (_, e) =>
         {
-            if (e.NewValue is not true)
+            // Focus leaving the bar ends keyboard use, except into the bar's own context menu. Focus entering
+            // does not expand by itself: any window activation looks like keyboard input to WPF; the strip's
+            // button expands with Enter / Space.
+            if (e.NewValue is not true && !_menuOpen)
             {
                 _keyboardEngaged = false;
-            }
-            else if (LastInputWasKeyboard())
-            {
-                Expand(activate: false);
             }
         };
 
         // Only real typing on the bar holds it open. WPF reports a window activation (ours, e.g. after a
         // tray click) as keyboard input too, so "most recent input device" alone is not proof of use (T13).
-        _bar.PreviewKeyDown += (_, _) => _keyboardEngaged = true;
+        _bar.PreviewKeyDown += (_, e) =>
+        {
+            if (CountsAsKeyboardUse(e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key))
+            {
+                _keyboardEngaged = true;
+            }
+        };
         _bar.PreviewMouseDown += (_, _) => _keyboardEngaged = false;
         _bar.DpiChanged += (_, _) => ScheduleLayout();
 
@@ -332,7 +337,7 @@ public sealed class DesktopCoordinator : IDisposable
         }
     }
 
-    /// <summary>Shows the compact bar (expanded) and hides the main window: tray click, window closed.</summary>
+    /// <summary>Shows the compact bar (expanded) and hides the main window: tray click / tray menu.</summary>
     internal void ShowToolbar()
     {
         if (_exiting)
@@ -379,6 +384,20 @@ public sealed class DesktopCoordinator : IDisposable
         UpdateTrayTooltip();
         ScheduleLayout(); // label widths may change
     }
+
+    /// <summary>
+    /// Keys that mean the user is working on the bar with the keyboard. Modifiers alone, volume / media
+    /// keys and Print Screen do not (pressing them must not hold the bar open).
+    /// </summary>
+    internal static bool CountsAsKeyboardUse(System.Windows.Input.Key key) => key is not (
+        System.Windows.Input.Key.LeftAlt or System.Windows.Input.Key.RightAlt
+        or System.Windows.Input.Key.LeftCtrl or System.Windows.Input.Key.RightCtrl
+        or System.Windows.Input.Key.LeftShift or System.Windows.Input.Key.RightShift
+        or System.Windows.Input.Key.LWin or System.Windows.Input.Key.RWin
+        or System.Windows.Input.Key.VolumeUp or System.Windows.Input.Key.VolumeDown or System.Windows.Input.Key.VolumeMute
+        or System.Windows.Input.Key.MediaNextTrack or System.Windows.Input.Key.MediaPreviousTrack
+        or System.Windows.Input.Key.MediaPlayPause or System.Windows.Input.Key.MediaStop
+        or System.Windows.Input.Key.PrintScreen or System.Windows.Input.Key.None);
 
     private static bool IsKeyboardInput()
         => System.Windows.Input.InputManager.Current.MostRecentInputDevice is System.Windows.Input.KeyboardDevice;
@@ -928,7 +947,14 @@ public sealed class DesktopCoordinator : IDisposable
         if (_tray is null && !_exiting)
         {
             _tray = _trayFactory();
-            _tray.Activated += (_, _) => ShowToolbar();
+            _tray.Activated += (_, _) =>
+            {
+                ShowToolbar();
+                if (_tray?.LastActivationWasKeyboard == true)
+                {
+                    _keyboardEngaged = true; // Win+B, arrows, Enter: the user continues on the bar with the keyboard
+                }
+            };
             _tray.MenuRequested += (_, _) => ShowMenu(fromTray: true);
             UpdateTrayTooltip();
             _tray.Visible = true;
@@ -963,8 +989,15 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         var menu = ToContextMenu(model);
-        menu.Opened += (_, _) => _menuOpen = true;
-        menu.Closed += (_, _) => _menuOpen = false;
+        // Set before the menu takes the focus, so leaving the bar for its own menu keeps keyboard use;
+        // a keyboard user who dismisses the menu (Esc) is still working on the bar.
+        var keyboardBeforeMenu = _keyboardEngaged;
+        _menuOpen = true;
+        menu.Closed += (_, _) =>
+        {
+            _menuOpen = false;
+            _keyboardEngaged |= keyboardBeforeMenu;
+        };
         menu.PlacementTarget = _bar;
         menu.Placement = PlacementMode.MousePoint;
         menu.IsOpen = true;

@@ -579,6 +579,155 @@ public sealed class DesktopCoordinatorTests
         });
     }
 
+    private static UserSettings FloatingAt(PixelRect bounds)
+    {
+        var s = MainWindowOpen(Docked(DockEdge.Right));
+        s.DockEnabled = false;
+        s.FloatingOrientation = BarOrientation.Vertical;
+        s.CompactBounds = bounds;
+        return s;
+    }
+
+    [Fact]
+    public void Starting_again_while_tray_only_shows_the_floating_bar_where_it_was()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary);
+            CloseMainWindow(h);
+            Assert.True(h.Coordinator.IsTrayOnly);
+
+            h.Coordinator.ShowRunningInstance(); // second start signals the running instance
+            Harness.Pump();
+            Assert.True(h.Coordinator.Bar.IsVisible);
+            Assert.False(h.Coordinator.IsTrayOnly);
+            Assert.Equal(1200, h.BarBounds.Left);
+        });
+    }
+
+    [Fact]
+    public void Display_change_while_tray_only_keeps_the_bar_hidden_and_the_tray_restores_it()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary, RightNeighbor);
+            CloseMainWindow(h);
+
+            h.Monitors.All = [Primary]; // a monitor was disconnected while only the tray icon shows
+            h.Monitors.RaiseDisplayChanged();
+            Harness.Pump();
+            Assert.False(h.Coordinator.Bar.IsVisible);
+            Assert.True(h.Coordinator.IsTrayOnly);
+
+            h.Tray!.Click();
+            Harness.Pump();
+            Assert.True(h.Coordinator.Bar.IsVisible);
+            Assert.Equal(1200, h.BarBounds.Left);
+        });
+    }
+
+    [Fact]
+    public void Exit_while_tray_only_releases_the_tray_icon()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(FloatingAt(PixelRect.FromSize(1200, 600, 100, 100)), Primary);
+            CloseMainWindow(h);
+            h.Coordinator.Exit();
+            Harness.Pump();
+            Assert.True(h.Tray!.Disposed);
+            Assert.False(h.Coordinator.Bar.IsVisible);
+            Assert.False(h.Coordinator.MainWindow.IsVisible);
+        });
+    }
+
+    [Fact]
+    public void Closing_the_main_window_with_the_bar_docked_on_a_secondary_100_percent_monitor()
+    {
+        Run(() =>
+        {
+            var settings = MainWindowOpen(Docked(DockEdge.Right));
+            settings.DockMonitor = RightNeighbor.DeviceName;
+            using var h = new Harness(settings, Primary, RightNeighbor);
+
+            CloseMainWindow(h);
+
+            Assert.True(h.Coordinator.IsCollapsed);
+            var strip = h.BarBounds;
+            Assert.Equal(RightNeighbor.WorkArea.Right, strip.Right);
+            Assert.InRange(strip.Width, 3, 5);
+            Assert.Equal(RightNeighbor.DeviceName, settings.DockMonitor);
+        });
+    }
+
+    [Fact]
+    public void Tray_restore_on_a_150_percent_monitor_expands_the_bar_there()
+    {
+        Run(() =>
+        {
+            var settings = MainWindowOpen(Docked(DockEdge.Left));
+            settings.DockMonitor = LeftNegative150.DeviceName;
+            using var h = new Harness(settings, Primary, LeftNegative150);
+            CloseMainWindow(h);
+
+            h.Tray!.Click();
+            Harness.Pump();
+
+            Assert.False(h.Coordinator.IsCollapsed);
+            var bar = h.BarBounds;
+            Assert.Equal(LeftNegative150.WorkArea.Left + 6, bar.Left); // 4 DIP margin at 150 %
+            Assert.True(bar.Height > bar.Width);
+        });
+    }
+
+    [Fact]
+    public void Keyboard_tray_restore_keeps_the_bar_open_for_the_keyboard_user()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            CloseMainWindow(h);
+            BarActivatedByTheApp(h);
+
+            h.Tray!.KeySelect(); // Win+B, arrows, Enter
+            Harness.Pump();
+            h.Hover(1000, 1000, 3000);
+            Assert.False(h.Coordinator.IsCollapsed, "a keyboard user keeps the bar while working on it");
+
+            h.PressMouseOnBar();
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
+    public void Volume_or_modifier_keys_do_not_hold_the_bar_open()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            BarActivatedByTheApp(h);
+            h.PressKeyOnBar(System.Windows.Input.Key.VolumeUp);
+            h.PressKeyOnBar(System.Windows.Input.Key.LeftAlt);
+            h.PressKeyOnBar(System.Windows.Input.Key.PrintScreen);
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Theory]
+    [InlineData(System.Windows.Input.Key.Tab, true)]
+    [InlineData(System.Windows.Input.Key.Enter, true)]
+    [InlineData(System.Windows.Input.Key.Down, true)]
+    [InlineData(System.Windows.Input.Key.Apps, true)]
+    [InlineData(System.Windows.Input.Key.LeftAlt, false)]
+    [InlineData(System.Windows.Input.Key.LWin, false)]
+    [InlineData(System.Windows.Input.Key.VolumeMute, false)]
+    [InlineData(System.Windows.Input.Key.MediaPlayPause, false)]
+    [InlineData(System.Windows.Input.Key.PrintScreen, false)]
+    public void Only_real_keyboard_use_counts(System.Windows.Input.Key key, bool counts)
+        => Assert.Equal(counts, DesktopCoordinator.CountsAsKeyboardUse(key));
+
     [Fact]
     public void Typing_on_the_bar_keeps_it_open_until_the_mouse_is_used_on_it()
     {
@@ -1157,7 +1306,20 @@ public sealed class DesktopCoordinatorTests
 
         public bool Disposed { get; private set; }
 
-        public void Click() => Activated?.Invoke(this, EventArgs.Empty);
+        public bool LastActivationWasKeyboard { get; private set; }
+
+        public void Click()
+        {
+            LastActivationWasKeyboard = false;
+            Activated?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>Win+B, arrow keys, Enter (NIN_KEYSELECT).</summary>
+        public void KeySelect()
+        {
+            LastActivationWasKeyboard = true;
+            Activated?.Invoke(this, EventArgs.Empty);
+        }
 
         public void RightClick() => MenuRequested?.Invoke(this, EventArgs.Empty);
 

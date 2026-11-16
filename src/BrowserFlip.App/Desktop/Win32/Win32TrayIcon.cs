@@ -65,6 +65,9 @@ public sealed class Win32TrayIcon : ITrayIcon
 
     public event EventHandler? Activated;
 
+    /// <inheritdoc />
+    public bool LastActivationWasKeyboard { get; private set; }
+
     public event EventHandler? MenuRequested;
 
     internal enum TrayAction
@@ -429,6 +432,7 @@ public sealed class Win32TrayIcon : ITrayIcon
                     if (ShouldFireActivation(now, _lastActivation))
                     {
                         _lastActivation = now;
+                        LastActivationWasKeyboard = notifyEvent == NativeMethods.NinKeySelect;
                         Activated?.Invoke(this, EventArgs.Empty);
                     }
 
