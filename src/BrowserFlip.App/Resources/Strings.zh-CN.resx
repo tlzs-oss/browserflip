@@ -55,6 +55,9 @@
   <data name="Card_HintDefault" xml:space="preserve">
     <value>点击在 Windows 设置中查看</value>
   </data>
+  <data name="Card_HintTopPage" xml:space="preserve">
+    <value>点击打开“默认应用”，然后在其中选择</value>
+  </data>
   <data name="Card_Missing" xml:space="preserve">
     <value>未找到 — 可能已被卸载</value>
   </data>

@@ -9,7 +9,8 @@ namespace BrowserFlip.App.Services;
 /// <summary>Extracts browser icons from executables / icon resources via the shell.</summary>
 public static class IconLoader
 {
-    private const int IconSize = 64;
+    // Cards show icons at 40 DIP; 128 px stays sharp up to 320 % scaling.
+    private const int IconSize = 128;
 
     /// <summary>Returns a frozen image, or <c>null</c> when no icon can be extracted.</summary>
     public static ImageSource? Load(string? path, int index, string? fallbackPath)

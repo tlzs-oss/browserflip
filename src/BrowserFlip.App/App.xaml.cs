@@ -31,6 +31,7 @@ public partial class App : Application
             settings);
 
         var window = new MainWindow { DataContext = viewModel };
+        window.Closed += (_, _) => viewModel.Dispose();
         MainWindow = window;
         viewModel.Refresh();
         window.Show();

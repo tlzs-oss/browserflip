@@ -55,6 +55,9 @@
   <data name="Card_HintDefault" xml:space="preserve">
     <value>Click to review in Windows Settings</value>
   </data>
+  <data name="Card_HintTopPage" xml:space="preserve">
+    <value>Click to open Default apps, then choose it there</value>
+  </data>
   <data name="Card_Missing" xml:space="preserve">
     <value>Not found — it may have been uninstalled</value>
   </data>

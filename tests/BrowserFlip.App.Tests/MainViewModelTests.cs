@@ -1,3 +1,4 @@
+using System.IO;
 using BrowserFlip.App.Localization;
 using BrowserFlip.App.Services;
 using BrowserFlip.App.ViewModels;
@@ -20,6 +21,7 @@ public sealed class MainViewModelTests : IDisposable
     private readonly FakeFileSystem _fs = new();
     private readonly FakeAssociations _assoc = new();
     private readonly FakeLauncher _launcher = new();
+    private readonly List<MainViewModel> _created = [];
     private DateTimeOffset _now = new(2026, 11, 16, 0, 0, 0, TimeSpan.Zero);
 
     public MainViewModelTests()
@@ -31,7 +33,11 @@ public sealed class MainViewModelTests : IDisposable
         _assoc.With("http", "MSEdgeHTM").With("https", "MSEdgeHTM");
     }
 
-    public void Dispose() => Loc.Instance.SetLanguage("en");
+    public void Dispose()
+    {
+        _created.ForEach(vm => vm.Dispose());
+        Loc.Instance.SetLanguage("en");
+    }
 
     private MainViewModel Create()
     {
@@ -42,10 +48,11 @@ public sealed class MainViewModelTests : IDisposable
             new SettingsLauncher(_launcher, new FakeOs(26100), policy),
             policy,
             _ => null,
-            new UserSettings(),
+            UserSettings.InMemory(),
             startTimer: false,
             clock: () => _now);
         vm.Refresh();
+        _created.Add(vm);
         return vm;
     }
 
@@ -119,9 +126,84 @@ public sealed class MainViewModelTests : IDisposable
         vm.OnDeactivated();
         _assoc.With("http", "ChromeHTML");
         vm.OnActivated();
+        _now += MainViewModel.PartialGrace;
+        vm.Poll();
         Assert.Equal(MessageKind.Warning, vm.MessageKind);
         Assert.True(vm.IsMismatch);
         Assert.Equal("HTTP and HTTPS open in different apps — HTTP: Google Chrome / HTTPS: Microsoft Edge", vm.CurrentDefaultText);
+    }
+
+    [Fact]
+    public void Partial_on_return_waits_briefly_for_the_second_protocol()
+    {
+        var vm = Create();
+        vm.Select(Card(vm, "Google Chrome"));
+        vm.OnDeactivated();
+        _assoc.With("http", "ChromeHTML");
+        vm.OnActivated();
+        Assert.True(vm.IsWaitingForChange); // grace period, no warning yet
+
+        _assoc.With("https", "ChromeHTML");
+        vm.Poll();
+        Assert.Equal(MessageKind.Success, vm.MessageKind);
+    }
+
+    [Fact]
+    public void Partial_is_reported_after_grace_period()
+    {
+        var vm = Create();
+        vm.Select(Card(vm, "Google Chrome"));
+        vm.OnDeactivated();
+        _assoc.With("http", "ChromeHTML");
+        vm.OnActivated();
+        vm.Poll();
+        Assert.True(vm.IsWaitingForChange);
+
+        _now += MainViewModel.PartialGrace;
+        vm.Poll();
+        Assert.Equal(MessageKind.Warning, vm.MessageKind);
+        Assert.False(vm.IsWaitingForChange);
+    }
+
+    [Fact]
+    public void Policy_error_clears_after_policy_is_removed()
+    {
+        _reg.Set(LocalMachine, Registry64, PolicyInspector.ExplorerPolicies, "SettingsPageVisibility", "hide:defaultapps");
+        var vm = Create();
+        Assert.Equal(MessageKind.Error, vm.MessageKind);
+
+        _reg.Set(LocalMachine, Registry64, PolicyInspector.ExplorerPolicies, "SettingsPageVisibility", "hide:bluetooth");
+        vm.Refresh();
+        Assert.Equal(MessageKind.None, vm.MessageKind);
+    }
+
+    [Fact]
+    public void Browser_without_registered_application_explains_top_page()
+    {
+        _reg.AddBrowser(LocalMachine, Registry64, "Opera", "Opera", "\"C:\\Opera\\opera.exe\"", "OperaStable", "OperaStable");
+        _fs.Files.Add(@"C:\Opera\opera.exe");
+        var vm = Create();
+        var card = Card(vm, "Opera");
+        Assert.True(card.IsAvailable);
+        Assert.Equal("Click to open Default apps, then choose it there", card.HintText);
+
+        vm.Select(card);
+        Assert.Equal("ms-settings:defaultapps", _launcher.Launched.Single().OriginalString);
+        Assert.Contains("Default apps", vm.GuidanceText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Default_card_hint_offers_review()
+        => Assert.Equal("Click to review in Windows Settings", Card(Create(), "Microsoft Edge").HintText);
+
+    [Fact]
+    public void Language_change_updates_font_stack()
+    {
+        Loc.Instance.SetLanguage("zh-CN");
+        Assert.Contains("Microsoft YaHei UI", Loc.Instance.FontFamilyName, StringComparison.Ordinal);
+        Assert.DoesNotContain("Yu Gothic", Loc.Instance.FontFamilyName, StringComparison.Ordinal);
+        Loc.Instance.SetLanguage("ja");
+        Assert.Contains("Yu Gothic UI", Loc.Instance.FontFamilyName, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -216,20 +298,41 @@ public sealed class MainViewModelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("ja", "ja")]
-    [InlineData("zh-CN", "zh-CN")]
-    [InlineData("en", "en")]
-    [InlineData("fr", null)]
-    public void Loc_resolves_supported_languages(string requested, string? expected)
+    [InlineData("ja", "en-US", "ja")]
+    [InlineData("zh-CN", "en-US", "zh-CN")]
+    [InlineData("en", "ja-JP", "en")]
+    [InlineData("", "ja-JP", "ja")]       // follow the user's display language
+    [InlineData("", "zh-TW", "zh-CN")]
+    [InlineData("", "zh-Hans-CN", "zh-CN")]
+    [InlineData("", "de-DE", "en")]
+    [InlineData("fr", "ja-JP", "ja")]     // unsupported setting falls back to the display language
+    public void Loc_resolves_languages_from_user_display_language(string requested, string userUi, string expected)
+        => Assert.Equal(expected, Loc.Resolve(requested, System.Globalization.CultureInfo.GetCultureInfo(userUi)).Name);
+
+    [Fact]
+    public void Settings_round_trip_and_tolerate_corrupt_files()
     {
-        var culture = Loc.Resolve(requested);
-        if (expected is null)
+        var dir = Path.Combine(Path.GetTempPath(), "browserflip-tests-" + Guid.NewGuid().ToString("N"));
+        var file = Path.Combine(dir, "settings.json");
+        try
         {
-            Assert.Contains(culture.Name, new[] { "en", "ja", "zh-CN" });
+            var s = UserSettings.Load(file);
+            s.Language = "ja";
+            s.Save();
+            Assert.Equal("ja", UserSettings.Load(file).Language);
+
+            File.WriteAllText(file, "{ not json");
+            Assert.Equal(string.Empty, UserSettings.Load(file).Language);
+
+            File.WriteAllText(file, "{\"Language\": null}");
+            Assert.Equal(string.Empty, UserSettings.Load(file).Language);
         }
-        else
+        finally
         {
-            Assert.Equal(expected, culture.Name);
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, recursive: true);
+            }
         }
     }
 }

@@ -103,6 +103,13 @@ public class DefaultBrowserTests
         // Smoke test against the real shell API: must never throw, regardless of machine configuration.
         var info = new ShellAssociationQuery().QueryProtocol("https");
         Assert.True(info is null || !string.IsNullOrWhiteSpace(info.ProgId));
+        if (info is not null)
+        {
+            // Regression: the executable must be resolvable (needs the "open" verb for URL protocols).
+            Assert.False(string.IsNullOrWhiteSpace(info.ExecutablePath));
+            Assert.True(File.Exists(info.ExecutablePath), info.ExecutablePath);
+        }
+
         Assert.Null(new ShellAssociationQuery().QueryProtocol("browserflip-nonexistent-protocol"));
     }
 }

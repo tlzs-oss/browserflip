@@ -116,6 +116,7 @@ public class SettingsLauncherTests
     [InlineData(19045, 9999, false)] // Windows 10 22H2
     [InlineData(22000, 1816, false)] // Windows 11 21H2 before 2023-04 CU
     [InlineData(22000, 1817, true)]
+    [InlineData(22500, 9999, false)] // Insider build between 21H2 and 22H2
     [InlineData(22621, 1554, false)] // Windows 11 22H2 before 2023-04 CU
     [InlineData(22621, 1555, true)]
     [InlineData(22631, 0, true)] // 23H2

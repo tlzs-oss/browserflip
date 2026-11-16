@@ -22,7 +22,7 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 - **One click to Settings** — opens the official Windows Settings *Default apps* page for that browser (Windows 11 with the April 2023 update or later), or the top-level *Default apps* page otherwise.
 - **Live status** — re-reads the current `http` / `https` defaults after you return from Settings and highlights the new default.
 - **Mismatch warning** — tells you when `http` and `https` are handled by different apps.
-- **Helpful errors** — uninstalled browsers, broken registrations, Group Policy restrictions, and cancelled changes are all explained.
+- **Helpful messages** — uninstalled browsers (card disabled), browsers that only registered partially (opens the general *Default apps* page with a hint), Group Policy restrictions, and cancelled changes are each explained.
 - **Dark mode** (follows your Windows app theme), **Per-Monitor V2 high DPI**, and **keyboard navigation / screen reader names**.
 - **English, 日本語, 简体中文** — picked automatically from Windows, switchable at runtime.
 
@@ -108,6 +108,7 @@ No. It never asks for elevation.
 - **No telemetry**, no analytics, no crash reporting.
 - **No network access.** BrowserFlip does not connect to the internet.
 - It only **reads** the registry and launches `ms-settings:` URIs. It never writes registry values.
+- The only file it writes is `%LOCALAPPDATA%\BrowserFlip\settings.json`, which stores your language choice.
 
 ## Roadmap
 

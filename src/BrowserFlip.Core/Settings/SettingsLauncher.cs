@@ -45,7 +45,7 @@ public sealed class SettingsLauncher
     {
         < 22000 => false,
         22000 => ubr >= 1817,
-        < 22621 => true, // Insider-only builds between 21H2 and 22H2.
+        < 22621 => false, // Insider-only builds between 21H2 and 22H2 are not listed as supported.
         22621 => ubr >= 1555,
         _ => true,
     };

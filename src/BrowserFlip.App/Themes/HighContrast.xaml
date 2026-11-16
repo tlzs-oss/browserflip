@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- High Contrast: every brush uses the user's system colors. ThemeManager reloads this dictionary when they change. -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <!-- Hover keeps WindowColor so WindowText stays readable; the border/focus rectangle carries the feedback. -->
+    <SolidColorBrush x:Key="CardHoverBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="CardPressedBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{x:Static SystemColors.HotTrackColor}" />
+    <SolidColorBrush x:Key="AccentForegroundBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="InfoBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="WarningForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="ErrorForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="SuccessForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{x:Static SystemColors.ControlColor}" />
+</ResourceDictionary>

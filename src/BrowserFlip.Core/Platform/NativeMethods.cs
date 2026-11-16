@@ -44,21 +44,22 @@ public sealed class ShellAssociationQuery : IAssociationQuery
         return new AssociationInfo(
             progId,
             Query(protocol, NativeMethods.AssocstrFriendlyAppName),
-            Query(protocol, NativeMethods.AssocstrExecutable));
+            // ASSOCSTR_EXECUTABLE requires a verb for URL protocols; without one it returns ERROR_NO_ASSOCIATION.
+            Query(protocol, NativeMethods.AssocstrExecutable, "open"));
     }
 
-    private static string? Query(string protocol, int what)
+    private static string? Query(string protocol, int what, string? verb = null)
     {
         uint size = 0;
         // First call obtains the required buffer size (S_FALSE = 1).
-        var hr = NativeMethods.AssocQueryStringW(NativeMethods.AssocfIsProtocol, what, protocol, null, null, ref size);
+        var hr = NativeMethods.AssocQueryStringW(NativeMethods.AssocfIsProtocol, what, protocol, verb, null, ref size);
         if ((hr != 0 && hr != 1) || size == 0 || size > 32_768)
         {
             return null;
         }
 
         var buffer = new char[size];
-        hr = NativeMethods.AssocQueryStringW(NativeMethods.AssocfIsProtocol, what, protocol, null, buffer, ref size);
+        hr = NativeMethods.AssocQueryStringW(NativeMethods.AssocfIsProtocol, what, protocol, verb, buffer, ref size);
         return hr == 0 ? NativeMethods.FromBuffer(buffer) : null;
     }
 }

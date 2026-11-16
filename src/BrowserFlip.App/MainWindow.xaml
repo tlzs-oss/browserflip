@@ -10,7 +10,6 @@
         TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
-        FontFamily="Segoe UI Variable Text, Segoe UI, Yu Gothic UI, Microsoft YaHei UI"
         FontSize="14">
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />

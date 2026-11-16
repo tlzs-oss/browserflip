@@ -53,9 +53,14 @@ public sealed class BrowserCardViewModel : ObservableObject
         _ => string.Empty,
     };
 
-    public string HintText => !IsAvailable
-        ? Loc.Instance["Card_Missing"]
-        : IsDefault ? Loc.Instance["Card_HintDefault"] : Loc.Instance["Card_Hint"];
+    public string HintText => Browser.Health switch
+    {
+        BrowserHealth.ExecutableMissing => Loc.Instance["Card_Missing"],
+        _ when IsDefault => Loc.Instance["Card_HintDefault"],
+        // Not in RegisteredApplications: Settings can only open the top-level Default apps page.
+        BrowserHealth.NotInRegisteredApplications => Loc.Instance["Card_HintTopPage"],
+        _ => Loc.Instance["Card_Hint"],
+    };
 
     /// <summary>Name announced by screen readers.</summary>
     public string AutomationName => HasBadge ? $"{DisplayName}, {BadgeText}. {HintText}" : $"{DisplayName}. {HintText}";

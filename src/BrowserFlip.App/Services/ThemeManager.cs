@@ -19,7 +19,8 @@ public static class ThemeManager
         Apply(app);
         SystemEvents.UserPreferenceChanged += (_, e) =>
         {
-            if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Color or UserPreferenceCategory.VisualStyle)
+            if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Color
+                or UserPreferenceCategory.VisualStyle or UserPreferenceCategory.Accessibility)
             {
                 app.Dispatcher.Invoke(() => Apply(app));
             }
@@ -43,8 +44,10 @@ public static class ThemeManager
 
     private static void Apply(Application app)
     {
-        IsDark = !SystemParameters.HighContrast && ReadAppsUseDarkTheme();
-        var uri = new Uri(IsDark ? "Themes/Dark.xaml" : "Themes/Light.xaml", UriKind.Relative);
+        var highContrast = SystemParameters.HighContrast;
+        IsDark = !highContrast && ReadAppsUseDarkTheme();
+        var file = highContrast ? "Themes/HighContrast.xaml" : IsDark ? "Themes/Dark.xaml" : "Themes/Light.xaml";
+        var uri = new Uri(file, UriKind.Relative);
         var dictionaries = app.Resources.MergedDictionaries;
         var existing = dictionaries.FirstOrDefault(d => d.Source is not null && d.Source.OriginalString.StartsWith("Themes/", StringComparison.Ordinal));
         var next = new ResourceDictionary { Source = uri };

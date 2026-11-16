@@ -38,10 +38,13 @@ public sealed class LanguageOption(string code, string nativeName) : ObservableO
     public void Relocalize() => OnPropertyChanged(nameof(DisplayName));
 }
 
-public sealed class MainViewModel : ObservableObject
+public sealed class MainViewModel : ObservableObject, IDisposable
 {
     internal static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1.5);
     internal static readonly TimeSpan WaitLimit = TimeSpan.FromMinutes(3);
+
+    /// <summary>Extra wait when the user returns while only one of http/https has switched yet.</summary>
+    internal static readonly TimeSpan PartialGrace = TimeSpan.FromSeconds(3);
 
     private readonly BrowserDetector _detector;
     private readonly DefaultBrowserService _defaults;
@@ -59,6 +62,7 @@ public sealed class MainViewModel : ObservableObject
     private ChangeTracker? _tracker;
     private DateTimeOffset _deadline;
     private bool _leftSinceLaunch;
+    private bool _partialGraceUsed;
     private UiMessage? _message;
     private UiMessage? _guidance;
     private LanguageOption _selectedLanguage;
@@ -194,6 +198,10 @@ public sealed class MainViewModel : ObservableObject
         {
             Message = new UiMessage(MessageKind.Error, "Error_Blocked");
         }
+        else if (_message?.Key == "Error_Blocked")
+        {
+            Message = null;
+        }
     }
 
     /// <summary>Re-reads only the http/https defaults (cheap; used while polling).</summary>
@@ -241,6 +249,7 @@ public sealed class MainViewModel : ObservableObject
         _tracker = new ChangeTracker(target, before);
         _deadline = _clock() + WaitLimit;
         _leftSinceLaunch = false;
+        _partialGraceUsed = false;
         _guidance = new UiMessage(MessageKind.Info,
             result.Kind == LaunchKind.OpenedAppPage ? "Guide_AppPage" : "Guide_TopPage", target.DisplayName);
         Message = new UiMessage(MessageKind.Info, "Guide_Waiting");
@@ -268,7 +277,17 @@ public sealed class MainViewModel : ObservableObject
         if (_tracker is not null && _leftSinceLaunch)
         {
             RefreshState();
-            Handle(_tracker.Evaluate(_state, userReturned: true));
+            var outcome = _tracker.Evaluate(_state, userReturned: true);
+            if (outcome == ChangeOutcome.PartiallyApplied && !_partialGraceUsed)
+            {
+                // Windows may still be writing the second protocol; let Poll() decide a moment later.
+                _partialGraceUsed = true;
+                var graceEnd = _clock() + PartialGrace;
+                _deadline = graceEnd < _deadline ? graceEnd : _deadline;
+                return;
+            }
+
+            Handle(outcome);
             return;
         }
 
@@ -286,6 +305,12 @@ public sealed class MainViewModel : ObservableObject
         {
             _leftSinceLaunch = true;
         }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Stop();
+        Loc.Instance.PropertyChanged -= OnLanguageChanged;
     }
 
     private void OpenTopPage()

@@ -20,9 +20,10 @@ BrowserFlip の構成と主要な処理フローを説明します。対象バ�
 
 | プロジェクト | ターゲット | 役割 |
 | --- | --- | --- |
-| `src/BrowserFlip.App` | `net10.0-windows` (WPF) | View / ViewModel(MVVM)、テーマ、DPI、多言語リソース(並行開発中) |
+| `src/BrowserFlip.App` | `net10.0-windows` (WPF) | View / ViewModel(MVVM)、テーマ、DPI、多言語リソース |
 | `src/BrowserFlip.Core` | `net10.0-windows` | 検出・既定状態・設定起動・ポリシー判定のロジック、および Windows 実装 |
 | `tests/BrowserFlip.Core.Tests` | xUnit | Core の単体テスト(`InternalsVisibleTo` で internal も検証) |
+| `tests/BrowserFlip.App.Tests` | xUnit (WPF) | ViewModel・多言語・設定ファイルの単体テスト(Core のフェイクを共有) |
 
 ```mermaid
 flowchart TB
@@ -91,7 +92,6 @@ flowchart TB
     SUL -->|"ShellExecute"| SET
 ```
 
-> App 層のクラス名は設計上の想定です(実装は並行して進行中)。
 
 ### 主要な型(Core)
 
@@ -205,7 +205,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A["Evaluate(current, userReturned)"] --> B{"Target role in current state"}
+    A["Evaluate(current, userReturned)"] --> Z{"ProgIDs unchanged from 'before' and target was not already Both?"}
+    Z -->|"yes"| F
+    Z -->|"no"| B{"Target role in current state"}
     B -->|"Both"| R1["AppliedToTarget"]
     B -->|"HttpOnly or HttpsOnly"| C{"userReturned?"}
     C -->|"yes"| R2["PartiallyApplied"]
@@ -221,6 +223,8 @@ flowchart TD
 
 - `http` と `https` は Windows 側で一瞬ずれて更新されることがあるため、片方のみの状態はユーザーが戻るまで `Pending` とします。
 - `userReturned` は「ウィンドウが再アクティブ化された」または「待機がタイムアウトした」ときに `true` を渡します。
+- 最初の分岐により、元から片方だけ既定だったブラウザーを選んで何も変更しなかった場合は `PartiallyApplied` ではなく `NoChange` になります。
+- 再アクティブ化時に片方のみ反映済みだった場合、`MainViewModel` は約 3 秒の猶予を置いてから `PartiallyApplied` を報告します(もう片方の書き込み待ち)。
 
 ### 既定状態(`DefaultStatus`)の判定
 
@@ -235,10 +239,10 @@ flowchart TD
 
 ProgID とブラウザーの対応付けは、(1) 同じプロトコルの ProgID 一致、(2) いずれかのプロトコルで宣言された ProgID 一致、(3) 実行ファイル パス一致(更新で ProgID が変わった場合)の順で行います。
 
-## 6. App 層の設計(並行開発中)
+## 6. App 層の設計
 
-- MVVM。ViewModel は Core のサービスのみを使い、Win32 を直接呼ばない。
-- テーマ: Windows のアプリ テーマ(ライト/ダーク)に追従。
+- MVVM。ViewModel は Core のサービスのみを使い、Win32 を直接呼ばない(アイコン抽出 `IconLoader` とタイトルバー配色 `ThemeManager` のみ App 層の Services で P/Invoke を使用)。
+- テーマ: Windows のアプリ テーマ(ライト/ダーク)に追従。ハイ コントラスト時はシステム カラーを使用。
 - 高 DPI: アプリケーション マニフェストで Per-Monitor V2 を宣言。
-- 多言語: `Strings.resx`(英語、ニュートラル)/ `Strings.ja.resx` / `Strings.zh-CN.resx`。OS の UI 言語から自動選択し、実行中に切り替え可能。
+- 多言語: `Strings.resx`(英語、ニュートラル)/ `Strings.ja.resx` / `Strings.zh-CN.resx`。ユーザーの Windows 表示言語から自動選択し、実行中に切り替え可能。言語に応じて `xml:lang` とフォント(ja: Yu Gothic UI / zh-CN: Microsoft YaHei UI)を切り替え。
 - アクセシビリティ: カードはキーボードで操作可能(Tab / Enter / Space)、`AutomationProperties.Name` を設定。
