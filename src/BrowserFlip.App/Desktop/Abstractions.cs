@@ -94,6 +94,28 @@ public interface ITrayIcon : IDisposable
     /// <summary>Reloads the icon at the current DPI (call after display / DPI changes).</summary>
     void UpdateIcon();
 
-    /// <summary>Shows a WPF context menu at the cursor, with the foreground-window fix so it closes correctly.</summary>
-    void ShowMenu(System.Windows.Controls.ContextMenu menu);
+    /// <summary>
+    /// Shows a native popup menu at the cursor (TrackPopupMenuEx with the foreground-window fix) and
+    /// runs the chosen item's action after the menu has closed.
+    /// </summary>
+    void ShowMenu(IReadOnlyList<TrayMenuItem> items);
+}
+
+/// <summary>A notification-area menu entry (native menu model; WPF menus cannot reliably open from the tray).</summary>
+/// <param name="Text">Label; ignored for separators.</param>
+/// <param name="OnClick">Action run after the menu closes; null for separators / submenus.</param>
+public sealed record TrayMenuItem(string Text, Action? OnClick = null)
+{
+    public static TrayMenuItem Separator { get; } = new(string.Empty) { IsSeparator = true };
+
+    public bool IsSeparator { get; init; }
+
+    public bool IsChecked { get; init; }
+
+    public bool IsEnabled { get; init; } = true;
+
+    /// <summary>Shown in bold (default action, i.e. what a left click does).</summary>
+    public bool IsDefault { get; init; }
+
+    public IReadOnlyList<TrayMenuItem>? Children { get; init; }
 }

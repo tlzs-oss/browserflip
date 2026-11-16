@@ -17,6 +17,42 @@ public sealed class Win32TrayIconTests
         => Assert.Equal(expected, ShouldFireActivation(now, last));
 
     [Fact]
+    public void Native_menu_build_assigns_commands_in_order_including_submenus()
+    {
+        var hits = new List<string>();
+        var model = new List<BrowserFlip.App.Desktop.TrayMenuItem>
+        {
+            new("Show", () => hits.Add("show")) { IsDefault = true },
+            BrowserFlip.App.Desktop.TrayMenuItem.Separator,
+            new("Edge")
+            {
+                Children = [new("Left", () => hits.Add("left")), new("Right", () => hits.Add("right")) { IsChecked = true }],
+            },
+            new("Disabled", () => hits.Add("x")) { IsEnabled = false },
+            new("Exit", () => hits.Add("exit")),
+        };
+        var actions = new List<Action?>();
+        var menus = new List<IntPtr>();
+        var root = Build(model, actions, menus);
+        try
+        {
+            Assert.NotEqual(IntPtr.Zero, root);
+            Assert.Equal(2, menus.Count);       // root + one submenu
+            Assert.Equal(5, actions.Count);     // separators and submenu headers get no command id
+            foreach (var a in actions)
+            {
+                a?.Invoke();
+            }
+
+            Assert.Equal(["show", "left", "right", "x", "exit"], hits);
+        }
+        finally
+        {
+            Assert.True(BrowserFlip.App.Desktop.Win32.NativeMethods.DestroyMenu(root));
+        }
+    }
+
+    [Fact]
     public void NOTIFYICONDATAW_has_the_full_vista_plus_layout()
     {
         var size = Marshal.SizeOf<NativeMethods.NOTIFYICONDATAW>();

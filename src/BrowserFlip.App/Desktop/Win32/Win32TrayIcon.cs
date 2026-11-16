@@ -135,34 +135,79 @@ public sealed class Win32TrayIcon : ITrayIcon
         }
     }
 
-    public void ShowMenu(ContextMenu menu)
+    /// <summary>
+    /// Native popup menu: the standard, reliable way for notification-area menus (a WPF ContextMenu opened
+    /// from a hidden window closes immediately or never appears on Windows 11, especially from the
+    /// overflow flyout). Runs synchronously and returns the chosen command, so foreground rules are satisfied.
+    /// </summary>
+    public void ShowMenu(IReadOnlyList<TrayMenuItem> items)
     {
-        ArgumentNullException.ThrowIfNull(menu);
+        ArgumentNullException.ThrowIfNull(items);
         VerifyAccess();
 
-        // Without foreground rights the menu never sees "click elsewhere" and stays open.
-        _ = NativeMethods.SetForegroundWindow(_window.Handle);
-
-        void OnClosed(object sender, RoutedEventArgs e)
+        var actions = new List<Action?>();
+        var menus = new List<IntPtr>();
+        var root = Build(items, actions, menus);
+        try
         {
-            menu.Closed -= OnClosed;
-
-            // KB135788: post a benign message so the owner leaves its modal-ish foreground state cleanly.
-            if (Volatile.Read(ref _disposed) == 0)
+            if (!NativeMethods.GetCursorPos(out var pt))
             {
-                _ = NativeMethods.PostMessageW(_window.Handle, NativeMethods.WmNull, IntPtr.Zero, IntPtr.Zero);
+                return;
+            }
+
+            // KB135788: the owner must be foreground, otherwise the menu does not close on outside clicks.
+            _ = NativeMethods.SetForegroundWindow(_window.Handle);
+            var command = NativeMethods.TrackPopupMenuEx(root,
+                NativeMethods.TpmRightButton | NativeMethods.TpmReturnCmd | NativeMethods.TpmNoNotify,
+                pt.X, pt.Y, _window.Handle, IntPtr.Zero);
+            _ = NativeMethods.PostMessageW(_window.Handle, NativeMethods.WmNull, IntPtr.Zero, IntPtr.Zero);
+
+            if (command > 0 && command <= actions.Count && actions[command - 1] is { } action)
+            {
+                // Run after the menu loop has fully unwound.
+                _ = _window.Dispatcher.BeginInvoke(action);
+            }
+        }
+        finally
+        {
+            // Destroying the root also destroys attached submenus.
+            _ = NativeMethods.DestroyMenu(root);
+        }
+    }
+
+    /// <summary>Builds an HMENU; command ids are 1-based indexes into <paramref name="actions"/>.</summary>
+    internal static IntPtr Build(IReadOnlyList<TrayMenuItem> items, List<Action?> actions, List<IntPtr> menus)
+    {
+        var menu = NativeMethods.CreatePopupMenu();
+        menus.Add(menu);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (item.IsSeparator)
+            {
+                _ = NativeMethods.AppendMenuW(menu, NativeMethods.MfSeparator, IntPtr.Zero, null);
+                continue;
+            }
+
+            var flags = NativeMethods.MfString
+                        | (item.IsChecked ? NativeMethods.MfChecked : 0)
+                        | (item.IsEnabled ? 0 : NativeMethods.MfGrayed);
+            if (item.Children is { Count: > 0 } children)
+            {
+                var sub = Build(children, actions, menus);
+                _ = NativeMethods.AppendMenuW(menu, flags | NativeMethods.MfPopup, sub, item.Text);
+                continue;
+            }
+
+            actions.Add(item.OnClick);
+            _ = NativeMethods.AppendMenuW(menu, flags, actions.Count, item.Text);
+            if (item.IsDefault)
+            {
+                _ = NativeMethods.SetMenuDefaultItem(menu, (uint)actions.Count, 0);
             }
         }
 
-        menu.Closed += OnClosed;
-        menu.Placement = PlacementMode.MousePoint;
-        menu.IsOpen = true;
-
-        // The popup is its own HWND; give it the foreground so it closes on outside clicks / Esc.
-        if (PresentationSource.FromVisual(menu) is HwndSource popup && popup.Handle != IntPtr.Zero)
-        {
-            _ = NativeMethods.SetForegroundWindow(popup.Handle);
-        }
+        return menu;
     }
 
     public void Dispose()

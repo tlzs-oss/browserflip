@@ -699,66 +699,98 @@ public sealed class DesktopCoordinator : IDisposable
 
     private void ShowMenu(bool fromTray)
     {
-        var menu = BuildMenu();
-        menu.Opened += (_, _) => _menuOpen = true;
-        menu.Closed += (_, _) => _menuOpen = false;
+        var model = BuildMenuModel();
         if (fromTray && _tray is not null)
         {
-            _tray.ShowMenu(menu);
-        }
-        else
-        {
-            menu.PlacementTarget = _bar;
-            menu.Placement = PlacementMode.MousePoint;
-            menu.IsOpen = true;
-        }
-    }
-
-    private ContextMenu BuildMenu()
-    {
-        var menu = new ContextMenu();
-        menu.Items.Add(Item("Menu_Show", (_, _) => ShowMain(), bold: true));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Check("Menu_Topmost", _shell.IsTopmost, _shell.ToggleTopmostCommand));
-        menu.Items.Add(Check("Menu_Compact", _shell.IsCompact, _shell.ToggleCompactCommand));
-        menu.Items.Add(Check("Menu_Dock", _shell.DockEnabled, _shell.ToggleDockCommand));
-
-        var edges = new MenuItem { Header = Loc.Instance["Menu_DockEdge"] };
-        foreach (var choice in _shell.DockEdges)
-        {
-            edges.Items.Add(new MenuItem
+            // Native menu loop is synchronous: suppress auto-hide for its whole duration.
+            _menuOpen = true;
+            try
             {
-                Header = choice.DisplayName,
-                IsCheckable = true,
-                IsChecked = _shell.DockEnabled && _shell.DockEdge == choice.Value,
-                Command = _shell.DockToCommand,
-                CommandParameter = choice.Value,
-            });
-        }
-
-        menu.Items.Add(edges);
-        var autoHide = Check("Menu_AutoHide", _shell.AutoHide, _shell.ToggleAutoHideCommand);
-        autoHide.IsEnabled = _shell.DockEnabled;
-        menu.Items.Add(autoHide);
-        menu.Items.Add(Item("Menu_Settings", (_, _) => _shell.OpenOptionsCommand.Execute(null)));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Item("Menu_Exit", (_, _) => Exit()));
-        return menu;
-
-        static MenuItem Item(string key, RoutedEventHandler onClick, bool bold = false)
-        {
-            var item = new MenuItem { Header = Loc.Instance[key] };
-            if (bold)
+                _tray.ShowMenu(model);
+            }
+            finally
             {
-                item.FontWeight = FontWeights.SemiBold;
+                _menuOpen = false;
             }
 
-            item.Click += onClick;
-            return item;
+            return;
         }
 
-        static MenuItem Check(string key, bool isChecked, System.Windows.Input.ICommand command)
-            => new() { Header = Loc.Instance[key], IsCheckable = true, IsChecked = isChecked, Command = command };
+        var menu = ToContextMenu(model);
+        menu.Opened += (_, _) => _menuOpen = true;
+        menu.Closed += (_, _) => _menuOpen = false;
+        menu.PlacementTarget = _bar;
+        menu.Placement = PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>One menu definition for both the notification-area menu and the compact bar menu.</summary>
+    internal IReadOnlyList<TrayMenuItem> BuildMenuModel()
+    {
+        var edges = _shell.DockEdges
+            .Select(choice => new TrayMenuItem(choice.DisplayName, () => _shell.DockToCommand.Execute(choice.Value))
+            {
+                IsChecked = _shell.DockEnabled && _shell.DockEdge == choice.Value,
+            })
+            .ToList();
+
+        return
+        [
+            new(Loc.Instance["Menu_Show"], ShowMain) { IsDefault = true },
+            TrayMenuItem.Separator,
+            new(Loc.Instance["Menu_Topmost"], () => _shell.ToggleTopmostCommand.Execute(null)) { IsChecked = _shell.IsTopmost },
+            new(Loc.Instance["Menu_Compact"], () => _shell.ToggleCompactCommand.Execute(null)) { IsChecked = _shell.IsCompact },
+            new(Loc.Instance["Menu_Dock"], () => _shell.ToggleDockCommand.Execute(null)) { IsChecked = _shell.DockEnabled },
+            new(Loc.Instance["Menu_DockEdge"]) { Children = edges },
+            new(Loc.Instance["Menu_AutoHide"], () => _shell.ToggleAutoHideCommand.Execute(null))
+            {
+                IsChecked = _shell.AutoHide,
+                IsEnabled = _shell.DockEnabled,
+            },
+            new(Loc.Instance["Menu_Settings"], () => _shell.OpenOptionsCommand.Execute(null)),
+            TrayMenuItem.Separator,
+            new(Loc.Instance["Menu_Exit"], Exit),
+        ];
+    }
+
+    private static ContextMenu ToContextMenu(IReadOnlyList<TrayMenuItem> model)
+    {
+        var menu = new ContextMenu();
+        foreach (var item in model)
+        {
+            menu.Items.Add(ToMenuItem(item));
+        }
+
+        return menu;
+
+        static object ToMenuItem(TrayMenuItem item)
+        {
+            if (item.IsSeparator)
+            {
+                return new Separator();
+            }
+
+            var menuItem = new MenuItem
+            {
+                Header = item.Text,
+                IsChecked = item.IsChecked,
+                IsEnabled = item.IsEnabled,
+                FontWeight = item.IsDefault ? FontWeights.SemiBold : FontWeights.Normal,
+            };
+            if (item.Children is { } children)
+            {
+                foreach (var child in children)
+                {
+                    menuItem.Items.Add(ToMenuItem(child));
+                }
+            }
+            else if (item.OnClick is { } onClick)
+            {
+                menuItem.Click += (_, _) => onClick();
+            }
+
+            return menuItem;
+        }
     }
 
     private static int Px(double dip, double scale) => (int)Math.Round(dip * scale);
