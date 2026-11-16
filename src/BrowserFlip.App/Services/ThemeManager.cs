@@ -5,26 +5,57 @@ using Microsoft.Win32;
 
 namespace BrowserFlip.App.Services;
 
-/// <summary>Follows the Windows app theme (light/dark) and keeps the title bar in sync.</summary>
+/// <summary>Applies the Light / Dark / High Contrast theme (following Windows or a user override) and keeps title bars in sync.</summary>
 public static class ThemeManager
 {
+    private static UserPreferenceChangedEventHandler? _handler;
+    private static Application? _app;
+
     private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     private const int DwmwaUseImmersiveDarkMode = 20;
 
     public static bool IsDark { get; private set; }
 
-    public static void Initialize(Application app)
+    /// <summary>User override; <see cref="ThemePreference.System"/> follows the Windows app theme.</summary>
+    public static ThemePreference Preference { get; private set; } = ThemePreference.System;
+
+    public static void Initialize(Application app, ThemePreference preference = ThemePreference.System)
     {
         ArgumentNullException.ThrowIfNull(app);
+        _app = app;
+        Preference = preference;
         Apply(app);
-        SystemEvents.UserPreferenceChanged += (_, e) =>
+        _handler = (_, e) =>
         {
             if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.Color
                 or UserPreferenceCategory.VisualStyle or UserPreferenceCategory.Accessibility)
             {
-                app.Dispatcher.Invoke(() => Apply(app));
+                app.Dispatcher.BeginInvoke(() => Apply(app));
             }
         };
+        SystemEvents.UserPreferenceChanged += _handler;
+    }
+
+    /// <summary>Changes the theme preference and re-applies it.</summary>
+    public static void SetPreference(ThemePreference preference)
+    {
+        Preference = preference;
+        if (_app is not null)
+        {
+            Apply(_app);
+        }
+    }
+
+    /// <summary>Unsubscribes from the static SystemEvents (avoids leaking the handler).</summary>
+    public static void Shutdown()
+    {
+        if (_handler is not null)
+        {
+            SystemEvents.UserPreferenceChanged -= _handler;
+            _handler = null;
+        }
+
+        _app = null;
     }
 
     /// <summary>Applies the dark/light title bar to <paramref name="window"/>.</summary>
@@ -45,7 +76,12 @@ public static class ThemeManager
     private static void Apply(Application app)
     {
         var highContrast = SystemParameters.HighContrast;
-        IsDark = !highContrast && ReadAppsUseDarkTheme();
+        IsDark = !highContrast && Preference switch
+        {
+            ThemePreference.Dark => true,
+            ThemePreference.Light => false,
+            _ => ReadAppsUseDarkTheme(),
+        };
         var file = highContrast ? "Themes/HighContrast.xaml" : IsDark ? "Themes/Dark.xaml" : "Themes/Light.xaml";
         var uri = new Uri(file, UriKind.Relative);
         var dictionaries = app.Resources.MergedDictionaries;
