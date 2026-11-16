@@ -54,6 +54,7 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _barMenuOpen;      // the bar's own context menu (keyboard use continues inside it)
     private bool _trayOnly;          // every window hidden, only the notification-area icon (X on the main window / floating bar)
     private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
+    private int _overflowRelayouts;          // BF-05: consecutive re-layouts because the browser list did not fit
     private PixelRect? _mainRestore;         // main window rectangle before a drag that docked it (undo a Windows snap)
     private bool _closedUnderPointer;        // docked bar retracted by X: no edge expansion until the cursor leaves the zone once
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
@@ -135,6 +136,7 @@ public sealed class DesktopCoordinator : IDisposable
         };
         _bar.PreviewMouseDown += (_, _) => _keyboardEngaged = false;
         _bar.DpiChanged += (_, _) => ScheduleLayout();
+        _bar.BrowserListSizeChanged += (_, _) => OnBrowserListSizeChanged();
 
         // In compact mode the bar is the active surface: re-check the default browser when the
         // user comes back (e.g. from Windows Settings), exactly like the main window does.
@@ -705,6 +707,7 @@ public sealed class DesktopCoordinator : IDisposable
             var maxLength = Math.Max(_shell.BarThickness, maxLengthDip);
             // The bar content is only Hidden while collapsed, so it measures at its real size here too (T7, T13).
             var dip = _bar.MeasureExpanded(maxLength);
+            _bar.ShowOverflowScrollBar((vertical ? dip.Height : dip.Width) >= maxLength - 0.5); // longer than the screen allows
 
             var width = Px(dip.Width, monitor.Scale);
             var height = Px(dip.Height, monitor.Scale);
@@ -1130,6 +1133,40 @@ public sealed class DesktopCoordinator : IDisposable
             }
         }
     }
+
+    /// <summary>
+    /// BF-05: the bar window is sized from a measurement of its content. When the real layout shows that the browser
+    /// list does not fit (the window was sized from a measurement that missed browsers), size the bar again from a
+    /// fresh measurement. At most twice in a row (no loop); if the browsers still do not fit (the screen is too
+    /// small), a scroll bar shows so that no browser disappears silently.
+    /// </summary>
+    private void OnBrowserListSizeChanged()
+    {
+        if (_applying || _exiting || !_shell.IsCompact || _shell.IsBarCollapsed || _bar.IsDragging || !_bar.IsVisible)
+        {
+            return;
+        }
+
+        if (!_bar.BrowsersOverflow)
+        {
+            _overflowRelayouts = 0;
+            return;
+        }
+
+        if (_overflowRelayouts < 2)
+        {
+            _overflowRelayouts++;
+            OverflowRelayouts++;
+            ScheduleLayout();
+        }
+        else
+        {
+            _bar.ShowOverflowScrollBar(true);
+        }
+    }
+
+    /// <summary>How often the bar was laid out again because its browsers did not fit (tests).</summary>
+    internal int OverflowRelayouts { get; private set; }
 
     /// <summary>Raises a bar that is not on top above other windows (no activation), never over a full-screen app.</summary>
     private void RaiseBar()

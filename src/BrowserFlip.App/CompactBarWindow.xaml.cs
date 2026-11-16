@@ -29,6 +29,32 @@ public partial class CompactBarWindow : Window
         Closed += (_, _) => Loc.Instance.PropertyChanged -= OnLanguageChanged;
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         DataContextChanged += (_, _) => HookShell();
+        BrowserScroller.ScrollChanged += (_, e) =>
+        {
+            if (e.ExtentWidthChange != 0 || e.ExtentHeightChange != 0 || e.ViewportWidthChange != 0 || e.ViewportHeightChange != 0)
+            {
+                BrowserListSizeChanged?.Invoke(this, EventArgs.Empty);
+            }
+        };
+    }
+
+    /// <summary>The browser list's laid-out size changed (items realized, icons, fonts, DPI, window size).</summary>
+    public event EventHandler? BrowserListSizeChanged;
+
+    /// <summary>True when the laid-out browser list is longer than the space the bar gives it (along the bar).</summary>
+    internal bool BrowsersOverflow => Shell is { } shell && (shell.IsVertical
+        ? BrowserScroller.ExtentHeight > BrowserScroller.ViewportHeight + 0.5
+        : BrowserScroller.ExtentWidth > BrowserScroller.ViewportWidth + 0.5);
+
+    /// <summary>
+    /// Shows a scroll bar along the bar when the browsers cannot all fit (the screen is too small for the bar):
+    /// browsers never disappear silently. Hidden otherwise, so a bar that fits looks unchanged.
+    /// </summary>
+    internal void ShowOverflowScrollBar(bool overflow)
+    {
+        var vertical = Shell?.IsVertical == true;
+        BrowserScroller.HorizontalScrollBarVisibility = !vertical && overflow ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
+        BrowserScroller.VerticalScrollBarVisibility = vertical && overflow ? ScrollBarVisibility.Auto : ScrollBarVisibility.Hidden;
     }
 
     /// <summary>The user finished dragging the bar (DragMove returned).</summary>
@@ -176,8 +202,6 @@ public partial class CompactBarWindow : Window
 
     private void OnTabClick(object sender, RoutedEventArgs e) => TabInvoked?.Invoke(this, EventArgs.Empty);
 
-    private void OnCloseClick(object sender, RoutedEventArgs e) => Close(); // the coordinator cancels and retracts / hides
-
     /// <summary>
     /// Brings the bar above other (non-topmost) windows without activating it: a bar that is not "always on
     /// top" must still be visible when it expands from its edge.
@@ -229,7 +253,6 @@ public partial class CompactBarWindow : Window
         DockPanel.SetDock(HomeButton, start);
         DockPanel.SetDock(PinButton, start);
         DockPanel.SetDock(OptionsButton, end);
-        DockPanel.SetDock(CloseButton, end);
     }
 
     private static bool IsWithinButton(DependencyObject? source)

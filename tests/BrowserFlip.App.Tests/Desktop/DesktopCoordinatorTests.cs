@@ -1492,10 +1492,15 @@ public sealed class DesktopCoordinatorTests
             Main.Dispose();
         }
 
-        private static MainViewModel CreateMain(UserSettings settings)
+        /// <summary>Registry / file system behind <see cref="Main"/>: tests may add or remove browsers and refresh.</summary>
+        public FakeRegistry Registry { get; private set; } = null!;
+
+        public FakeFileSystem Files { get; private set; } = null!;
+
+        private MainViewModel CreateMain(UserSettings settings)
         {
-            var reg = new FakeRegistry();
-            var fs = new FakeFileSystem();
+            var reg = Registry = new FakeRegistry();
+            var fs = Files = new FakeFileSystem();
             foreach (var (id, exe, progId) in new[]
             {
                 ("Google Chrome", @"C:\C\chrome.exe", "ChromeHTML"),

@@ -69,24 +69,6 @@
                 </Style>
             </Border.Style>
             <DockPanel x:Name="BarPanel" LastChildFill="True">
-                <!-- Close (BF-04): a docked bar retracts into its edge; a floating bar hides to the notification area.
-                     Declared first so it sits outermost at the end of the bar. -->
-                <Button x:Name="CloseButton" Click="OnCloseClick">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource BarButton}">
-                            <Setter Property="ToolTip" Value="{Binding [Bar_Close], Source={x:Static loc:Loc.Instance}}" />
-                            <Setter Property="AutomationProperties.Name" Value="{Binding [Bar_Close], Source={x:Static loc:Loc.Instance}}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Shell.DockEnabled}" Value="True">
-                                    <Setter Property="ToolTip" Value="{Binding [Bar_Hide], Source={x:Static loc:Loc.Instance}}" />
-                                    <Setter Property="AutomationProperties.Name" Value="{Binding [Bar_Hide], Source={x:Static loc:Loc.Instance}}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="12" Text="&#xE711;"
-                               Foreground="{DynamicResource BfSecondaryTextBrush}" />
-                </Button>
                 <!-- Back to the normal window (app icon) -->
                 <Button x:Name="HomeButton" Style="{StaticResource BarButton}" Command="{Binding Shell.ShowNormalCommand}"
                         ToolTip="{Binding [Normal_Tooltip], Source={x:Static loc:Loc.Instance}}"

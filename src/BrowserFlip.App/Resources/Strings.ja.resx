@@ -184,10 +184,4 @@
   <data name="Menu_Show" xml:space="preserve">
     <value>BrowserFlip を表示</value>
   </data>
-  <data name="Bar_Close" xml:space="preserve">
-    <value>閉じる</value>
-  </data>
-  <data name="Bar_Hide" xml:space="preserve">
-    <value>画面端に隠す</value>
-  </data>
 </root>
