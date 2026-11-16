@@ -1,0 +1,34 @@
+## .NET / Visual Studio
+bin/
+obj/
+out/
+artifacts/
+publish/
+TestResults/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+.vs/
+.vscode/
+.idea/
+*.binlog
+coverage*.xml
+coverage*.json
+*.coverage
+*.trx
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Secrets — never commit
+*.pfx
+*.p12
+*.snk
+*.pem
+*.key
+.env
+.env.*
+secrets.json
