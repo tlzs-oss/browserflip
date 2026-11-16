@@ -33,7 +33,7 @@ New in 0.2 (unreleased):
 - **Compact bar** — a small horizontal or vertical toolbar with your browsers; the default one is highlighted. By default it is docked to the right edge of the primary monitor.
 - **Edge docking** — drag the bar to any edge (left, right, top or bottom) to dock it; a translucent outline previews where it will land. Top/bottom edges make it horizontal, left/right edges vertical, automatically. Drag it away from the edges to let it float. It never changes your work area.
 - **Auto-hide** — a docked bar fades away and leaves a thin strip along the edge; move the mouse to the edge where the bar is (or click the strip, or use the tray icon) and it fades back in.
-- **Notification area icon** — always present: left click shows the compact bar, right click opens a menu. Closing the main window keeps BrowserFlip running in the compact bar; exit with **Exit BrowserFlip** in the tray menu.
+- **Notification area icon** — always present: left click shows the compact bar, right click opens a menu. Closing the main window (X) minimizes BrowserFlip: a docked bar stays at its edge, hidden; a floating bar is hidden with the window and comes back from the tray where it was. Exit with **Exit BrowserFlip** in the tray menu.
 - **Multi-monitor and per-monitor DPI** — the bar and window are re-placed after monitor, resolution, scaling, taskbar or sleep/resume changes and never get lost off-screen.
 
 ## How it works

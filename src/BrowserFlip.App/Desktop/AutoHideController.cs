@@ -67,6 +67,15 @@ public sealed class AutoHideController
         Expand(now, InitialIdle);
     }
 
+    /// <summary>Collapses immediately (main window closed with a docked bar). No effect while disabled.</summary>
+    public void CollapseNow(DateTimeOffset now)
+    {
+        if (_enabled)
+        {
+            Transition(AutoHideState.Collapsed, now);
+        }
+    }
+
     /// <summary>Expands immediately (tray "show", keyboard focus, tab click) and holds briefly.</summary>
     public void ForceExpand(DateTimeOffset now) => Expand(now, InitialIdle);
 

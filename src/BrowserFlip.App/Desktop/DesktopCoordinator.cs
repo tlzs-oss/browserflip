@@ -46,10 +46,12 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _applying;
     private bool _exiting;
     private bool _menuOpen;
+    private bool _trayOnly;          // floating bar hidden by closing the main window (tray only)
+    private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
+    private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
     private PixelRect _expandedRect;
     private PixelRect _tabRect;
     private PixelRect _triggerZone;
-    private (Size Size, bool Vertical)? _expandedDip;
     private DockPreviewWindow? _preview;
     private PixelRect _lastTarget;
     private PixelRect _dragStartRect;
@@ -73,6 +75,7 @@ public sealed class DesktopCoordinator : IDisposable
 
         _mainWindow = new MainWindow { DataContext = main, Shell = shell };
         _bar = new CompactBarWindow { DataContext = new DesktopContext(main, shell) };
+        BarHasKeyboardFocus = () => _bar.IsKeyboardFocusWithin;
 
         _autoHideTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = IdlePollInterval };
         _autoHideTimer.Tick += (_, _) => AutoHideTick();
@@ -96,11 +99,20 @@ public sealed class DesktopCoordinator : IDisposable
         _bar.MenuRequested += (_, _) => ShowMenu(fromTray: false);
         _bar.IsKeyboardFocusWithinChanged += (_, e) =>
         {
-            if (e.NewValue is true && IsKeyboardInput())
+            if (e.NewValue is not true)
+            {
+                _keyboardEngaged = false;
+            }
+            else if (LastInputWasKeyboard())
             {
                 Expand(activate: false);
             }
         };
+
+        // Only real typing on the bar holds it open. WPF reports a window activation (ours, e.g. after a
+        // tray click) as keyboard input too, so "most recent input device" alone is not proof of use (T13).
+        _bar.PreviewKeyDown += (_, _) => _keyboardEngaged = true;
+        _bar.PreviewMouseDown += (_, _) => _keyboardEngaged = false;
         _bar.DpiChanged += (_, _) => ScheduleLayout();
 
         // In compact mode the bar is the active surface: re-check the default browser when the
@@ -127,6 +139,12 @@ public sealed class DesktopCoordinator : IDisposable
 
     /// <summary>True while the docked bar is collapsed to its edge tab.</summary>
     internal bool IsCollapsed => _autoHide.IsCollapsed;
+
+    /// <summary>Whether the bar has keyboard focus (replaceable in tests: activation cannot be done there).</summary>
+    internal Func<bool> BarHasKeyboardFocus { get; set; }
+
+    /// <summary>Whether WPF's most recent input device is the keyboard (replaceable in tests).</summary>
+    internal Func<bool> LastInputWasKeyboard { get; set; } = IsKeyboardInput;
 
     /// <summary>False never activates (focuses) a window (tests on a shared desktop).</summary>
     internal bool AllowActivation { get; set; } = true;
@@ -201,17 +219,31 @@ public sealed class DesktopCoordinator : IDisposable
             SaveMainBounds(); // remember the main window position before hiding it
             _mainWindow.Hide();
             _autoHide.SetEnabled(_shell.IsAutoHideActive, Now());
-            _autoHide.ForceExpand(Now()); // always start expanded, never as a bare tab
+            _autoHide.ForceExpand(Now()); // switching to the bar: show it expanded first
+            if (_enterCollapsed)
+            {
+                _autoHide.CollapseNow(Now()); // main window closed: a docked bar goes straight to its edge strip
+            }
+
+            _enterCollapsed = false;
+            _bar.CancelCollapseAnimation();
             _shell.IsBarCollapsed = _autoHide.IsCollapsed;
             Layout();
-            if (!_bar.IsVisible)
+            if (_trayOnly)
+            {
+                _bar.Hide(); // floating bar + main window closed: notification area only
+            }
+            else if (!_bar.IsVisible)
             {
                 _bar.Show();
+                ScheduleLayout(); // re-measure once the window is live (a never-shown window measures short)
             }
         }
         else
         {
             _bar.Hide();
+            _trayOnly = false; // the main window is the visible surface now; the bar shows normally next time
+            _enterCollapsed = false;
 
             // Leaving compact mode always brings the main window back (never "tray only").
             ShowMainWindow(activate: false);
@@ -257,12 +289,39 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        // Closing the window never exits: BrowserFlip keeps running with the compact bar and the
-        // notification-area icon. Only "Exit" (tray / bar menu), logoff or shutdown end the process.
+        // Closing the window minimizes BrowserFlip (Owner decision): it keeps running in the notification
+        // area. Only "Exit" (tray / bar menu), logoff or shutdown end the process.
         e.Cancel = true;
         SaveMainBounds();
-        _mainWindow.Dispatcher.BeginInvoke(ShowToolbar);
+        _mainWindow.Dispatcher.BeginInvoke(MinimizeToTray);
     }
+
+    /// <summary>
+    /// Main window closed (X): never changes docking, edge, monitor, orientation or saved positions.
+    /// Docked bar: stays at its edge, collapsed to the 3-5 px strip (expands on approach). Floating bar:
+    /// hidden with the window (tray only); the tray brings it back where it was.
+    /// </summary>
+    internal void MinimizeToTray()
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        _trayOnly = !_shell.DockEnabled;
+        _enterCollapsed = _shell.DockEnabled;
+        if (_shell.IsCompact)
+        {
+            ApplyMode();
+        }
+        else
+        {
+            _shell.IsCompact = true; // ApplyMode applies the flags above
+        }
+    }
+
+    /// <summary>The bar is hidden with only the notification-area icon left (floating bar, window closed).</summary>
+    internal bool IsTrayOnly => _trayOnly;
 
     /// <summary>BrowserFlip was started again while running: bring the current surface forward.</summary>
     internal void ShowRunningInstance()
@@ -281,6 +340,7 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
+        _trayOnly = false;
         if (!_shell.IsCompact)
         {
             _shell.IsCompact = true; // ApplyMode hides the main window and shows the bar
@@ -381,7 +441,7 @@ public sealed class DesktopCoordinator : IDisposable
 
     private void UpdateTimers()
     {
-        var autoHide = _shell.IsCompact && _shell.IsAutoHideActive && !_exiting;
+        var autoHide = _shell.IsCompact && _shell.IsAutoHideActive && !_trayOnly && !_exiting;
         if (autoHide)
         {
             _autoHideTimer.Start();
@@ -426,17 +486,9 @@ public sealed class DesktopCoordinator : IDisposable
             var vertical = _shell.IsVertical;
 
             var maxLengthDip = ((vertical ? work.Height : work.Width) / monitor.Scale) - (2 * DockMarginDip);
-            // The bar content is collapsed (Visibility) while only the edge strip shows, so it measures as
-            // 0: keep the size measured while expanded. Otherwise the strip and its trigger zone would shrink
-            // to a square at the next layout (T7).
             var maxLength = Math.Max(_shell.BarThickness, maxLengthDip);
-            var dip = _shell.IsBarCollapsed && _expandedDip is { } cached && cached.Vertical == vertical
-                ? cached.Size
-                : _bar.MeasureExpanded(maxLength);
-            if (!_shell.IsBarCollapsed)
-            {
-                _expandedDip = (dip, vertical);
-            }
+            // The bar content is only Hidden while collapsed, so it measures at its real size here too (T7, T13).
+            var dip = _bar.MeasureExpanded(maxLength);
 
             var width = Px(dip.Width, monitor.Scale);
             var height = Px(dip.Height, monitor.Scale);
@@ -767,7 +819,7 @@ public sealed class DesktopCoordinator : IDisposable
 
         // Keyboard focus only holds the bar open while the user is actually using the keyboard on it;
         // a mouse click (which also focuses) must not keep it open forever.
-        var keyboardFocus = _bar.IsKeyboardFocusWithin && IsKeyboardInput();
+        var keyboardFocus = _keyboardEngaged && BarHasKeyboardFocus();
         var suppressed = _bar.IsDragging
                          || _menuOpen
                          || keyboardFocus
@@ -822,7 +874,10 @@ public sealed class DesktopCoordinator : IDisposable
 
         if (!_bar.IsVisible)
         {
+            _trayOnly = false;
+            Layout(); // restore the saved floating position / docked place before showing
             _bar.Show();
+            ScheduleLayout();
         }
 
         if (activate && AllowActivation)
