@@ -56,10 +56,10 @@
     <value>点击在 Windows 设置中查看</value>
   </data>
   <data name="Card_HintTopPage" xml:space="preserve">
-    <value>点击打开“默认应用”，然后在其中选择</value>
+    <value>在“默认应用”中选择</value>
   </data>
   <data name="Card_Missing" xml:space="preserve">
-    <value>未找到 — 可能已被卸载</value>
+    <value>未找到</value>
   </data>
   <data name="Empty_NoBrowsers" xml:space="preserve">
     <value>未找到任何浏览器。</value>
@@ -207,5 +207,11 @@
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
     <value>刷新 (F5)</value>
+  </data>
+  <data name="Card_MissingDetail" xml:space="preserve">
+    <value>未找到 — 可能已被卸载</value>
+  </data>
+  <data name="Card_HintTopPageDetail" xml:space="preserve">
+    <value>点击打开“默认应用”，然后在其中选择</value>
   </data>
 </root>

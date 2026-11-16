@@ -62,8 +62,17 @@ public sealed class BrowserCardViewModel : ObservableObject
         _ => Loc.Instance["Card_Hint"],
     };
 
-    /// <summary>Name announced by screen readers.</summary>
-    public string AutomationName => HasBadge ? $"{DisplayName}, {BadgeText}. {HintText}" : $"{DisplayName}. {HintText}";
+    /// <summary>Full explanation for the tooltip (the card itself shows the short <see cref="HintText"/>).</summary>
+    public string DetailText => Browser.Health switch
+    {
+        BrowserHealth.ExecutableMissing => Loc.Instance["Card_MissingDetail"],
+        _ when IsDefault => Loc.Instance["Card_HintDefault"],
+        BrowserHealth.NotInRegisteredApplications => Loc.Instance["Card_HintTopPageDetail"],
+        _ => Loc.Instance["Card_Hint"],
+    };
+
+    /// <summary>Name announced by screen readers (uses the full explanation).</summary>
+    public string AutomationName => HasBadge ? $"{DisplayName}, {BadgeText}. {DetailText}" : $"{DisplayName}. {DetailText}";
 
     public void Relocalize()
     {
@@ -72,6 +81,7 @@ public sealed class BrowserCardViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPartialDefault));
         OnPropertyChanged(nameof(BadgeText));
         OnPropertyChanged(nameof(HintText));
+        OnPropertyChanged(nameof(DetailText));
         OnPropertyChanged(nameof(AutomationName));
     }
 }

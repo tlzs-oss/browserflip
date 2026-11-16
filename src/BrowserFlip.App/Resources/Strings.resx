@@ -56,10 +56,10 @@
     <value>Click to review in Windows Settings</value>
   </data>
   <data name="Card_HintTopPage" xml:space="preserve">
-    <value>Click to open Default apps, then choose it there</value>
+    <value>Opens Default apps</value>
   </data>
   <data name="Card_Missing" xml:space="preserve">
-    <value>Not found — it may have been uninstalled</value>
+    <value>Not found</value>
   </data>
   <data name="Empty_NoBrowsers" xml:space="preserve">
     <value>No browsers were found.</value>
@@ -207,5 +207,11 @@
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
     <value>Refresh (F5)</value>
+  </data>
+  <data name="Card_MissingDetail" xml:space="preserve">
+    <value>Not found — it may have been uninstalled</value>
+  </data>
+  <data name="Card_HintTopPageDetail" xml:space="preserve">
+    <value>Click to open Default apps, then choose it there</value>
   </data>
 </root>

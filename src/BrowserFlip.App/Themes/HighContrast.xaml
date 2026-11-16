@@ -1,22 +1,22 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- High Contrast: every brush uses the user's system colors. ThemeManager reloads this dictionary when they change. -->
-    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfWindowBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfCardBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
     <!-- Hover keeps WindowColor so WindowText stays readable; the border/focus rectangle carries the feedback. -->
-    <SolidColorBrush x:Key="CardHoverBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="CardPressedBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="CardBorderBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="AccentBrush" Color="{x:Static SystemColors.HotTrackColor}" />
-    <SolidColorBrush x:Key="AccentForegroundBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
-    <SolidColorBrush x:Key="PrimaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="SecondaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="InfoBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="ErrorBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
-    <SolidColorBrush x:Key="WarningForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="ErrorForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="SuccessForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
-    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="{x:Static SystemColors.ControlColor}" />
+    <SolidColorBrush x:Key="BfCardHoverBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfCardPressedBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfCardBorderBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfAccentBrush" Color="{x:Static SystemColors.HotTrackColor}" />
+    <SolidColorBrush x:Key="BfAccentForegroundBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
+    <SolidColorBrush x:Key="BfPrimaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfSecondaryTextBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfInfoBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfSuccessBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfWarningBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfErrorBackgroundBrush" Color="{x:Static SystemColors.WindowColor}" />
+    <SolidColorBrush x:Key="BfWarningForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfErrorForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfSuccessForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfControlBackgroundBrush" Color="{x:Static SystemColors.ControlColor}" />
 </ResourceDictionary>

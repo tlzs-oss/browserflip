@@ -12,13 +12,13 @@
         SizeToContent="Manual"
         UseLayoutRounding="True"
 
-        Foreground="{DynamicResource PrimaryTextBrush}"
+        Foreground="{DynamicResource BfPrimaryTextBrush}"
         FontSize="13"
         AutomationProperties.Name="{Binding [Bar_Name], Source={x:Static loc:Loc.Instance}}">
 
     <Window.Resources>
         <Style x:Key="BarButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="2" />
@@ -37,10 +37,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BfCardHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CardPressedBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BfCardPressedBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -55,7 +55,7 @@
     <Grid>
         <!-- Expanded toolbar -->
         <Border x:Name="BarRoot" CornerRadius="12" BorderThickness="1" Padding="3"
-                Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+                Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}"
                 MouseLeftButtonDown="OnBarMouseLeftButtonDown">
             <Border.Style>
                 <Style TargetType="Border">
@@ -83,11 +83,11 @@
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Text" Value="&#xE718;" />
-                                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Shell.IsTopmost}" Value="True">
                                         <Setter Property="Text" Value="&#xE840;" />
-                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource BfAccentBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -99,7 +99,7 @@
                         ToolTip="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}"
                         AutomationProperties.Name="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">
                     <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16" Text="&#xE713;"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                               Foreground="{DynamicResource BfSecondaryTextBrush}" />
                 </Button>
                 <!-- Browsers (fills; scrolls when there are many) -->
                 <ScrollViewer x:Name="BrowserScroller" Focusable="False"
@@ -122,11 +122,11 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource BarButton}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsDefault}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                    <Setter Property="Background" Value="{DynamicResource InfoBackgroundBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource BfAccentBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource BfInfoBackgroundBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding IsPartialDefault}" Value="True">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource WarningForegroundBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource BfWarningForegroundBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -136,7 +136,7 @@
                                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                             <TextBlock Text="{Binding BadgeText}"
                                                        Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}" />
-                                            <TextBlock Text="{Binding HintText}" Opacity="0.8" />
+                                            <TextBlock Text="{Binding DetailText}" Opacity="0.8" />
                                         </StackPanel>
                                     </Button.ToolTip>
                                     <Grid Width="{Binding DataContext.Shell.BarIconSize, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -174,7 +174,7 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="Button">
-                                <Border x:Name="Pill" CornerRadius="4" Background="{DynamicResource AccentBrush}" Opacity="0.85" />
+                                <Border x:Name="Pill" CornerRadius="4" Background="{DynamicResource BfAccentBrush}" Opacity="0.85" />
                                 <ControlTemplate.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="Pill" Property="Opacity" Value="1" />
