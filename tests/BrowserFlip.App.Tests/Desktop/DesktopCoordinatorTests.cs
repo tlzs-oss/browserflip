@@ -473,6 +473,26 @@ public sealed class DesktopCoordinatorTests
     }
 
     [Fact]
+    public void Docked_bar_X_clicked_on_its_screen_edge_side_does_not_expand_again_until_the_pointer_leaves()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            var bar = h.BarBounds;
+            var onX = (bar.Right - 3, bar.Bottom - 10); // the part of the X button inside the edge trigger zone
+            h.Monitors.Cursor = onX;
+            CloseBar(h);
+            h.Hover(onX.Item1, onX.Item2, 600);
+            Assert.True(h.Coordinator.IsCollapsed, "no re-expansion right after X");
+
+            h.Hover(1000, 1000, 100); // the pointer leaves ...
+            var strip = h.BarBounds;
+            h.Hover(Primary.WorkArea.Right - 1, strip.Top + (strip.Height / 2), 300); // ... and comes back
+            Assert.False(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
     public void Tray_restore_of_a_docked_bar_expands_it_and_it_hides_again_when_left_alone()
     {
         Run(() =>
@@ -559,7 +579,8 @@ public sealed class DesktopCoordinatorTests
                     CloseBar(h);
                     Assert.True(h.Coordinator.IsCollapsed, $"cycle {i}");
                     var strip = h.BarBounds;
-                    h.Hover(strip.Left + (strip.Width / 2), Primary.WorkArea.Bottom - 1, 300);
+                    h.Hover(1000, 1000, 100); // the pointer moves away after clicking X ...
+                    h.Hover(strip.Left + (strip.Width / 2), Primary.WorkArea.Bottom - 1, 300); // ... and comes back
                     Assert.False(h.Coordinator.IsCollapsed, $"cycle {i}");
                     Assert.Equal(bar, h.BarBounds);
                 }
@@ -874,6 +895,29 @@ public sealed class DesktopCoordinatorTests
             Harness.Pump();
             Assert.False(h.Coordinator.Bar.Topmost);
             Assert.Equal(docked, h.Shell.DockEnabled); // docking unchanged by the pin
+        });
+    }
+
+    [Fact]
+    public void Docked_bar_is_never_raised_over_a_full_screen_app_and_detection_runs_with_the_pin_off()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            Assert.False(h.Shell.IsTopmost);
+            Assert.True(h.Coordinator.FullScreenPolling); // pin off, docked: still detects full screen
+            h.Collapse();
+
+            h.Shell.IsFullScreenAppActive = true; // a presentation / full-screen video
+            var raises = h.Coordinator.BarRaises;
+            var strip = h.BarBounds;
+            h.Hover(Primary.WorkArea.Right - 1, strip.Top + (strip.Height / 2), 300);
+            Assert.Equal(raises, h.Coordinator.BarRaises); // expanded behind it, not raised over it
+
+            h.Hover(1000, 1000, 2500);
+            h.Shell.IsFullScreenAppActive = false;
+            h.Hover(Primary.WorkArea.Right - 1, strip.Top + (strip.Height / 2), 300);
+            Assert.True(h.Coordinator.BarRaises > raises); // normally raised (without activation)
         });
     }
 

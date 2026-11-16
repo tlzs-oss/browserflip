@@ -55,6 +55,7 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _trayOnly;          // every window hidden, only the notification-area icon (X on the main window / floating bar)
     private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
     private PixelRect? _mainRestore;         // main window rectangle before a drag that docked it (undo a Windows snap)
+    private bool _closedUnderPointer;        // docked bar retracted by X: no edge expansion until the cursor leaves the zone once
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
     private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
     private PixelRect _expandedRect;
@@ -266,10 +267,23 @@ public sealed class DesktopCoordinator : IDisposable
             _trayOnly = false; // the main window is the visible surface now; the bar shows normally next time
             _enterCollapsed = false;
             _floatingCenter = null;
-            RestoreMainAfterDock();
+            var restored = RestoreMainAfterDock();
 
             // Leaving compact mode always brings the main window back (never "tray only").
             ShowMainWindow(activate: false);
+            if (restored is { } at)
+            {
+                // Moving the hidden window to a monitor with another DPI may have shifted it (WM_DPICHANGED): once more.
+                _ = _mainWindow.Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+                {
+                    var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+                    var now = hwnd == IntPtr.Zero ? default : _placement.GetBounds(hwnd);
+                    if (hwnd != IntPtr.Zero && (now.Left != at.X || now.Top != at.Y))
+                    {
+                        _placement.Move(hwnd, at.X, at.Y);
+                    }
+                });
+            }
         }
 
         UpdateTimers();
@@ -470,18 +484,18 @@ public sealed class DesktopCoordinator : IDisposable
         => DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, cursor) is { } edge && IsOuterEdge(monitor, edge) ? edge : null;
 
     /// <summary>Applies the main window geometry from before the drag that docked it (position, width; height follows content).</summary>
-    private void RestoreMainAfterDock()
+    private (int X, int Y)? RestoreMainAfterDock()
     {
         if (_mainRestore is not { } r)
         {
-            return;
+            return null;
         }
 
         _mainRestore = null;
         var hwnd = new WindowInteropHelper(_mainWindow).Handle;
         if (hwnd == IntPtr.Zero)
         {
-            return;
+            return null;
         }
 
         var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
@@ -490,6 +504,7 @@ public sealed class DesktopCoordinator : IDisposable
         _mainWindow.Width = Math.Max(_mainWindow.MinWidth, Math.Min(r.Width, target.WorkArea.Width) / target.Scale);
         var fixedRect = DockLayout.EnsureVisible(r, _monitors.GetMonitors(), 48);
         _placement.Move(hwnd, fixedRect.Left, fixedRect.Top);
+        return (fixedRect.Left, fixedRect.Top);
     }
 
     /// <summary>Edge the main window would dock to if released now (null = none).</summary>
@@ -550,6 +565,8 @@ public sealed class DesktopCoordinator : IDisposable
             _bar.CancelCollapseAnimation();
             _shell.IsBarCollapsed = true;
             Layout();
+            // The X may lie inside the edge zone: if the pointer is there, wait until it leaves the zone once.
+            _closedUnderPointer = _monitors.GetCursorPosition() is { } p && _triggerZone.Contains(p.X, p.Y);
             return;
         }
 
@@ -1052,7 +1069,12 @@ public sealed class DesktopCoordinator : IDisposable
 
         // A held mouse button never expands a hidden bar (dragging a scroll bar, a window to Snap or a
         // file across the edge is not "approaching the bar").
-        var hoverTab = overTab && !_monitors.IsMouseButtonDown();
+        if (_closedUnderPointer && !overTab)
+        {
+            _closedUnderPointer = false;
+        }
+
+        var hoverTab = overTab && !_monitors.IsMouseButtonDown() && !_closedUnderPointer;
 
         var wasCollapsed = _autoHide.IsCollapsed;
         _ = _autoHide.Update(new AutoHideInput(Now(), overBar, hoverTab, suppressed));
@@ -1114,9 +1136,16 @@ public sealed class DesktopCoordinator : IDisposable
     {
         if (!_shell.IsFullScreenAppActive)
         {
+            BarRaises++;
             _bar.BringToFront();
         }
     }
+
+    /// <summary>How often the bar was raised above other windows (tests).</summary>
+    internal int BarRaises { get; private set; }
+
+    /// <summary>True while full-screen / presentation detection runs (tests).</summary>
+    internal bool FullScreenPolling => _fullScreenTimer.IsEnabled;
 
     /// <summary>Applies the controller state: fade out then shrink to the edge strip, or grow then fade in.</summary>
     private void ApplyCollapsed()
