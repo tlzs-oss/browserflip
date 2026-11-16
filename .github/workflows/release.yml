@@ -19,6 +19,8 @@ on:
       - "Directory.Build.props"
       - "Directory.Packages.props"
       - "global.json"
+      - "src/BrowserFlip.App/app.manifest"
+      - "assets/icon/**"
 
 permissions:
   contents: read
