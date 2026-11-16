@@ -115,15 +115,6 @@
   <data name="Options_Header" xml:space="preserve">
     <value>表示オプション</value>
   </data>
-  <data name="Options_Dock" xml:space="preserve">
-    <value>コンパクトバーを画面端にドッキング</value>
-  </data>
-  <data name="Options_DockEdge" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="Options_AutoHide" xml:space="preserve">
-    <value>ドッキング中は自動的に隠す（マウス接近で表示）</value>
-  </data>
   <data name="Options_Theme" xml:space="preserve">
     <value>テーマ</value>
   </data>
@@ -132,24 +123,6 @@
   </data>
   <data name="Options_FloatingOrientation" xml:space="preserve">
     <value>ドッキングしていないときの向き</value>
-  </data>
-  <data name="Options_Tray" xml:space="preserve">
-    <value>通知領域にアイコンを表示</value>
-  </data>
-  <data name="Options_CloseToTray" xml:space="preserve">
-    <value>ウィンドウを閉じても通知領域で動作を継続</value>
-  </data>
-  <data name="Dock_Left" xml:space="preserve">
-    <value>左</value>
-  </data>
-  <data name="Dock_Right" xml:space="preserve">
-    <value>右</value>
-  </data>
-  <data name="Dock_Top" xml:space="preserve">
-    <value>上</value>
-  </data>
-  <data name="Dock_Bottom" xml:space="preserve">
-    <value>下</value>
   </data>
   <data name="Theme_System" xml:space="preserve">
     <value>システム</value>
@@ -172,29 +145,14 @@
   <data name="Orientation_Vertical" xml:space="preserve">
     <value>縦</value>
   </data>
-  <data name="Menu_Show" xml:space="preserve">
-    <value>BrowserFlip を表示</value>
-  </data>
   <data name="Menu_Topmost" xml:space="preserve">
     <value>常に手前に表示</value>
-  </data>
-  <data name="Menu_Compact" xml:space="preserve">
-    <value>コンパクトバー</value>
-  </data>
-  <data name="Menu_Dock" xml:space="preserve">
-    <value>画面端にドッキング</value>
-  </data>
-  <data name="Menu_DockEdge" xml:space="preserve">
-    <value>ドッキング位置</value>
-  </data>
-  <data name="Menu_AutoHide" xml:space="preserve">
-    <value>自動的に隠す</value>
   </data>
   <data name="Menu_Settings" xml:space="preserve">
     <value>設定…</value>
   </data>
   <data name="Menu_Exit" xml:space="preserve">
-    <value>終了</value>
+    <value>BrowserFlip を終了</value>
   </data>
   <data name="Bar_ShowTab" xml:space="preserve">
     <value>BrowserFlip ツールバーを表示</value>
@@ -213,5 +171,11 @@
   </data>
   <data name="Card_HintTopPageDetail" xml:space="preserve">
     <value>クリックして「既定のアプリ」を開き、そこで選択</value>
+  </data>
+  <data name="Menu_ShowToolbar" xml:space="preserve">
+    <value>コンパクトバーを表示</value>
+  </data>
+  <data name="Options_FloatingOrientationHint" xml:space="preserve">
+    <value>コンパクトバーを画面端にドッキングしていないときの向きです。バーを画面端へドラッグするとドッキングし、上下の端では横、左右の端では縦に自動で切り替わります。</value>
   </data>
 </root>

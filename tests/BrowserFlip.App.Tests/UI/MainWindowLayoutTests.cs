@@ -114,15 +114,8 @@ public sealed class MainWindowLayoutTests
         Assert.True(detected);
     }
 
-    private static void EnsureApplication()
-    {
-        if (Application.Current is null)
-        {
-            var app = new BrowserFlip.App.App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-            app.InitializeComponent();
-            ThemeManager.Initialize(app, ThemePreference.Light);
-        }
-    }
+    // Never on a thread that pumps its dispatcher (that would run the real App.OnStartup).
+    private static void EnsureApplication() => BrowserFlip.Core.Tests.Desktop.DesktopCoordinatorTests.EnsureApplication();
 
     private static (double Height, List<string> Trimmed) Layout(bool optionsExpanded, bool edgeCases)
         => LayoutCore(optionsExpanded, edgeCases, defaultProgId: "MSEdgeHTM", out _);

@@ -279,52 +279,28 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <CheckBox Grid.Row="0" VerticalAlignment="Center"
-                                  IsChecked="{Binding DockEnabled, Mode=TwoWay}">
-                            <TextBlock Text="{Binding [Options_Dock], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-                        <ComboBox Grid.Row="0" Grid.Column="1" Width="132" Margin="8,0,0,0" VerticalAlignment="Center"
-                                  IsEnabled="{Binding DockEnabled}"
-                                  ItemsSource="{Binding DockEdges}" SelectedItem="{Binding SelectedDockEdge, Mode=TwoWay}" DisplayMemberPath="DisplayName"
-                                  AutomationProperties.Name="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" />
-
-                        <CheckBox Grid.Row="1" Grid.ColumnSpan="2" Margin="24,6,0,0"
-                                  IsChecked="{Binding AutoHide, Mode=TwoWay}" IsEnabled="{Binding DockEnabled}">
-                            <TextBlock Text="{Binding [Options_AutoHide], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-
-                        <TextBlock Grid.Row="2" Margin="0,10,0,0" VerticalAlignment="Center" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="2" Grid.Column="1" Width="132" Margin="8,10,0,0" ItemsSource="{Binding Themes}"
+                        <!-- Docking, auto-hide and the notification-area icon are fixed behavior (no options):
+                             drag the compact bar to any screen edge to dock it; it hides there and comes back on hover. -->
+                        <TextBlock Grid.Row="0" Margin="0,4,0,0" VerticalAlignment="Center" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" Width="132" Margin="8,4,0,0" ItemsSource="{Binding Themes}"
                                   SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
 
-                        <TextBlock Grid.Row="3" Margin="0,6,0,0" VerticalAlignment="Center" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="3" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding BarSizes}"
+                        <TextBlock Grid.Row="1" Margin="0,6,0,0" VerticalAlignment="Center" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding BarSizes}"
                                   SelectedItem="{Binding SelectedBarSize, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
 
-                        <TextBlock Grid.Row="4" Margin="0,6,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                        <TextBlock Grid.Row="2" Margin="0,6,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="4" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding Orientations}"
+                        <ComboBox Grid.Row="2" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding Orientations}"
                                   SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-
-                        <Separator Grid.Row="5" Grid.ColumnSpan="2" Margin="0,10,0,6" Opacity="0.5" />
-
-                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2"
-                                  IsChecked="{Binding TrayEnabled, Mode=TwoWay}">
-                            <TextBlock Text="{Binding [Options_Tray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" Margin="24,6,0,0"
-                                  IsChecked="{Binding CloseToTray, Mode=TwoWay}" IsEnabled="{Binding IsCloseToTrayAvailable}">
-                            <TextBlock Text="{Binding [Options_CloseToTray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource BfSecondaryTextBrush}"
+                                   Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
                     </Grid>
                 </Border>
             </Expander>

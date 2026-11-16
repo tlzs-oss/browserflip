@@ -25,9 +25,12 @@ public sealed class DesktopCoordinator : IDisposable
     private const double SnapThresholdDip = 24;
     private const double DockMarginDip = 4;
     private const double CursorHysteresisDip = 8;
-    private const double TabProximityDip = 6;
+    private const double TriggerAlongMarginDip = 8;
+    private const double TriggerOvershootDip = 4;
+    private static readonly TimeSpan IdlePollInterval = TimeSpan.FromMilliseconds(40);
+    private static readonly TimeSpan MinPollInterval = TimeSpan.FromMilliseconds(10);
 
-    private readonly Application _app;
+    private readonly Application? _app;
     private readonly MainViewModel _main;
     private readonly ShellViewModel _shell;
     private readonly IMonitorService _monitors;
@@ -43,17 +46,18 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _applying;
     private bool _exiting;
     private bool _menuOpen;
-    private bool _mainHidden;
     private PixelRect _expandedRect;
     private PixelRect _tabRect;
+    private PixelRect _triggerZone;
+    private (Size Size, bool Vertical)? _expandedDip;
+    private DockPreviewWindow? _preview;
     private PixelRect _lastTarget;
-    private PixelRect _barWorkArea;
     private PixelRect _dragStartRect;
     private int _verifyAttempts;
     private double _barScale = 1;
 
     public DesktopCoordinator(
-        Application app,
+        Application? app,
         MainViewModel main,
         ShellViewModel shell,
         IMonitorService monitors,
@@ -70,17 +74,24 @@ public sealed class DesktopCoordinator : IDisposable
         _mainWindow = new MainWindow { DataContext = main, Shell = shell };
         _bar = new CompactBarWindow { DataContext = new DesktopContext(main, shell) };
 
-        _autoHideTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = TimeSpan.FromMilliseconds(100) };
+        _autoHideTimer = new DispatcherTimer(DispatcherPriority.Input) { Interval = IdlePollInterval };
         _autoHideTimer.Tick += (_, _) => AutoHideTick();
         _fullScreenTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _fullScreenTimer.Tick += (_, _) => _shell.IsFullScreenAppActive = _monitors.IsFullScreenOrPresentationActive();
 
         _mainWindow.Closing += OnMainClosing;
         _mainWindow.Topmost = _shell.EffectiveTopmost;
-        _bar.Topmost = _shell.EffectiveTopmost;
+        _bar.Topmost = BarTopmost;
         _bar.Closing += OnBarClosing;
         _bar.DragStarted += (_, _) => OnBarDragStarted();
         _bar.DragCompleted += (_, _) => OnBarDragCompleted();
+        _bar.LocationChanged += (_, _) =>
+        {
+            if (_bar.IsDragging)
+            {
+                UpdateDragPreview();
+            }
+        };
         _bar.TabInvoked += (_, _) => Expand(activate: true);
         _bar.MenuRequested += (_, _) => ShowMenu(fromTray: false);
         _bar.IsKeyboardFocusWithinChanged += (_, e) =>
@@ -103,10 +114,40 @@ public sealed class DesktopCoordinator : IDisposable
         _monitors.DisplayChanged += (_, _) => OnDisplayChanged();
         _main.PropertyChanged += OnMainChanged;
         Loc.Instance.PropertyChanged += OnLanguageChanged;
-        _app.SessionEnding += (_, _) => Exit(); // logoff / shutdown: persist placement, release the tray icon
+        if (_app is not null)
+        {
+            _app.SessionEnding += (_, _) => Exit(); // logoff / shutdown: persist placement, release the tray icon
+        }
     }
 
     public MainWindow MainWindow => _mainWindow;
+
+    /// <summary>Clock used by auto-hide (replaceable in tests).</summary>
+    internal Func<DateTimeOffset> Now { get; set; } = () => DateTimeOffset.UtcNow;
+
+    /// <summary>True while the docked bar is collapsed to its edge tab.</summary>
+    internal bool IsCollapsed => _autoHide.IsCollapsed;
+
+    /// <summary>False never activates (focuses) a window (tests on a shared desktop).</summary>
+    internal bool AllowActivation { get; set; } = true;
+
+    /// <summary>Current cursor polling interval of auto-hide (tests).</summary>
+    internal TimeSpan PollInterval => _autoHideTimer.Interval;
+
+    /// <summary>False keeps the drag preview computed but never shown (tests).</summary>
+    internal bool ShowDragPreview { get; set; } = true;
+
+    /// <summary>Edge the bar would dock to if the current drag ended now (null = float).</summary>
+    internal DockEdge? PreviewEdge { get; private set; }
+
+    /// <summary>Area that expands the collapsed bar (physical pixels).</summary>
+    internal PixelRect TriggerZone => _triggerZone;
+
+    /// <summary>
+    /// A docked bar stays on top (it must be reachable from its edge even over maximized windows),
+    /// except while a full-screen app or presentation runs. A floating bar follows the user setting.
+    /// </summary>
+    private bool BarTopmost => _shell.DockEnabled ? !_shell.IsFullScreenAppActive : _shell.EffectiveTopmost;
 
     public CompactBarWindow Bar => _bar;
 
@@ -137,7 +178,7 @@ public sealed class DesktopCoordinator : IDisposable
         _tray = null;
         _bar.Close();
         _mainWindow.Close();
-        _app.Shutdown();
+        _app?.Shutdown();
     }
 
     public void Dispose()
@@ -159,8 +200,8 @@ public sealed class DesktopCoordinator : IDisposable
         {
             SaveMainBounds(); // remember the main window position before hiding it
             _mainWindow.Hide();
-            _autoHide.SetEnabled(_shell.IsAutoHideActive, DateTimeOffset.UtcNow);
-            _autoHide.ForceExpand(DateTimeOffset.UtcNow); // always start expanded, never as a bare tab
+            _autoHide.SetEnabled(_shell.IsAutoHideActive, Now());
+            _autoHide.ForceExpand(Now()); // always start expanded, never as a bare tab
             _shell.IsBarCollapsed = _autoHide.IsCollapsed;
             Layout();
             if (!_bar.IsVisible)
@@ -173,7 +214,6 @@ public sealed class DesktopCoordinator : IDisposable
             _bar.Hide();
 
             // Leaving compact mode always brings the main window back (never "tray only").
-            _mainHidden = false;
             ShowMainWindow(activate: false);
         }
 
@@ -182,7 +222,6 @@ public sealed class DesktopCoordinator : IDisposable
 
     private void ShowMain()
     {
-        _mainHidden = false;
         if (_shell.IsCompact)
         {
             Expand(activate: true);
@@ -205,7 +244,7 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         EnsureMainVisible();
-        if (activate)
+        if (activate && AllowActivation)
         {
             _ = _mainWindow.Activate();
         }
@@ -218,18 +257,36 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        if (_shell.ShouldHideOnClose)
+        // Closing the window never exits: BrowserFlip keeps running with the compact bar and the
+        // notification-area icon. Only "Exit" (tray / bar menu), logoff or shutdown end the process.
+        e.Cancel = true;
+        SaveMainBounds();
+        _mainWindow.Dispatcher.BeginInvoke(ShowToolbar);
+    }
+
+    /// <summary>BrowserFlip was started again while running: bring the current surface forward.</summary>
+    internal void ShowRunningInstance()
+    {
+        if (!_exiting)
         {
-            e.Cancel = true;
-            SaveMainBounds();
-            _mainHidden = true;
-            _mainWindow.Hide();
+            ShowMain();
+        }
+    }
+
+    /// <summary>Shows the compact bar (expanded) and hides the main window: tray click, window closed.</summary>
+    internal void ShowToolbar()
+    {
+        if (_exiting)
+        {
             return;
         }
 
-        // Closing the main window exits the app (unchanged from v0.1 when the tray option is off).
-        e.Cancel = true;
-        _mainWindow.Dispatcher.BeginInvoke(Exit);
+        if (!_shell.IsCompact)
+        {
+            _shell.IsCompact = true; // ApplyMode hides the main window and shows the bar
+        }
+
+        Expand(activate: true);
     }
 
     /// <summary>
@@ -246,7 +303,6 @@ public sealed class DesktopCoordinator : IDisposable
         e.Cancel = true;
         _bar.Dispatcher.BeginInvoke(() =>
         {
-            _mainHidden = false;
             if (_shell.IsCompact)
             {
                 _shell.IsCompact = false; // ApplyMode shows the main window
@@ -275,7 +331,7 @@ public sealed class DesktopCoordinator : IDisposable
         {
             case nameof(ShellViewModel.EffectiveTopmost):
                 _mainWindow.Topmost = _shell.EffectiveTopmost;
-                _bar.Topmost = _shell.EffectiveTopmost;
+                _bar.Topmost = BarTopmost;
                 break;
             case nameof(ShellViewModel.IsTopmost):
                 UpdateTimers();
@@ -284,8 +340,10 @@ public sealed class DesktopCoordinator : IDisposable
                 ApplyMode();
                 break;
             case nameof(ShellViewModel.IsAutoHideActive):
-                _autoHide.SetEnabled(_shell.IsAutoHideActive, DateTimeOffset.UtcNow);
+                _autoHide.SetEnabled(_shell.IsAutoHideActive, Now());
+                _bar.CancelCollapseAnimation();
                 _shell.IsBarCollapsed = _autoHide.IsCollapsed;
+                _bar.Topmost = BarTopmost;
                 ScheduleLayout();
                 UpdateTimers();
                 break;
@@ -300,9 +358,6 @@ public sealed class DesktopCoordinator : IDisposable
             case nameof(ShellViewModel.Theme):
                 ThemeManager.SetPreference(_shell.Theme);
                 ScheduleLayout();
-                break;
-            case nameof(ShellViewModel.TrayEnabled):
-                UpdateTray();
                 break;
         }
     }
@@ -336,7 +391,8 @@ public sealed class DesktopCoordinator : IDisposable
             _autoHideTimer.Stop();
         }
 
-        if (_shell.IsTopmost && !_exiting)
+        // Full-screen detection suspends "on top": needed for the topmost setting and for a docked bar.
+        if ((_shell.IsTopmost || (_shell.IsCompact && _shell.DockEnabled)) && !_exiting)
         {
             _fullScreenTimer.Start();
         }
@@ -366,12 +422,22 @@ public sealed class DesktopCoordinator : IDisposable
             var hwnd = new WindowInteropHelper(_bar).EnsureHandle();
             var monitor = TargetMonitor();
             _barScale = monitor.Scale;
-            _barWorkArea = monitor.WorkArea;
             var work = monitor.WorkArea;
             var vertical = _shell.IsVertical;
 
             var maxLengthDip = ((vertical ? work.Height : work.Width) / monitor.Scale) - (2 * DockMarginDip);
-            var dip = _bar.MeasureExpanded(Math.Max(_shell.BarThickness, maxLengthDip));
+            // The bar content is collapsed (Visibility) while only the edge strip shows, so it measures as
+            // 0: keep the size measured while expanded. Otherwise the strip and its trigger zone would shrink
+            // to a square at the next layout (T7).
+            var maxLength = Math.Max(_shell.BarThickness, maxLengthDip);
+            var dip = _shell.IsBarCollapsed && _expandedDip is { } cached && cached.Vertical == vertical
+                ? cached.Size
+                : _bar.MeasureExpanded(maxLength);
+            if (!_shell.IsBarCollapsed)
+            {
+                _expandedDip = (dip, vertical);
+            }
+
             var width = Px(dip.Width, monitor.Scale);
             var height = Px(dip.Height, monitor.Scale);
 
@@ -379,8 +445,11 @@ public sealed class DesktopCoordinator : IDisposable
             if (_shell.DockEnabled)
             {
                 _expandedRect = DockLayout.Docked(work, _shell.DockEdge, width, height, _shell.Settings.DockPosition, Px(DockMarginDip, monitor.Scale));
-                _tabRect = DockLayout.Tab(work, _shell.DockEdge, _expandedRect,
-                    Px(ShellViewModel.TabThickness, monitor.Scale), Px(ShellViewModel.TabLength, monitor.Scale));
+                // Collapsed: a thin strip (3-5 px) as long as the bar, so it is clear where the bar is.
+                var alongEdge = _shell.DockEdge is DockEdge.Left or DockEdge.Right ? _expandedRect.Height : _expandedRect.Width;
+                _tabRect = DockLayout.Tab(work, _shell.DockEdge, _expandedRect, DockLayout.HintThickness(monitor.Scale), alongEdge);
+                _triggerZone = DockLayout.TriggerZone(work, monitor.Bounds, _shell.DockEdge, _expandedRect,
+                    DockLayout.TriggerDepth(monitor.Scale), Px(TriggerAlongMarginDip, monitor.Scale), Px(TriggerOvershootDip, monitor.Scale));
 
                 target = _shell.IsBarCollapsed ? _tabRect : _expandedRect;
             }
@@ -394,6 +463,7 @@ public sealed class DesktopCoordinator : IDisposable
                 target = DockLayout.ClampInto(target, _monitors.FromPoint(target.Left + (target.Width / 2), target.Top + (target.Height / 2)).WorkArea);
                 _expandedRect = target;
                 _tabRect = default;
+                _triggerZone = default;
                 _shell.IsBarCollapsed = false;
             }
 
@@ -417,7 +487,7 @@ public sealed class DesktopCoordinator : IDisposable
             _lastTarget = target;
             _verifyAttempts = 0;
             _bar.Dispatcher.BeginInvoke(DispatcherPriority.Background, VerifyPlacement);
-            _bar.Topmost = _shell.EffectiveTopmost;
+            _bar.Topmost = BarTopmost;
         }
         finally
         {
@@ -476,14 +546,14 @@ public sealed class DesktopCoordinator : IDisposable
         return all.FirstOrDefault(m => m.IsPrimary) ?? all[0];
     }
 
-    private void OnBarDragStarted()
+    internal void OnBarDragStarted()
     {
-        _autoHide.ForceExpand(DateTimeOffset.UtcNow);
+        _autoHide.ForceExpand(Now());
         var hwnd = new WindowInteropHelper(_bar).Handle;
         _dragStartRect = hwnd == IntPtr.Zero ? default : _placement.GetBounds(hwnd);
     }
 
-    private void OnBarDragCompleted()
+    internal void OnBarDragCompleted()
     {
         var hwnd = new WindowInteropHelper(_bar).Handle;
         if (hwnd == IntPtr.Zero)
@@ -491,14 +561,14 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
+        HideDragPreview();
         var rect = _placement.GetBounds(hwnd);
         if (rect == _dragStartRect)
         {
             return; // a plain click on the bar frame is not a drag: never re-dock or re-orient
         }
 
-        var monitor = _monitors.FromPoint(rect.Left + (rect.Width / 2), rect.Top + (rect.Height / 2));
-        var edge = DockLayout.SnapEdge(rect, monitor.WorkArea, Px(SnapThresholdDip, monitor.Scale));
+        var (monitor, edge) = DropTarget(rect);
         if (edge is { } e)
         {
             _shell.Settings.DockMonitor = monitor.DeviceName;
@@ -526,12 +596,92 @@ public sealed class DesktopCoordinator : IDisposable
             }
         }
 
-        _autoHide.ForceExpand(DateTimeOffset.UtcNow);
+        _autoHide.ForceExpand(Now());
+    }
+
+    /// <summary>Where a drag ending at <paramref name="rect"/> docks: decided by the cursor first (see <see cref="DockLayout.SnapEdge"/>).</summary>
+    private (MonitorInfo Monitor, DockEdge? Edge) DropTarget(PixelRect rect)
+    {
+        var cursor = _monitors.GetCursorPosition();
+        var monitor = cursor is { } c
+            ? _monitors.FromPoint(c.X, c.Y)
+            : _monitors.FromPoint(rect.Left + (rect.Width / 2), rect.Top + (rect.Height / 2));
+        return (monitor, DockLayout.SnapEdge(rect, monitor.WorkArea, Px(SnapThresholdDip, monitor.Scale), cursor, e => IsOuterEdge(monitor, e)));
+    }
+
+    /// <summary>True when no other monitor lies beyond <paramref name="edge"/> of <paramref name="monitor"/>.</summary>
+    private bool IsOuterEdge(MonitorInfo monitor, DockEdge edge)
+    {
+        var b = monitor.Bounds;
+        var beyond = edge switch
+        {
+            DockEdge.Left => new PixelRect(b.Left - 1, b.Top, b.Left, b.Bottom),
+            DockEdge.Right => new PixelRect(b.Right, b.Top, b.Right + 1, b.Bottom),
+            DockEdge.Top => new PixelRect(b.Left, b.Top - 1, b.Right, b.Top),
+            _ => new PixelRect(b.Left, b.Bottom, b.Right, b.Bottom + 1),
+        };
+        return !_monitors.GetMonitors().Any(m => !m.Bounds.Intersect(beyond).IsEmpty);
+    }
+
+    /// <summary>While dragging: outline where the bar would dock (and in which orientation) if released now.</summary>
+    internal void UpdateDragPreview()
+    {
+        var hwnd = new WindowInteropHelper(_bar).Handle;
+        if (hwnd == IntPtr.Zero || _exiting)
+        {
+            return;
+        }
+
+        var rect = _placement.GetBounds(hwnd);
+        var (monitor, edge) = DropTarget(rect);
+        PreviewEdge = edge;
+        if (edge is not { } e)
+        {
+            HideDragPreview();
+            return;
+        }
+
+        if (!ShowDragPreview)
+        {
+            return;
+        }
+
+        // Same size rules as the docked bar: thickness by orientation, length = the bar's long side.
+        var vertical = e is DockEdge.Left or DockEdge.Right;
+        var thickness = Px(_shell.BarThicknessFor(vertical), monitor.Scale);
+        var length = Math.Max(rect.Width, rect.Height);
+        var position = DockLayout.PositionAlong(rect, monitor.WorkArea, e);
+        var target = DockLayout.Docked(monitor.WorkArea, e, vertical ? thickness : length, vertical ? length : thickness, position, Px(DockMarginDip, monitor.Scale));
+
+        _preview ??= new DockPreviewWindow();
+        _preview.Width = target.Width / monitor.Scale;
+        _preview.Height = target.Height / monitor.Scale;
+        var previewHwnd = new WindowInteropHelper(_preview).EnsureHandle();
+        _placement.SetBounds(previewHwnd, target);
+        if (!_preview.IsVisible)
+        {
+            _preview.Show();
+            _placement.SetBounds(previewHwnd, target); // again after a DPI change caused by showing on another monitor
+        }
+    }
+
+    private void HideDragPreview()
+    {
+        PreviewEdge = null;
+        _preview?.Hide();
     }
 
     private void OnDisplayChanged()
     {
         // Monitors, resolution, scaling, taskbar or resume: re-place everything inside a work area.
+        // A collapsed bar is shown again so it can never stay hidden at an unexpected place.
+        if (_shell.IsCompact && (_autoHide.IsCollapsed || _bar.IsCollapsing))
+        {
+            _autoHide.ForceExpand(Now());
+            _bar.CancelCollapseAnimation();
+            _shell.IsBarCollapsed = false;
+        }
+
         Layout();
         EnsureMainVisible();
         _mainWindow.RefitToWorkArea(); // new work area / resolution: re-cap the height and keep it above the taskbar
@@ -594,7 +744,7 @@ public sealed class DesktopCoordinator : IDisposable
 
     // ---------------------------------------------------------------- auto-hide
 
-    private void AutoHideTick()
+    internal void AutoHideTick()
     {
         if (!_shell.IsCompact || !_shell.IsAutoHideActive)
         {
@@ -611,10 +761,9 @@ public sealed class DesktopCoordinator : IDisposable
         var (x, y) = cursor.Value;
         var hysteresis = Px(CursorHysteresisDip, _barScale);
         var overBar = _expandedRect.Inflate(hysteresis, hysteresis).Contains(x, y);
-        var near = Px(TabProximityDip, _barScale);
-        // Proximity zone stays inside this monitor's work area: no expansion from the taskbar or a neighbor monitor.
-        var tabZone = _tabRect.IsEmpty ? default : _tabRect.Inflate(near, near).Intersect(_barWorkArea);
-        var overTab = !tabZone.IsEmpty && tabZone.Contains(x, y);
+        // The trigger zone covers the bar's whole length at its edge (never the taskbar).
+        var overTab = !_triggerZone.IsEmpty && _triggerZone.Contains(x, y);
+        overBar |= overTab; // resting against the edge next to the bar keeps it open
 
         // Keyboard focus only holds the bar open while the user is actually using the keyboard on it;
         // a mouse click (which also focuses) must not keep it open forever.
@@ -624,11 +773,36 @@ public sealed class DesktopCoordinator : IDisposable
                          || keyboardFocus
                          || (overBar && _monitors.IsMouseButtonDown());
 
+        // The collapse fade is running but the user came back to the bar or pressed a button on it:
+        // never hide under the user's hand.
+        if (_bar.IsCollapsing && (overBar || suppressed))
+        {
+            Expand(activate: false);
+            return;
+        }
+
+        // A held mouse button never expands a hidden bar (dragging a scroll bar, a window to Snap or a
+        // file across the edge is not "approaching the bar").
+        var hoverTab = overTab && !_monitors.IsMouseButtonDown();
+
         var wasCollapsed = _autoHide.IsCollapsed;
-        _ = _autoHide.Update(new AutoHideInput(DateTimeOffset.UtcNow, overBar, overTab, suppressed));
+        _ = _autoHide.Update(new AutoHideInput(Now(), overBar, hoverTab, suppressed));
         if (wasCollapsed != _autoHide.IsCollapsed)
         {
             ApplyCollapsed();
+        }
+
+        // Poll every 40 ms, and exactly when a dwell / delay is due (timer granularity would otherwise add
+        // up to one interval to the 100 ms dwell and the 450 ms collapse delay).
+        var interval = IdlePollInterval;
+        if (_autoHide.TimeUntilTransition(Now()) is { } due && due < interval)
+        {
+            interval = due < MinPollInterval ? MinPollInterval : due;
+        }
+
+        if (_autoHideTimer.Interval != interval)
+        {
+            _autoHideTimer.Interval = interval;
         }
     }
 
@@ -640,8 +814,8 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        _autoHide.ForceExpand(DateTimeOffset.UtcNow);
-        if (_shell.IsBarCollapsed)
+        _autoHide.ForceExpand(Now());
+        if (_shell.IsBarCollapsed || _bar.IsCollapsing)
         {
             ApplyCollapsed();
         }
@@ -651,42 +825,58 @@ public sealed class DesktopCoordinator : IDisposable
             _bar.Show();
         }
 
-        if (activate)
+        if (activate && AllowActivation)
         {
             _ = _bar.Activate();
         }
     }
 
+    /// <summary>Applies the controller state: fade out then shrink to the edge strip, or grow then fade in.</summary>
     private void ApplyCollapsed()
     {
-        _shell.IsBarCollapsed = _autoHide.IsCollapsed;
-        Layout();
-        if (!_shell.IsBarCollapsed)
+        if (_autoHide.IsCollapsed)
         {
-            _bar.PlayExpandAnimation();
+            if (_shell.IsBarCollapsed || _bar.IsCollapsing)
+            {
+                return;
+            }
+
+            _bar.PlayCollapseAnimation(() =>
+            {
+                if (!_autoHide.IsCollapsed || _exiting || !_shell.IsCompact)
+                {
+                    return; // expanded again (or mode changed) during the fade
+                }
+
+                _shell.IsBarCollapsed = true;
+                Layout();
+            });
+            return;
         }
+
+        var wasCollapsed = _shell.IsBarCollapsed;
+        _shell.IsBarCollapsed = false;
+        if (wasCollapsed)
+        {
+            Layout();
+        }
+
+        _bar.PlayExpandAnimation();
     }
 
     // ---------------------------------------------------------------- tray / menu
 
     private void UpdateTray()
     {
-        if (_shell.TrayEnabled && _tray is null && !_exiting)
+        // The notification-area icon is always present (fixed behavior): it is the way back to a
+        // hidden bar and the place to exit.
+        if (_tray is null && !_exiting)
         {
             _tray = _trayFactory();
-            _tray.Activated += (_, _) => ShowMain();
+            _tray.Activated += (_, _) => ShowToolbar();
             _tray.MenuRequested += (_, _) => ShowMenu(fromTray: true);
             UpdateTrayTooltip();
             _tray.Visible = true;
-        }
-        else if (!_shell.TrayEnabled && _tray is not null)
-        {
-            _tray.Dispose();
-            _tray = null;
-            if (_mainHidden && !_shell.IsCompact)
-            {
-                ShowMain(); // never leave the app without a visible surface
-            }
         }
     }
 
@@ -726,33 +916,15 @@ public sealed class DesktopCoordinator : IDisposable
     }
 
     /// <summary>One menu definition for both the notification-area menu and the compact bar menu.</summary>
-    internal IReadOnlyList<TrayMenuItem> BuildMenuModel()
-    {
-        var edges = _shell.DockEdges
-            .Select(choice => new TrayMenuItem(choice.DisplayName, () => _shell.DockToCommand.Execute(choice.Value))
-            {
-                IsChecked = _shell.DockEnabled && _shell.DockEdge == choice.Value,
-            })
-            .ToList();
-
-        return
-        [
-            new(Loc.Instance["Menu_Show"], ShowMain) { IsDefault = true },
-            TrayMenuItem.Separator,
-            new(Loc.Instance["Menu_Topmost"], () => _shell.ToggleTopmostCommand.Execute(null)) { IsChecked = _shell.IsTopmost },
-            new(Loc.Instance["Menu_Compact"], () => _shell.ToggleCompactCommand.Execute(null)) { IsChecked = _shell.IsCompact },
-            new(Loc.Instance["Menu_Dock"], () => _shell.ToggleDockCommand.Execute(null)) { IsChecked = _shell.DockEnabled },
-            new(Loc.Instance["Menu_DockEdge"]) { Children = edges },
-            new(Loc.Instance["Menu_AutoHide"], () => _shell.ToggleAutoHideCommand.Execute(null))
-            {
-                IsChecked = _shell.AutoHide,
-                IsEnabled = _shell.DockEnabled,
-            },
-            new(Loc.Instance["Menu_Settings"], () => _shell.OpenOptionsCommand.Execute(null)),
-            TrayMenuItem.Separator,
-            new(Loc.Instance["Menu_Exit"], Exit),
-        ];
-    }
+    internal IReadOnlyList<TrayMenuItem> BuildMenuModel() =>
+    [
+        new(Loc.Instance["Menu_ShowToolbar"], ShowToolbar) { IsDefault = true },
+        new(Loc.Instance["Menu_Settings"], () => _shell.OpenOptionsCommand.Execute(null)),
+        TrayMenuItem.Separator,
+        new(Loc.Instance["Menu_Topmost"], () => _shell.ToggleTopmostCommand.Execute(null)) { IsChecked = _shell.IsTopmost },
+        TrayMenuItem.Separator,
+        new(Loc.Instance["Menu_Exit"], Exit),
+    ];
 
     private static ContextMenu ToContextMenu(IReadOnlyList<TrayMenuItem> model)
     {

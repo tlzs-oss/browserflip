@@ -68,17 +68,65 @@ public partial class CompactBarWindow : Window
             : new Size(Math.Min(Math.Max(desired.Width, shell.BarThickness), maxLength), shell.BarThickness);
     }
 
+    /// <summary>Duration of the expand / collapse fades.</summary>
+    internal static readonly TimeSpan FadeDuration = TimeSpan.FromMilliseconds(160);
+
+    /// <summary>False runs collapse / expand without animation (tests; Windows animations off).</summary>
+    internal bool AnimationsEnabled { get; set; } = true;
+
+    /// <summary>True while the collapse fade is running.</summary>
+    internal bool IsCollapsing { get; private set; }
+
+    private bool Animate => AnimationsEnabled && SystemParameters.ClientAreaAnimation;
+
     /// <summary>Short fade-in when expanding, unless Windows animations are turned off.</summary>
     public void PlayExpandAnimation()
     {
-        if (!SystemParameters.ClientAreaAnimation)
+        CancelCollapseAnimation();
+        if (!Animate)
         {
-            BarRoot.BeginAnimation(OpacityProperty, null);
-            BarRoot.Opacity = 1;
             return;
         }
 
-        BarRoot.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromMilliseconds(120)));
+        BarRoot.BeginAnimation(OpacityProperty, new DoubleAnimation(0.15, 1, FadeDuration) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } });
+    }
+
+    /// <summary>
+    /// Fades the expanded bar out, then runs <paramref name="completed"/> (which switches to the edge
+    /// strip). <see cref="CancelCollapseAnimation"/> (cursor came back) stops it without running the callback.
+    /// </summary>
+    public void PlayCollapseAnimation(Action completed)
+    {
+        ArgumentNullException.ThrowIfNull(completed);
+        if (!Animate)
+        {
+            completed();
+            return;
+        }
+
+        IsCollapsing = true;
+        var fade = new DoubleAnimation(1, 0, FadeDuration) { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
+        fade.Completed += (_, _) =>
+        {
+            if (!IsCollapsing)
+            {
+                return; // cancelled (re-expanded) meanwhile
+            }
+
+            IsCollapsing = false;
+            BarRoot.BeginAnimation(OpacityProperty, null);
+            BarRoot.Opacity = 1; // the bar content is hidden by the collapsed trigger; the strip is the tab
+            completed();
+        };
+        BarRoot.BeginAnimation(OpacityProperty, fade);
+    }
+
+    /// <summary>Stops a running collapse fade and shows the bar fully.</summary>
+    public void CancelCollapseAnimation()
+    {
+        IsCollapsing = false;
+        BarRoot.BeginAnimation(OpacityProperty, null);
+        BarRoot.Opacity = 1;
     }
 
     protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)

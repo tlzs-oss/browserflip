@@ -115,15 +115,6 @@
   <data name="Options_Header" xml:space="preserve">
     <value>显示选项</value>
   </data>
-  <data name="Options_Dock" xml:space="preserve">
-    <value>将紧凑工具栏停靠到屏幕边缘</value>
-  </data>
-  <data name="Options_DockEdge" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="Options_AutoHide" xml:space="preserve">
-    <value>停靠时自动隐藏（鼠标靠近时显示）</value>
-  </data>
   <data name="Options_Theme" xml:space="preserve">
     <value>主题</value>
   </data>
@@ -132,24 +123,6 @@
   </data>
   <data name="Options_FloatingOrientation" xml:space="preserve">
     <value>未停靠时的方向</value>
-  </data>
-  <data name="Options_Tray" xml:space="preserve">
-    <value>在通知区域显示图标</value>
-  </data>
-  <data name="Options_CloseToTray" xml:space="preserve">
-    <value>关闭窗口后继续在通知区域运行</value>
-  </data>
-  <data name="Dock_Left" xml:space="preserve">
-    <value>左</value>
-  </data>
-  <data name="Dock_Right" xml:space="preserve">
-    <value>右</value>
-  </data>
-  <data name="Dock_Top" xml:space="preserve">
-    <value>上</value>
-  </data>
-  <data name="Dock_Bottom" xml:space="preserve">
-    <value>下</value>
   </data>
   <data name="Theme_System" xml:space="preserve">
     <value>跟随系统</value>
@@ -172,29 +145,14 @@
   <data name="Orientation_Vertical" xml:space="preserve">
     <value>纵向</value>
   </data>
-  <data name="Menu_Show" xml:space="preserve">
-    <value>显示 BrowserFlip</value>
-  </data>
   <data name="Menu_Topmost" xml:space="preserve">
     <value>置顶显示</value>
-  </data>
-  <data name="Menu_Compact" xml:space="preserve">
-    <value>紧凑工具栏</value>
-  </data>
-  <data name="Menu_Dock" xml:space="preserve">
-    <value>停靠到屏幕边缘</value>
-  </data>
-  <data name="Menu_DockEdge" xml:space="preserve">
-    <value>停靠位置</value>
-  </data>
-  <data name="Menu_AutoHide" xml:space="preserve">
-    <value>自动隐藏</value>
   </data>
   <data name="Menu_Settings" xml:space="preserve">
     <value>设置…</value>
   </data>
   <data name="Menu_Exit" xml:space="preserve">
-    <value>退出</value>
+    <value>退出 BrowserFlip</value>
   </data>
   <data name="Bar_ShowTab" xml:space="preserve">
     <value>显示 BrowserFlip 工具栏</value>
@@ -213,5 +171,11 @@
   </data>
   <data name="Card_HintTopPageDetail" xml:space="preserve">
     <value>点击打开“默认应用”，然后在其中选择</value>
+  </data>
+  <data name="Menu_ShowToolbar" xml:space="preserve">
+    <value>显示紧凑工具栏</value>
+  </data>
+  <data name="Options_FloatingOrientationHint" xml:space="preserve">
+    <value>紧凑工具栏未停靠时使用的方向。将工具栏拖到屏幕边缘即可停靠：停靠在上下边缘时自动为横向，停靠在左右边缘时自动为纵向。</value>
   </data>
 </root>

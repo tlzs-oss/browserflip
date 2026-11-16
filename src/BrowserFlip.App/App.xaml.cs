@@ -18,6 +18,7 @@ public partial class App : Application
     private MainViewModel? _main;
     private ShellViewModel? _shell;
     private Win32MonitorService? _monitors;
+    private SingleInstance? _instance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -26,6 +27,15 @@ public partial class App : Application
         // "--settings <path>" uses an alternative settings file (testing / future portable mode).
         var index = Array.FindIndex(e.Args, a => string.Equals(a, "--settings", StringComparison.OrdinalIgnoreCase));
         var settingsPath = index >= 0 && index + 1 < e.Args.Length ? System.IO.Path.GetFullPath(e.Args[index + 1]) : null;
+
+        // One process per settings file: a second start brings the running instance forward and exits.
+        _instance = SingleInstance.TryAcquire(settingsPath ?? UserSettings.DefaultFilePath);
+        if (_instance is null)
+        {
+            Shutdown();
+            return;
+        }
+
         var settings = UserSettings.Load(settingsPath);
         Loc.Instance.SetLanguage(settings.Language);
         ThemeManager.Initialize(this, settings.Theme);
@@ -45,6 +55,7 @@ public partial class App : Application
 
         _coordinator = new DesktopCoordinator(this, _main, _shell, _monitors, new Win32WindowPlacement(), () => new Win32TrayIcon());
         MainWindow = _coordinator.MainWindow;
+        _instance.ShowRequested += (_, _) => Dispatcher.BeginInvoke(() => _coordinator?.ShowRunningInstance());
         _main.Refresh();
         _coordinator.Start();
     }
@@ -57,6 +68,7 @@ public partial class App : Application
         _shell?.Dispose();
         _main?.Dispose();
         ThemeManager.Shutdown();
+        _instance?.Dispose();
         base.OnExit(e);
     }
 }
