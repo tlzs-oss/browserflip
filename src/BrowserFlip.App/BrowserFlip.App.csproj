@@ -7,6 +7,8 @@
     <RootNamespace>BrowserFlip.App</RootNamespace>
     <AssemblyName>BrowserFlip</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- EXE / taskbar / Alt+Tab icon; the tray icon is extracted from the EXE at runtime. -->
+    <ApplicationIcon>..\..\assets\icon\browserflip.ico</ApplicationIcon>
     <!-- WPF requires public types for XAML; resources are accessed through ResourceManager. -->
     <NoWarn>$(NoWarn);CA1515</NoWarn>
   </PropertyGroup>
@@ -17,6 +19,12 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="BrowserFlip.App.Tests" />
+  </ItemGroup>
+
+  <!-- Window icon and compact-bar home button (pack://application:,,,/Assets/...). -->
+  <ItemGroup>
+    <Resource Include="..\..\assets\icon\browserflip.ico" Link="Assets\browserflip.ico" />
+    <Resource Include="..\..\assets\icon\png\browserflip-64.png" Link="Assets\browserflip-64.png" />
   </ItemGroup>
 
 </Project>
