@@ -47,6 +47,8 @@ public sealed class DesktopCoordinator : IDisposable
     private PixelRect _expandedRect;
     private PixelRect _tabRect;
     private PixelRect _lastTarget;
+    private PixelRect _barWorkArea;
+    private PixelRect _dragStartRect;
     private int _verifyAttempts;
     private double _barScale = 1;
 
@@ -75,24 +77,33 @@ public sealed class DesktopCoordinator : IDisposable
 
         _mainWindow.Closing += OnMainClosing;
         _mainWindow.Topmost = _shell.EffectiveTopmost;
-        _bar.DragStarted += (_, _) => _autoHide.ForceExpand(DateTimeOffset.UtcNow);
+        _bar.Topmost = _shell.EffectiveTopmost;
+        _bar.Closing += OnBarClosing;
+        _bar.DragStarted += (_, _) => OnBarDragStarted();
         _bar.DragCompleted += (_, _) => OnBarDragCompleted();
         _bar.TabInvoked += (_, _) => Expand(activate: true);
         _bar.MenuRequested += (_, _) => ShowMenu(fromTray: false);
         _bar.IsKeyboardFocusWithinChanged += (_, e) =>
         {
-            if (e.NewValue is true)
+            if (e.NewValue is true && IsKeyboardInput())
             {
                 Expand(activate: false);
             }
         };
         _bar.DpiChanged += (_, _) => ScheduleLayout();
 
+        // In compact mode the bar is the active surface: re-check the default browser when the
+        // user comes back (e.g. from Windows Settings), exactly like the main window does.
+        _bar.Activated += (_, _) => _main.OnActivated();
+        _bar.Deactivated += (_, _) => _main.OnDeactivated();
+
         _shell.PropertyChanged += OnShellChanged;
         _shell.ShowMainRequested += (_, _) => ShowMain();
         _shell.ExitRequested += (_, _) => Exit();
         _monitors.DisplayChanged += (_, _) => OnDisplayChanged();
         _main.PropertyChanged += OnMainChanged;
+        Loc.Instance.PropertyChanged += OnLanguageChanged;
+        _app.SessionEnding += (_, _) => Exit(); // logoff / shutdown: persist placement, release the tray icon
     }
 
     public MainWindow MainWindow => _mainWindow;
@@ -135,6 +146,7 @@ public sealed class DesktopCoordinator : IDisposable
         _fullScreenTimer.Stop();
         _shell.PropertyChanged -= OnShellChanged;
         _main.PropertyChanged -= OnMainChanged;
+        Loc.Instance.PropertyChanged -= OnLanguageChanged;
         _tray?.Dispose();
         _tray = null;
     }
@@ -145,8 +157,10 @@ public sealed class DesktopCoordinator : IDisposable
     {
         if (_shell.IsCompact)
         {
+            SaveMainBounds(); // remember the main window position before hiding it
             _mainWindow.Hide();
             _autoHide.SetEnabled(_shell.IsAutoHideActive, DateTimeOffset.UtcNow);
+            _autoHide.ForceExpand(DateTimeOffset.UtcNow); // always start expanded, never as a bare tab
             _shell.IsBarCollapsed = _autoHide.IsCollapsed;
             Layout();
             if (!_bar.IsVisible)
@@ -157,10 +171,10 @@ public sealed class DesktopCoordinator : IDisposable
         else
         {
             _bar.Hide();
-            if (!_mainHidden)
-            {
-                ShowMainWindow(activate: false);
-            }
+
+            // Leaving compact mode always brings the main window back (never "tray only").
+            _mainHidden = false;
+            ShowMainWindow(activate: false);
         }
 
         UpdateTimers();
@@ -218,6 +232,41 @@ public sealed class DesktopCoordinator : IDisposable
         _mainWindow.Dispatcher.BeginInvoke(Exit);
     }
 
+    /// <summary>
+    /// Alt+F4 (or any WM_CLOSE) on the compact bar must never destroy it: that would leave the
+    /// process running with no surface. Instead return to the normal window.
+    /// </summary>
+    private void OnBarClosing(object? sender, CancelEventArgs e)
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        _bar.Dispatcher.BeginInvoke(() =>
+        {
+            _mainHidden = false;
+            if (_shell.IsCompact)
+            {
+                _shell.IsCompact = false; // ApplyMode shows the main window
+            }
+            else
+            {
+                ShowMainWindow(activate: true);
+            }
+        });
+    }
+
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        UpdateTrayTooltip();
+        ScheduleLayout(); // label widths may change
+    }
+
+    private static bool IsKeyboardInput()
+        => System.Windows.Input.InputManager.Current.MostRecentInputDevice is System.Windows.Input.KeyboardDevice;
+
     // ---------------------------------------------------------------- shell state
 
     private void OnShellChanged(object? sender, PropertyChangedEventArgs e)
@@ -226,6 +275,7 @@ public sealed class DesktopCoordinator : IDisposable
         {
             case nameof(ShellViewModel.EffectiveTopmost):
                 _mainWindow.Topmost = _shell.EffectiveTopmost;
+                _bar.Topmost = _shell.EffectiveTopmost;
                 break;
             case nameof(ShellViewModel.IsTopmost):
                 UpdateTimers();
@@ -236,14 +286,16 @@ public sealed class DesktopCoordinator : IDisposable
             case nameof(ShellViewModel.IsAutoHideActive):
                 _autoHide.SetEnabled(_shell.IsAutoHideActive, DateTimeOffset.UtcNow);
                 _shell.IsBarCollapsed = _autoHide.IsCollapsed;
-                Layout();
+                ScheduleLayout();
                 UpdateTimers();
                 break;
             case nameof(ShellViewModel.DockEnabled):
             case nameof(ShellViewModel.DockEdge):
             case nameof(ShellViewModel.Orientation):
             case nameof(ShellViewModel.BarSize):
-                Layout();
+                // Deferred: dependent properties (panel orientation, button sizes) are raised after
+                // this one, and the bar must re-measure with the new values.
+                ScheduleLayout();
                 break;
             case nameof(ShellViewModel.Theme):
                 ThemeManager.SetPreference(_shell.Theme);
@@ -261,6 +313,14 @@ public sealed class DesktopCoordinator : IDisposable
         {
             UpdateTrayTooltip();
             ScheduleLayout(); // browser list may have changed size
+        }
+        else if (e.PropertyName == nameof(MainViewModel.MessageKind)
+                 && _main.MessageKind == MessageKind.Error && _shell.IsCompact && !_exiting)
+        {
+            // Errors (browser missing, blocked by policy, Settings cannot open) are explained in the
+            // main window; the compact bar has no room for them, so bring the main window back.
+            _shell.IsCompact = false;
+            ShowMain();
         }
     }
 
@@ -294,7 +354,8 @@ public sealed class DesktopCoordinator : IDisposable
     /// <summary>Computes and applies the compact bar rectangle (expanded or tab).</summary>
     private void Layout()
     {
-        if (!_shell.IsCompact || _applying || _exiting)
+        // Never fight the user's drag (DragMove's modal loop still runs dispatcher work, e.g. on DPI change).
+        if (!_shell.IsCompact || _applying || _exiting || _bar.IsDragging)
         {
             return;
         }
@@ -305,6 +366,7 @@ public sealed class DesktopCoordinator : IDisposable
             var hwnd = new WindowInteropHelper(_bar).EnsureHandle();
             var monitor = TargetMonitor();
             _barScale = monitor.Scale;
+            _barWorkArea = monitor.WorkArea;
             var work = monitor.WorkArea;
             var vertical = _shell.IsVertical;
 
@@ -325,7 +387,8 @@ public sealed class DesktopCoordinator : IDisposable
             else
             {
                 var saved = _shell.Settings.CompactBounds;
-                var origin = saved ?? PixelRect.FromSize(work.Right - width - Px(24, monitor.Scale), work.Top + Px(24, monitor.Scale), width, height);
+                // Default floating position is well outside the snap zone (24 DIP).
+                var origin = saved ?? PixelRect.FromSize(work.Right - width - Px(64, monitor.Scale), work.Top + Px(64, monitor.Scale), width, height);
                 var rect = PixelRect.FromSize(origin.Left, origin.Top, width, height);
                 target = DockLayout.EnsureVisible(rect, _monitors.GetMonitors(), Px(32, monitor.Scale));
                 target = DockLayout.ClampInto(target, _monitors.FromPoint(target.Left + (target.Width / 2), target.Top + (target.Height / 2)).WorkArea);
@@ -413,6 +476,13 @@ public sealed class DesktopCoordinator : IDisposable
         return all.FirstOrDefault(m => m.IsPrimary) ?? all[0];
     }
 
+    private void OnBarDragStarted()
+    {
+        _autoHide.ForceExpand(DateTimeOffset.UtcNow);
+        var hwnd = new WindowInteropHelper(_bar).Handle;
+        _dragStartRect = hwnd == IntPtr.Zero ? default : _placement.GetBounds(hwnd);
+    }
+
     private void OnBarDragCompleted()
     {
         var hwnd = new WindowInteropHelper(_bar).Handle;
@@ -422,6 +492,11 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         var rect = _placement.GetBounds(hwnd);
+        if (rect == _dragStartRect)
+        {
+            return; // a plain click on the bar frame is not a drag: never re-dock or re-orient
+        }
+
         var monitor = _monitors.FromPoint(rect.Left + (rect.Width / 2), rect.Top + (rect.Height / 2));
         var edge = DockLayout.SnapEdge(rect, monitor.WorkArea, Px(SnapThresholdDip, monitor.Scale));
         if (edge is { } e)
@@ -536,10 +611,16 @@ public sealed class DesktopCoordinator : IDisposable
         var hysteresis = Px(CursorHysteresisDip, _barScale);
         var overBar = _expandedRect.Inflate(hysteresis, hysteresis).Contains(x, y);
         var near = Px(TabProximityDip, _barScale);
-        var overTab = !_tabRect.IsEmpty && _tabRect.Inflate(near, near).Contains(x, y);
+        // Proximity zone stays inside this monitor's work area: no expansion from the taskbar or a neighbor monitor.
+        var tabZone = _tabRect.IsEmpty ? default : _tabRect.Inflate(near, near).Intersect(_barWorkArea);
+        var overTab = !tabZone.IsEmpty && tabZone.Contains(x, y);
+
+        // Keyboard focus only holds the bar open while the user is actually using the keyboard on it;
+        // a mouse click (which also focuses) must not keep it open forever.
+        var keyboardFocus = _bar.IsKeyboardFocusWithin && IsKeyboardInput();
         var suppressed = _bar.IsDragging
                          || _menuOpen
-                         || _bar.IsKeyboardFocusWithin
+                         || keyboardFocus
                          || (overBar && _monitors.IsMouseButtonDown());
 
         var wasCollapsed = _autoHide.IsCollapsed;

@@ -104,9 +104,10 @@ public sealed class UserSettings
                 settings.Apply(json);
             }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException
+                                       or ArgumentException or InvalidOperationException)
         {
-            // Corrupt or unreadable: keep defaults.
+            // Corrupt or unreadable (incl. duplicate keys, which JsonObject rejects): keep defaults.
         }
 
         return settings;

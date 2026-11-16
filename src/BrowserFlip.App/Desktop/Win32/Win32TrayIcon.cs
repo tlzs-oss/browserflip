@@ -17,6 +17,14 @@ public sealed class Win32TrayIcon : ITrayIcon
     internal const uint IconId = 1;
     internal const int CallbackMessage = NativeMethods.WmApp + 1;
 
+    /// <summary>
+    /// True when an activation at <paramref name="now"/> is not a repeat of <paramref name="last"/>
+    /// (no previous activation, or at least <see cref="ActivationDedupeMs"/> later).
+    /// Written without subtracting a sentinel to avoid overflow (the first click must always fire).
+    /// </summary>
+    internal static bool ShouldFireActivation(long now, long? last)
+        => last is not { } previous || now - previous >= ActivationDedupeMs;
+
     /// <summary>Keyboard Enter can deliver NIN_KEYSELECT twice; collapse repeats closer than this.</summary>
     private const long ActivationDedupeMs = 150;
 
@@ -29,7 +37,7 @@ public sealed class Win32TrayIcon : ITrayIcon
     private bool _version4;
     private bool _visible;
     private string _toolTip = string.Empty;
-    private long _lastActivation = long.MinValue;
+    private long? _lastActivation;
     private int _disposed;
 
     /// <summary>Uses the current executable's first icon at the small-icon size for the current DPI.</summary>
@@ -357,7 +365,7 @@ public sealed class Win32TrayIcon : ITrayIcon
             {
                 case TrayAction.Activate:
                     var now = Environment.TickCount64;
-                    if (now - _lastActivation >= ActivationDedupeMs)
+                    if (ShouldFireActivation(now, _lastActivation))
                     {
                         _lastActivation = now;
                         Activated?.Invoke(this, EventArgs.Empty);

@@ -11,7 +11,7 @@
         ShowInTaskbar="False"
         SizeToContent="Manual"
         UseLayoutRounding="True"
-        Topmost="{Binding Shell.EffectiveTopmost, Mode=OneWay}"
+
         Foreground="{DynamicResource PrimaryTextBrush}"
         FontSize="13"
         AutomationProperties.Name="{Binding [Bar_Name], Source={x:Static loc:Loc.Instance}}">

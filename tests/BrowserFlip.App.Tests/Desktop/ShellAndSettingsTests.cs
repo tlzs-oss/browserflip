@@ -109,6 +109,7 @@ public sealed class ShellAndSettingsTests : IDisposable
 
     [Theory]
     [InlineData("")]
+    [InlineData("{ \"Language\": \"ja\", \"Language\": \"en\" }")] // duplicate key (JsonObject throws ArgumentException)
     [InlineData("{ not json")]
     [InlineData("[]")]
     [InlineData("null")]

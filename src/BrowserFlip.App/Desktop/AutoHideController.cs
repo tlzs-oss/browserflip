@@ -21,8 +21,8 @@ public enum AutoHideState
 /// <param name="CursorOverBar">Cursor is over the expanded bar (including a small hysteresis margin).</param>
 /// <param name="CursorOverTab">Cursor is over / next to the collapsed tab.</param>
 /// <param name="Suppressed">
-/// Collapsing is not allowed right now: mouse button held, dragging, a menu or the options are open,
-/// or the bar has keyboard focus.
+/// Collapsing is not allowed right now: mouse button held over the bar, dragging, the context menu
+/// is open, or the bar is being used with the keyboard.
 /// </param>
 public readonly record struct AutoHideInput(DateTimeOffset Now, bool CursorOverBar, bool CursorOverTab, bool Suppressed);
 

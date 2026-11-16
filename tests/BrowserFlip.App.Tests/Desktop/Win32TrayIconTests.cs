@@ -6,6 +6,16 @@ namespace BrowserFlip.Core.Tests.Desktop;
 
 public sealed class Win32TrayIconTests
 {
+    [Theory]
+    [InlineData(1_000L, null, true)]                 // first activation always fires (regression: long.MinValue overflow)
+    [InlineData(0L, null, true)]
+    [InlineData(long.MaxValue, null, true)]
+    [InlineData(10_000L, 9_900L, false)]             // within 150 ms: duplicate NIN_KEYSELECT
+    [InlineData(10_000L, 9_850L, true)]              // exactly 150 ms later
+    [InlineData(10_000L, 1_000L, true)]
+    public void Activation_dedupe(long now, long? last, bool expected)
+        => Assert.Equal(expected, ShouldFireActivation(now, last));
+
     [Fact]
     public void NOTIFYICONDATAW_has_the_full_vista_plus_layout()
     {
