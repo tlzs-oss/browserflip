@@ -52,7 +52,7 @@ Core は OS 依存をすべて `BrowserFlip.Core.Platform` のインターフェ
 
 `tests/BrowserFlip.App.Tests/Desktop/` にあります。純粋なロジック(`DockLayout` / `AutoHideController` / `UserSettings` / `ShellViewModel`)は OS に一切触れずに検証し、`DesktopCoordinator` はフェイクのモニター・カーソル・時計・ウィンドウ配置・通知領域アイコンで実物を動かして検証します。Win32 実装のテストは非表示ウィンドウと非表示の通知領域アイコンのみを使います(画面に何も表示せず、Windows の設定も変更しません)。
 
-テスト数は Core 97 件 + App 207 件 = 304 件です。
+テスト数は Core 97 件 + App 209 件 = 306 件です。
 
 > **注意**: WPF の `App` を生成するテストは、ディスパッチャーを一度も回さない使い捨てのスレッドで生成してください。`Application` のコンストラクターは生成したスレッドに起動処理をキューに積むため、そのスレッドでメッセージを処理すると実際の `App.OnStartup` が走り、本物の設定ファイル・ウィンドウ・通知領域アイコンがデスクトップに作られます(`DesktopCoordinatorTests` の実装を参照)。
 

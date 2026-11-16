@@ -96,7 +96,14 @@ public sealed class DesktopCoordinator : IDisposable
                 UpdateDragPreview();
             }
         };
-        _bar.TabInvoked += (_, _) => Expand(activate: true);
+        _bar.TabInvoked += (_, _) =>
+        {
+            // Enter / Space on the strip: the key press already marked keyboard use; keep it through the
+            // activation (a mouse click on the strip has cleared it in PreviewMouseDown).
+            var keyboard = _keyboardEngaged;
+            Expand(activate: true);
+            _keyboardEngaged = keyboard;
+        };
         _bar.MenuRequested += (_, _) => ShowMenu(fromTray: false);
         _bar.IsKeyboardFocusWithinChanged += (_, e) =>
         {

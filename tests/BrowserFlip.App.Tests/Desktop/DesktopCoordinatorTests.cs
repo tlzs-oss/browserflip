@@ -734,6 +734,44 @@ public sealed class DesktopCoordinatorTests
     }
 
     [Fact]
+    public void Expanding_the_strip_with_Enter_keeps_the_bar_open_for_the_keyboard_user()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            h.Collapse();
+            BarActivatedByTheApp(h);
+
+            h.PressKeyOnBar(System.Windows.Input.Key.Enter); // focus on the strip button, Enter
+            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Harness.Pump();
+            Assert.False(h.Coordinator.IsCollapsed);
+
+            h.Hover(1000, 1000, 3000);
+            Assert.False(h.Coordinator.IsCollapsed, "keyboard user keeps the bar after expanding it with Enter");
+        });
+    }
+
+    [Fact]
+    public void Clicking_the_strip_with_the_mouse_expands_and_then_hides_normally()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            h.Collapse();
+            BarActivatedByTheApp(h);
+
+            h.PressMouseOnBar();
+            h.Coordinator.Bar.TabButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Harness.Pump();
+            Assert.False(h.Coordinator.IsCollapsed);
+
+            h.Hover(1000, 1000, 2500);
+            Assert.True(h.Coordinator.IsCollapsed);
+        });
+    }
+
+    [Fact]
     public void A_mouse_tray_click_ends_earlier_keyboard_use()
     {
         Run(() =>
