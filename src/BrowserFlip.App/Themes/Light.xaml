@@ -17,4 +17,13 @@
     <SolidColorBrush x:Key="BfErrorForegroundBrush" Color="#A4262C" />
     <SolidColorBrush x:Key="BfSuccessForegroundBrush" Color="#0E700E" />
     <SolidColorBrush x:Key="BfControlBackgroundBrush" Color="#FFFFFF" />
+    <!-- Always-on-top toggle. ON = solid accent blue with a white pin (white on it: 6.3:1, hover 8.3:1, pressed 10.5:1). -->
+    <SolidColorBrush x:Key="BfPinOffForegroundBrush" Color="#5C5C5C" />
+    <SolidColorBrush x:Key="BfPinOffHoverBorderBrush" Color="#8A8A8A" />
+    <SolidColorBrush x:Key="BfPinOnBackgroundBrush" Color="#005FB8" />
+    <SolidColorBrush x:Key="BfPinOnHoverBrush" Color="#004E98" />
+    <SolidColorBrush x:Key="BfPinOnPressedBrush" Color="#003F7D" />
+    <SolidColorBrush x:Key="BfPinOnBorderBrush" Color="#005FB8" />
+    <SolidColorBrush x:Key="BfPinOnHoverBorderBrush" Color="#004E98" />
+    <SolidColorBrush x:Key="BfPinOnForegroundBrush" Color="#FFFFFF" />
 </ResourceDictionary>

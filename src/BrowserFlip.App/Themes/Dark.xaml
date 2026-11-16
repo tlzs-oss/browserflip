@@ -17,4 +17,14 @@
     <SolidColorBrush x:Key="BfErrorForegroundBrush" Color="#FF99A4" />
     <SolidColorBrush x:Key="BfSuccessForegroundBrush" Color="#6CCB5F" />
     <SolidColorBrush x:Key="BfControlBackgroundBrush" Color="#2D2D2D" />
+    <!-- Always-on-top toggle. The dark accent (#60CDFF) cannot carry white, so ON uses the deeper Windows accent blue
+         (white on it: 5.7:1, hover 4.7:1, pressed 7.4:1). -->
+    <SolidColorBrush x:Key="BfPinOffForegroundBrush" Color="#C5C5C5" />
+    <SolidColorBrush x:Key="BfPinOffHoverBorderBrush" Color="#8A8A8A" />
+    <SolidColorBrush x:Key="BfPinOnBackgroundBrush" Color="#0067C0" />
+    <SolidColorBrush x:Key="BfPinOnHoverBrush" Color="#1A75CC" />
+    <SolidColorBrush x:Key="BfPinOnPressedBrush" Color="#00569F" />
+    <SolidColorBrush x:Key="BfPinOnBorderBrush" Color="#0067C0" />
+    <SolidColorBrush x:Key="BfPinOnHoverBorderBrush" Color="#1A75CC" />
+    <SolidColorBrush x:Key="BfPinOnForegroundBrush" Color="#FFFFFF" />
 </ResourceDictionary>
