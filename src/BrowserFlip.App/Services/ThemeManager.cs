@@ -86,7 +86,7 @@ public static class ThemeManager
         // Assembly-qualified so it also resolves when hosted by another entry assembly (tests).
         var uri = new Uri($"pack://application:,,,/BrowserFlip;component/{file}", UriKind.Absolute);
         var dictionaries = app.Resources.MergedDictionaries;
-        var existing = dictionaries.FirstOrDefault(d => d.Source is not null && d.Source.OriginalString.Contains("/Themes/", StringComparison.Ordinal));
+        var existing = dictionaries.FirstOrDefault(d => d.Source is not null && d.Source.OriginalString.Contains("/BrowserFlip;component/Themes/", StringComparison.Ordinal));
         var next = new ResourceDictionary { Source = uri };
         if (existing is null)
         {

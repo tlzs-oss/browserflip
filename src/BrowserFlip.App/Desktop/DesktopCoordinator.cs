@@ -534,6 +534,7 @@ public sealed class DesktopCoordinator : IDisposable
         // Monitors, resolution, scaling, taskbar or resume: re-place everything inside a work area.
         Layout();
         EnsureMainVisible();
+        _mainWindow.RefitToWorkArea(); // new work area / resolution: re-cap the height and keep it above the taskbar
         _tray?.UpdateIcon();
     }
 

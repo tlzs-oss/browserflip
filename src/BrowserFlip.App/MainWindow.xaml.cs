@@ -46,13 +46,34 @@ public partial class MainWindow : Window
         };
         SizeChanged += (_, e) =>
         {
-            if (e.HeightChanged && e.NewSize.Height > e.PreviousSize.Height)
+            // Options expanded / message shown: grow upwards if needed. Deferred until the resize (and the
+            // expander's animation step) has been applied to the HWND. Not while the user drags a border.
+            if (e.HeightChanged && e.NewSize.Height > e.PreviousSize.Height && !_inSizeMove)
             {
-                // Options expanded / message shown: grow upwards if needed. Deferred until the resize (and
-                // the expander's animation step) has been applied to the HWND.
                 _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
             }
         };
+        StateChanged += (_, _) =>
+        {
+            // The height cap must not stop a maximized window from filling the work area.
+            if (WindowState == WindowState.Maximized)
+            {
+                MaxHeight = double.PositiveInfinity;
+            }
+            else
+            {
+                LimitHeightToWorkArea();
+            }
+        };
+    }
+
+    private bool _inSizeMove;
+
+    /// <summary>Re-applies the height cap and keeps the bottom above the taskbar (display / work-area change).</summary>
+    public void RefitToWorkArea()
+    {
+        LimitHeightToWorkArea();
+        KeepBottomInWorkArea();
     }
 
     /// <summary>
@@ -62,7 +83,7 @@ public partial class MainWindow : Window
     internal void LimitHeightToWorkArea()
     {
         var source = PresentationSource.FromVisual(this);
-        if (source?.CompositionTarget is null || !TryGetWorkArea(out var work))
+        if (WindowState == WindowState.Maximized || source?.CompositionTarget is null || !TryGetWorkArea(out var work))
         {
             return;
         }
@@ -119,7 +140,17 @@ public partial class MainWindow : Window
     /// </summary>
     private IntPtr OnWindowMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        const int WmEnterSizeMove = 0x0231;
         const int WmExitSizeMove = 0x0232;
+        if (msg == WmEnterSizeMove)
+        {
+            _inSizeMove = true;
+        }
+        else if (msg == WmExitSizeMove)
+        {
+            _inSizeMove = false;
+        }
+
         if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual)
         {
             SizeToContent = SizeToContent.Height;

@@ -13,8 +13,6 @@ BrowserFlip 是一款小巧的开源 Windows 10/11 桌面应用:列出电脑上�
 
 ![BrowserFlip 紧凑工具栏](docs/images/compact-bar.png)
 
-> 截图将在首个版本发布前补充。
-
 > **状态:** 预发布(0.1.0 MVP 与 0.2.0 桌面功能开发中),尚未发布任何正式版本。
 
 ## 功能

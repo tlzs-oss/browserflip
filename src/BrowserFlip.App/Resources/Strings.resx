@@ -56,7 +56,7 @@
     <value>Click to review in Windows Settings</value>
   </data>
   <data name="Card_HintTopPage" xml:space="preserve">
-    <value>Opens Default apps</value>
+    <value>Choose in Default apps</value>
   </data>
   <data name="Card_Missing" xml:space="preserve">
     <value>Not found</value>

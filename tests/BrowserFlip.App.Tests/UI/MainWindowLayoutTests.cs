@@ -76,6 +76,28 @@ public sealed class MainWindowLayoutTests
     }
 
     [Fact]
+    public void Uninstalled_default_browser_still_shows_not_found()
+    {
+        List<string> shown = [];
+        Sta.Run(() =>
+        {
+            EnsureApplication();
+            try
+            {
+                Loc.Instance.SetLanguage("en");
+                // Vivaldi is still the registered default but its executable is gone.
+                _ = LayoutCore(optionsExpanded: false, edgeCases: true, defaultProgId: "VivaldiHTM", out shown);
+            }
+            finally
+            {
+                ThemeManager.Shutdown();
+            }
+        });
+
+        Assert.Contains("Not found", shown);
+    }
+
+    [Fact]
     public void Trim_detection_actually_detects_trimming()
     {
         // Guard against a test that silently checks nothing (e.g. filtering on IsVisible of an unshown window).
@@ -102,6 +124,9 @@ public sealed class MainWindowLayoutTests
     }
 
     private static (double Height, List<string> Trimmed) Layout(bool optionsExpanded, bool edgeCases)
+        => LayoutCore(optionsExpanded, edgeCases, defaultProgId: "MSEdgeHTM", out _);
+
+    private static (double Height, List<string> Trimmed) LayoutCore(bool optionsExpanded, bool edgeCases, string defaultProgId, out List<string> shownTexts)
     {
         var reg = new FakeRegistry();
         var fs = new FakeFileSystem();
@@ -127,7 +152,7 @@ public sealed class MainWindowLayoutTests
             }
         }
 
-        var assoc = new FakeAssociations().With("http", "MSEdgeHTM").With("https", "MSEdgeHTM");
+        var assoc = new FakeAssociations().With("http", defaultProgId).With("https", defaultProgId);
         var policy = new PolicyInspector(reg);
         var settings = UserSettings.InMemory();
         using var main = new MainViewModel(new BrowserDetector(reg, fs, new FakeStrings()), new Defaults.DefaultBrowserService(assoc),
@@ -144,6 +169,7 @@ public sealed class MainWindowLayoutTests
             root.Arrange(new Rect(root.DesiredSize));
             root.UpdateLayout();
 
+            shownTexts = Descendants<TextBlock>(root).Where(IsShown).Select(t => t.Text).ToList();
             var candidates = Descendants<TextBlock>(root)
                 .Where(t => t.TextTrimming != TextTrimming.None && IsShown(t))
                 .ToList();
