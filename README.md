@@ -134,6 +134,6 @@ Further docs (Japanese): [User guide](docs/user-guide.ja.md) · [Architecture](d
 
 ## License
 
-[MIT](LICENSE) © 2026 BrowserFlip contributors
+[MIT](LICENSE) © 2026 TLZS株式会社 and BrowserFlip contributors
 
 BrowserFlip is not affiliated with Microsoft or any browser vendor. Product names are trademarks of their respective owners.

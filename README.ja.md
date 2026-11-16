@@ -134,6 +134,6 @@ Windows 10 や 2023 年 4 月の更新プログラム未適用の Windows 11 の
 
 ## ライセンス
 
-[MIT](LICENSE) © 2026 BrowserFlip contributors
+[MIT](LICENSE) © 2026 TLZS株式会社 and BrowserFlip contributors
 
 BrowserFlip は Microsoft およびいずれのブラウザー ベンダーとも提携していません。製品名は各社の商標です。

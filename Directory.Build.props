@@ -11,7 +11,7 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <Company>BrowserFlip contributors</Company>
     <Product>BrowserFlip</Product>
-    <Copyright>Copyright (c) 2026 BrowserFlip contributors. MIT License.</Copyright>
+    <Copyright>Copyright (c) 2026 TLZS株式会社 and BrowserFlip contributors. MIT License.</Copyright>
     <Version>0.2.0</Version>
     <NeutralLanguage>en</NeutralLanguage>
     <SatelliteResourceLanguages>en;ja;zh-CN</SatelliteResourceLanguages>

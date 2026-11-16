@@ -134,6 +134,6 @@ BrowserFlip 只列出在 `StartMenuInternet` 下注册并声明了 `http`/`https
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 BrowserFlip contributors
+[MIT](LICENSE) © 2026 TLZS株式会社 and BrowserFlip contributors
 
 BrowserFlip 与 Microsoft 及任何浏览器厂商均无关联。产品名称为其各自所有者的商标。
