@@ -101,7 +101,7 @@
     <value>默认应用由组织管理。重新登录后更改可能会被还原。</value>
   </data>
   <data name="Footer_Note" xml:space="preserve">
-    <value>BrowserFlip 绝不会擅自更改默认浏览器。每次更改都由你在 Windows 中确认。</value>
+    <value>每次更改都由你在 Windows 中确认。</value>
   </data>
   <data name="Pin_Tooltip" xml:space="preserve">
     <value>置顶显示</value>
@@ -204,5 +204,8 @@
   </data>
   <data name="Tray_Tooltip" xml:space="preserve">
     <value>BrowserFlip — 默认：{0}</value>
+  </data>
+  <data name="Refresh_Tooltip" xml:space="preserve">
+    <value>刷新 (F5)</value>
   </data>
 </root>

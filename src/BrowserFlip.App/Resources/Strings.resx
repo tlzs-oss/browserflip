@@ -101,7 +101,7 @@
     <value>Your organization manages default apps. Changes may be reverted when you sign in again.</value>
   </data>
   <data name="Footer_Note" xml:space="preserve">
-    <value>BrowserFlip never changes your default browser silently. Windows asks you to confirm every change.</value>
+    <value>Windows asks you to confirm every change.</value>
   </data>
   <data name="Pin_Tooltip" xml:space="preserve">
     <value>Always on top</value>
@@ -204,5 +204,8 @@
   </data>
   <data name="Tray_Tooltip" xml:space="preserve">
     <value>BrowserFlip — default: {0}</value>
+  </data>
+  <data name="Refresh_Tooltip" xml:space="preserve">
+    <value>Refresh (F5)</value>
   </data>
 </root>

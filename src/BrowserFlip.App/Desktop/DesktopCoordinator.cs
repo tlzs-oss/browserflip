@@ -555,9 +555,9 @@ public sealed class DesktopCoordinator : IDisposable
         var fixedRect = DockLayout.EnsureVisible(estimated, _monitors.GetMonitors(), 48);
         var finalMonitor = _monitors.FromPoint(fixedRect.Left + (fixedRect.Width / 2), fixedRect.Top + (fixedRect.Height / 2));
 
-        // Never larger than the work area of the monitor it lands on.
+        // Width is restored (never wider than the work area); the height follows the content
+        // (SizeToContent=Height, capped at the work area by the window itself).
         _mainWindow.Width = Math.Min(widthDip, finalMonitor.WorkArea.Width / finalMonitor.Scale);
-        _mainWindow.Height = Math.Min(heightDip, finalMonitor.WorkArea.Height / finalMonitor.Scale);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
         _placement.Move(new WindowInteropHelper(_mainWindow).Handle, fixedRect.Left, fixedRect.Top);
     }

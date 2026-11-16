@@ -101,7 +101,7 @@
     <value>既定のアプリは組織によって管理されています。再サインイン時に変更が元に戻る場合があります。</value>
   </data>
   <data name="Footer_Note" xml:space="preserve">
-    <value>BrowserFlip が既定のブラウザーを勝手に変更することはありません。変更は必ず Windows 上であなたが確定します。</value>
+    <value>変更は必ず Windows 上であなたが確定します。</value>
   </data>
   <data name="Pin_Tooltip" xml:space="preserve">
     <value>常に手前に表示（置頂）</value>
@@ -204,5 +204,8 @@
   </data>
   <data name="Tray_Tooltip" xml:space="preserve">
     <value>BrowserFlip — 既定: {0}</value>
+  </data>
+  <data name="Refresh_Tooltip" xml:space="preserve">
+    <value>再読み込み (F5)</value>
   </data>
 </root>

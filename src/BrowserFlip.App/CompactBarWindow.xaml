@@ -71,7 +71,7 @@
                 <Button x:Name="HomeButton" Style="{StaticResource BarButton}" Command="{Binding Shell.ShowNormalCommand}"
                         ToolTip="{Binding [Normal_Tooltip], Source={x:Static loc:Loc.Instance}}"
                         AutomationProperties.Name="{Binding [Normal_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                    <Image Source="pack://application:,,,/Assets/browserflip-64.png"
+                    <Image Source="pack://application:,,,/BrowserFlip;component/Assets/browserflip-64.png"
                            Width="{Binding Shell.BarIconSize}" Height="{Binding Shell.BarIconSize}"
                            RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
