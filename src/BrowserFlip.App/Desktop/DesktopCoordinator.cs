@@ -54,6 +54,7 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _barMenuOpen;      // the bar's own context menu (keyboard use continues inside it)
     private bool _trayOnly;          // every window hidden, only the notification-area icon (X on the main window / floating bar)
     private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
+    private PixelRect? _mainRestore;         // main window rectangle before a drag that docked it (undo a Windows snap)
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
     private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
     private PixelRect _expandedRect;
@@ -265,6 +266,7 @@ public sealed class DesktopCoordinator : IDisposable
             _trayOnly = false; // the main window is the visible surface now; the bar shows normally next time
             _enterCollapsed = false;
             _floatingCenter = null;
+            RestoreMainAfterDock();
 
             // Leaving compact mode always brings the main window back (never "tray only").
             ShowMainWindow(activate: false);
@@ -433,19 +435,20 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         var monitor = _monitors.FromPoint(c.X, c.Y);
-        if (DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, c) is not { } edge)
+        if (MainDockEdge(monitor, c) is not { } edge)
         {
-            return; // an ordinary move
+            return; // an ordinary move (or the edge is shared with another monitor)
         }
 
         var hwnd = new WindowInteropHelper(_mainWindow).Handle;
-        if (hwnd != IntPtr.Zero && !before.IsEmpty && _placement.GetBounds(hwnd) != before)
+        if (hwnd == IntPtr.Zero || before.IsEmpty || _placement.GetBounds(hwnd) == before)
         {
-            // Put the window back (position and width; the height follows the content) before it is hidden.
-            var scale = _monitors.FromPoint(before.Left + (before.Width / 2), before.Top + (before.Height / 2)).Scale;
-            _mainWindow.Width = Math.Max(_mainWindow.MinWidth, before.Width / scale);
-            _placement.Move(hwnd, before.Left, before.Top);
+            return; // the window did not end up moved (e.g. Esc cancelled the drag): never dock
         }
+
+        // The window goes back to where it was before the drag when it is shown again (a Windows snap may
+        // still resize it after this point, so the restore is applied when the main window reappears).
+        _mainRestore = before;
 
         _shell.Settings.DockMonitor = monitor.DeviceName;
         _shell.Settings.DockPosition = DockLayout.PositionAlong(PixelRect.FromSize(c.X, c.Y, 1, 1), monitor.WorkArea, edge);
@@ -454,8 +457,39 @@ public sealed class DesktopCoordinator : IDisposable
         _shell.DockEnabled = true;
         _enterCollapsed = true; // retracted at once; the cursor at the edge expands it
         _trayOnly = false;
-        _shell.Settings.Save();
         _shell.IsCompact = true;
+
+        // ApplyMode saved the (possibly snapped) current rectangle: keep the one from before the drag.
+        _shell.Settings.MainBounds = before;
+        _shell.Settings.MainScale = _monitors.FromPoint(before.Left + (before.Width / 2), before.Top + (before.Height / 2)).Scale;
+        _shell.Settings.Save();
+    }
+
+    /// <summary>Edge the main window docks to: the cursor pushed against an outer edge (no monitor beyond it).</summary>
+    private DockEdge? MainDockEdge(MonitorInfo monitor, (int X, int Y) cursor)
+        => DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, cursor) is { } edge && IsOuterEdge(monitor, edge) ? edge : null;
+
+    /// <summary>Applies the main window geometry from before the drag that docked it (position, width; height follows content).</summary>
+    private void RestoreMainAfterDock()
+    {
+        if (_mainRestore is not { } r)
+        {
+            return;
+        }
+
+        _mainRestore = null;
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
+        _mainWindow.WindowState = WindowState.Normal;
+        _mainWindow.SizeToContent = SizeToContent.Height; // a snap turned it to Manual with the snapped height
+        _mainWindow.Width = Math.Max(_mainWindow.MinWidth, Math.Min(r.Width, target.WorkArea.Width) / target.Scale);
+        var fixedRect = DockLayout.EnsureVisible(r, _monitors.GetMonitors(), 48);
+        _placement.Move(hwnd, fixedRect.Left, fixedRect.Top);
     }
 
     /// <summary>Edge the main window would dock to if released now (null = none).</summary>
@@ -470,7 +504,7 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         var monitor = _monitors.FromPoint(c.X, c.Y);
-        MainDragPreviewEdge = DockLayout.PushedEdge(monitor.WorkArea, MainDockThresholdPx, c);
+        MainDragPreviewEdge = MainDockEdge(monitor, c);
         if (MainDragPreviewEdge is not { } edge)
         {
             HideDragPreview();
@@ -509,9 +543,13 @@ public sealed class DesktopCoordinator : IDisposable
 
         if (_shell.IsAutoHideActive)
         {
+            // Explicit X: retract at once. No fade: the pointer is still on the X button, inside the bar, and
+            // "back on the bar during the fade" would expand it again.
             _keyboardEngaged = false;
             _autoHide.CollapseNow(Now());
-            ApplyCollapsed();
+            _bar.CancelCollapseAnimation();
+            _shell.IsBarCollapsed = true;
+            Layout();
             return;
         }
 
@@ -612,8 +650,8 @@ public sealed class DesktopCoordinator : IDisposable
             _autoHideTimer.Stop();
         }
 
-        // Full-screen detection suspends "on top".
-        if (_shell.IsTopmost && !_exiting)
+        // Full-screen detection suspends "on top" and keeps a docked bar from being raised over the full-screen app.
+        if ((_shell.IsTopmost || (_shell.IsCompact && _shell.DockEnabled)) && !_exiting)
         {
             _fullScreenTimer.Start();
         }
@@ -1059,7 +1097,7 @@ public sealed class DesktopCoordinator : IDisposable
             ScheduleLayout();
         }
 
-        _bar.BringToFront();
+        RaiseBar();
 
         if (activate)
         {
@@ -1068,6 +1106,15 @@ public sealed class DesktopCoordinator : IDisposable
             {
                 _ = _bar.Activate();
             }
+        }
+    }
+
+    /// <summary>Raises a bar that is not on top above other windows (no activation), never over a full-screen app.</summary>
+    private void RaiseBar()
+    {
+        if (!_shell.IsFullScreenAppActive)
+        {
+            _bar.BringToFront();
         }
     }
 
@@ -1101,7 +1148,7 @@ public sealed class DesktopCoordinator : IDisposable
             Layout();
         }
 
-        _bar.BringToFront(); // visible above other windows even when "always on top" is off
+        RaiseBar(); // visible above other windows even when "always on top" is off
 
         _bar.PlayExpandAnimation();
     }

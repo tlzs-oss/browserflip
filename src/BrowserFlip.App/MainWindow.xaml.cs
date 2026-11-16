@@ -70,9 +70,7 @@ public partial class MainWindow : Window
     }
 
     private bool _inSizeMove;
-    private bool _movedInSizeMove;
-    private bool _sizedInSizeMove;
-    private Desktop.PixelRect _sizeMoveStart;
+    private readonly Desktop.MainWindowMoveTracker _moveTracker = new();
 
     /// <summary>The user is dragging the window (WM_MOVING inside a move loop).</summary>
     internal event EventHandler? UserMoving;
@@ -177,28 +175,27 @@ public partial class MainWindow : Window
         if (msg == WmEnterSizeMove)
         {
             _inSizeMove = true;
-            _movedInSizeMove = false;
-            _sizedInSizeMove = false;
-            _sizeMoveStart = NativeMethods.GetWindowRect(hwnd, out var start) ? start.ToPixelRect() : default;
+            _moveTracker.Enter(NativeMethods.GetWindowRect(hwnd, out var start) ? start.ToPixelRect() : default);
         }
-        else if (msg == WmMoving && _inSizeMove)
+        else if (msg == WmMoving)
         {
-            _movedInSizeMove = true;
-            UserMoving?.Invoke(this, EventArgs.Empty);
+            if (_moveTracker.Moving())
+            {
+                UserMoving?.Invoke(this, EventArgs.Empty);
+            }
         }
         else if (msg == WmSizing)
         {
-            _sizedInSizeMove = true;
+            _moveTracker.Sizing();
         }
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
-            if (_movedInSizeMove && !_sizedInSizeMove && !_sizeMoveStart.IsEmpty)
+            if (_moveTracker.Exit() is { } before)
             {
                 // After Windows has finished the move (and any snap): docking may replace the window (BF-01).
-                var start = _sizeMoveStart;
                 _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
-                    () => UserMoveCompleted?.Invoke(this, start));
+                    () => UserMoveCompleted?.Invoke(this, before));
             }
 
             // A move or resize may have ended under the taskbar (or grown during the drag): fix it once now.

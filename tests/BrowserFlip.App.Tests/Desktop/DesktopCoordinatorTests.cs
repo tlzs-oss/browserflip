@@ -453,6 +453,26 @@ public sealed class DesktopCoordinatorTests
     }
 
     [Fact]
+    public void Docked_bar_X_clicked_with_the_pointer_on_the_button_stays_retracted_with_animations_on()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Docked(DockEdge.Right), Primary);
+            h.Coordinator.Bar.AnimationsEnabled = true;
+            h.Coordinator.Bar.ForceAnimations = true;
+            var bar = h.BarBounds;
+            h.Monitors.Cursor = (bar.Left + (bar.Width / 2), bar.Bottom - 10); // on the X button at the end of the bar
+
+            CloseBar(h);
+            h.Hover(bar.Left + (bar.Width / 2), bar.Bottom - 10, 600); // the pointer has not moved yet
+
+            Assert.True(h.Coordinator.IsCollapsed);
+            Assert.False(h.Coordinator.Bar.IsCollapsing);
+            Assert.InRange(h.BarBounds.Width, 3, 5);
+        });
+    }
+
+    [Fact]
     public void Tray_restore_of_a_docked_bar_expands_it_and_it_hides_again_when_left_alone()
     {
         Run(() =>
@@ -700,8 +720,7 @@ public sealed class DesktopCoordinatorTests
             Assert.False(h.Coordinator.MainWindow.IsVisible);
             var strip = h.BarBounds;
             Assert.Equal(edge is DockEdge.Left or DockEdge.Right, strip.Height > strip.Width);
-            var main = h.Placement.GetBounds(h.MainHandle);
-            Assert.Equal((before.Left, before.Top), (main.Left, main.Top)); // the snap was undone
+            Assert.Equal(before, settings.MainBounds); // the snap is undone when the main window is shown again
 
             var (x, y) = PointAtEdge(Primary.WorkArea, edge, strip);
             h.Hover(x, y, 300);
@@ -726,6 +745,61 @@ public sealed class DesktopCoordinatorTests
             Harness.Pump();
             Assert.False(h.Shell.IsCompact);
             Assert.True(h.Coordinator.MainWindow.IsVisible);
+        });
+    }
+
+    [Fact]
+    public void Dragging_the_main_window_to_an_edge_shared_with_another_monitor_never_docks()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary, RightNeighbor);
+            PlaceMain(h, PixelRect.FromSize(3000, 200, 1000, 600));
+            foreach (var x in new[] { Primary.Bounds.Right - 1, RightNeighbor.Bounds.Left })
+            {
+                h.Monitors.Cursor = (x, 500); // crossing the boundary between the two monitors
+                h.Coordinator.UpdateMainDragPreview();
+                Assert.Null(h.Coordinator.MainDragPreviewEdge);
+                h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 200, 1000, 600));
+                Harness.Pump();
+                Assert.False(h.Shell.IsCompact, $"x={x}: shared edge");
+            }
+        });
+    }
+
+    [Fact]
+    public void A_cancelled_drag_that_left_the_window_where_it_was_never_docks()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            h.Monitors.Cursor = (0, 1000); // cursor at the edge, but Esc put the window back
+            h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 400, 1170, 800));
+            Harness.Pump();
+            Assert.False(h.Shell.IsCompact);
+        });
+    }
+
+    [Fact]
+    public void After_docking_by_drag_the_main_window_comes_back_where_it_was_before_the_drag()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(MainWindowOpen(Docked(DockEdge.Right)), Primary);
+            var before = PixelRect.FromSize(900, 400, 1170, 800);
+            PlaceMain(h, PixelRect.FromSize(0, 0, 1920, 2292)); // snapped to the left half
+            h.Monitors.Cursor = (0, 1000);
+            h.Coordinator.OnMainDragCompleted(before);
+            Harness.Pump();
+            PlaceMain(h, PixelRect.FromSize(0, 0, 1920, 2292)); // a late snap resized the hidden window again
+            Assert.Equal(before, h.Settings.MainBounds);
+
+            h.Shell.ShowNormalCommand.Execute(null);
+            Harness.Pump();
+            var main = h.Placement.GetBounds(h.MainHandle);
+            Assert.Equal((before.Left, before.Top), (main.Left, main.Top));
+            Assert.Equal(SizeToContent.Height, h.Coordinator.MainWindow.SizeToContent);
         });
     }
 
@@ -851,7 +925,7 @@ public sealed class DesktopCoordinatorTests
             h.PressKeyOnBar(System.Windows.Input.Key.Apps); // keyboard use on the bar ...
             h.Shell.OpenOptionsCommand.Execute(null); // ... then "Settings..." (main window shown)
             Harness.Pump();
-            PlaceMain(h, PixelRect.FromSize(900, 400, 1170, 800));
+            PlaceMain(h, PixelRect.FromSize(2600, 400, 1170, 800));
             h.Monitors.Cursor = (Primary.WorkArea.Right - 1, 1000); // drag the main window to the right edge (mouse)
             h.Coordinator.OnMainDragCompleted(PixelRect.FromSize(900, 400, 1170, 800));
             Harness.Pump();

@@ -217,9 +217,10 @@ public sealed class PinButtonTests
                         var text = on ? texts.On : texts.Off;
                         foreach (var pin in new[] { window.PinToggleButton, bar.PinButton })
                         {
-                            Assert.Equal(text, AutomationProperties.GetName(pin));
+                            // Stable name (the feature); the on/off state is the UIA toggle state, the tooltip names the action.
+                            Assert.Equal(texts.Off, AutomationProperties.GetName(pin));
                             Assert.Equal(text, pin.ToolTip as string);
-                            Assert.Equal(text, new ToggleButtonAutomationPeer(pin).GetName());
+                            Assert.Equal(texts.Off, new ToggleButtonAutomationPeer(pin).GetName());
                         }
                     }
                 }

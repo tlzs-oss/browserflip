@@ -187,4 +187,7 @@
   <data name="Bar_Close" xml:space="preserve">
     <value>Close</value>
   </data>
+  <data name="Bar_Hide" xml:space="preserve">
+    <value>Hide at the screen edge</value>
+  </data>
 </root>

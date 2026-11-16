@@ -187,4 +187,7 @@
   <data name="Bar_Close" xml:space="preserve">
     <value>关闭</value>
   </data>
+  <data name="Bar_Hide" xml:space="preserve">
+    <value>隐藏到屏幕边缘</value>
+  </data>
 </root>

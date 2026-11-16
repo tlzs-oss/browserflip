@@ -156,7 +156,6 @@
                 <Style.Triggers>
                     <Trigger Property="IsChecked" Value="True">
                         <Setter Property="ToolTip" Value="{Binding [Pin_TooltipOn], Source={x:Static loc:Loc.Instance}}" />
-                        <Setter Property="AutomationProperties.Name" Value="{Binding [Pin_TooltipOn], Source={x:Static loc:Loc.Instance}}" />
                     </Trigger>
                 </Style.Triggers>
             </Style>
