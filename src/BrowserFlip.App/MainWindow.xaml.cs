@@ -10,6 +10,16 @@ namespace BrowserFlip.App;
 
 public partial class MainWindow : Window
 {
+    /// <summary>Desktop-experience state (always on top, compact mode, options).</summary>
+    public static readonly DependencyProperty ShellProperty = DependencyProperty.Register(
+        nameof(Shell), typeof(ShellViewModel), typeof(MainWindow), new PropertyMetadata(null));
+
+    public ShellViewModel? Shell
+    {
+        get => (ShellViewModel?)GetValue(ShellProperty);
+        set => SetValue(ShellProperty, value);
+    }
+
     public MainWindow()
     {
         InitializeComponent();

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Build-time tool that renders the BrowserFlip icon (SVG, PNG, ICO, preview sheet).
+    Not part of BrowserFlip.slnx and never shipped. Run it through scripts/icon/generate.ps1.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>BrowserFlip.IconGen</RootNamespace>
+    <AssemblyName>BrowserFlip.IconGen</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

@@ -103,4 +103,106 @@
   <data name="Footer_Note" xml:space="preserve">
     <value>BrowserFlip 绝不会擅自更改默认浏览器。每次更改都由你在 Windows 中确认。</value>
   </data>
+  <data name="Pin_Tooltip" xml:space="preserve">
+    <value>置顶显示</value>
+  </data>
+  <data name="Compact_Tooltip" xml:space="preserve">
+    <value>切换到紧凑工具栏</value>
+  </data>
+  <data name="Normal_Tooltip" xml:space="preserve">
+    <value>返回普通窗口</value>
+  </data>
+  <data name="Options_Header" xml:space="preserve">
+    <value>显示选项</value>
+  </data>
+  <data name="Options_Dock" xml:space="preserve">
+    <value>将紧凑工具栏停靠到屏幕边缘</value>
+  </data>
+  <data name="Options_DockEdge" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Options_AutoHide" xml:space="preserve">
+    <value>停靠时自动隐藏（鼠标靠近时显示）</value>
+  </data>
+  <data name="Options_Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Options_BarSize" xml:space="preserve">
+    <value>工具栏大小</value>
+  </data>
+  <data name="Options_FloatingOrientation" xml:space="preserve">
+    <value>未停靠时的方向</value>
+  </data>
+  <data name="Options_Tray" xml:space="preserve">
+    <value>在通知区域显示图标</value>
+  </data>
+  <data name="Options_CloseToTray" xml:space="preserve">
+    <value>关闭窗口后继续在通知区域运行</value>
+  </data>
+  <data name="Dock_Left" xml:space="preserve">
+    <value>左</value>
+  </data>
+  <data name="Dock_Right" xml:space="preserve">
+    <value>右</value>
+  </data>
+  <data name="Dock_Top" xml:space="preserve">
+    <value>上</value>
+  </data>
+  <data name="Dock_Bottom" xml:space="preserve">
+    <value>下</value>
+  </data>
+  <data name="Theme_System" xml:space="preserve">
+    <value>跟随系统</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="BarSize_Small" xml:space="preserve">
+    <value>小</value>
+  </data>
+  <data name="BarSize_Medium" xml:space="preserve">
+    <value>中</value>
+  </data>
+  <data name="Orientation_Horizontal" xml:space="preserve">
+    <value>横向</value>
+  </data>
+  <data name="Orientation_Vertical" xml:space="preserve">
+    <value>纵向</value>
+  </data>
+  <data name="Menu_Show" xml:space="preserve">
+    <value>显示 BrowserFlip</value>
+  </data>
+  <data name="Menu_Topmost" xml:space="preserve">
+    <value>置顶显示</value>
+  </data>
+  <data name="Menu_Compact" xml:space="preserve">
+    <value>紧凑工具栏</value>
+  </data>
+  <data name="Menu_Dock" xml:space="preserve">
+    <value>停靠到屏幕边缘</value>
+  </data>
+  <data name="Menu_DockEdge" xml:space="preserve">
+    <value>停靠位置</value>
+  </data>
+  <data name="Menu_AutoHide" xml:space="preserve">
+    <value>自动隐藏</value>
+  </data>
+  <data name="Menu_Settings" xml:space="preserve">
+    <value>设置…</value>
+  </data>
+  <data name="Menu_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="Bar_ShowTab" xml:space="preserve">
+    <value>显示 BrowserFlip 工具栏</value>
+  </data>
+  <data name="Bar_Name" xml:space="preserve">
+    <value>BrowserFlip 工具栏</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>BrowserFlip — 默认：{0}</value>
+  </data>
 </root>

@@ -13,7 +13,7 @@ BrowserFlip 是一款小巧的开源 Windows 10/11 桌面应用:列出电脑上�
 
 > 截图将在首个版本发布前补充。
 
-> **状态:** 预发布(0.1.0 MVP 开发中),尚未发布任何正式版本。
+> **状态:** 预发布(0.1.0 MVP 与 0.2.0 桌面功能开发中),尚未发布任何正式版本。
 
 ## 功能
 
@@ -25,6 +25,16 @@ BrowserFlip 是一款小巧的开源 Windows 10/11 桌面应用:列出电脑上�
 - **友好的提示** — 对已卸载的浏览器（卡片显示为不可用）、注册不完整的浏览器（打开“默认应用”首页并给出提示）、组策略限制以及取消更改等情况分别说明。
 - **深色模式**(跟随 Windows 应用主题)、**Per-Monitor V2 高 DPI**、**键盘导航 / 屏幕阅读器名称**。
 - **English、日本語、简体中文** — 根据 Windows 语言自动选择,可在运行时切换。
+
+0.2 新功能(尚未发布):
+
+- **专属图标** — 地球加箭头的原创设计(MIT),用于 EXE、窗口、任务栏和通知区域。
+- **置顶显示** — 通过图钉按钮切换;全屏应用或演示运行期间会暂时取消置顶。
+- **紧凑工具栏** — 列出浏览器的小型横向 / 纵向工具栏,突出显示默认浏览器。
+- **停靠到屏幕边缘** — 停靠到左、右、上、下边缘,或拖动到边缘附近自动吸附。不会改变工作区。
+- **自动隐藏** — 停靠时工具栏会收起,只留下一个小标签;将鼠标悬停在标签上或点击标签(或使用通知区域图标)即可恢复。
+- **通知区域图标** — 左键单击显示,右键单击打开菜单。可选功能,不使用也能使用全部功能。
+- **多显示器 / 每显示器 DPI** — 在显示器、分辨率、缩放比例、任务栏变化或睡眠唤醒后重新定位,不会消失在屏幕外。
 
 ## 工作原理
 
@@ -80,6 +90,8 @@ dotnet run --project src/BrowserFlip.App
 3. Windows 设置随即打开。点击"设为默认值"(Windows 11),或在"Web 浏览器"下选择该浏览器(Windows 10)。
 4. 切回 BrowserFlip,标记会移动到新的默认浏览器。如果没有更改,BrowserFlip 会给出提示。
 
+紧凑工具栏、停靠、自动隐藏和通知区域图标的用法请参阅使用说明(日文):[docs/user-guide.ja.md](docs/user-guide.ja.md)。
+
 ## 常见问题
 
 **为什么不能不打开设置就直接更改默认浏览器?**
@@ -108,17 +120,17 @@ BrowserFlip 只列出在 `StartMenuInternet` 下注册并声明了 `http`/`https
 - **无遥测**,不做分析,不发送崩溃报告。
 - **无网络访问**,BrowserFlip 不会连接互联网。
 - 仅 **读取** 注册表并启动 `ms-settings:` URI,从不写入注册表。
-- 唯一写入的文件是保存语言设置的 `%LOCALAPPDATA%\BrowserFlip\settings.json`。
+- 唯一写入的文件是 `%LOCALAPPDATA%\BrowserFlip\settings.json`,用于保存语言和显示设置(主题、显示模式、置顶、停靠、自动隐藏、通知区域选项、窗口和工具栏位置)。删除该文件即可恢复默认设置。
 
 ## 路线图
 
-后续阶段计划(尚未实现):检测打包版(MSIX / Store)浏览器、系统托盘、全局热键、启动时检查、便携版、安装程序、更新通知,以及自动化方式的调研(仅限 Windows 提供受支持机制的情况)。
+后续阶段计划(尚未实现):检测打包版(MSIX / Store)浏览器、全局热键、启动时检查、便携版、安装程序、更新通知,以及自动化方式的调研(仅限 Windows 提供受支持机制的情况)。
 
 ## 参与贡献
 
 欢迎贡献!请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [行为准则](CODE_OF_CONDUCT.md)。安全问题请参阅 [SECURITY.md](SECURITY.md)。
 
-更多文档(日文):[架构](docs/architecture.md) · [需求](docs/requirements.md) · [测试](docs/testing.md) · [相关开源项目调研](docs/oss-research.md) · [更新日志](CHANGELOG.md)
+更多文档(日文):[使用说明](docs/user-guide.ja.md) · [架构](docs/architecture.md) · [v0.2 设计](docs/desktop-design.ja.md) · [需求](docs/requirements.md) · [测试](docs/testing.md) · [相关开源项目调研](docs/oss-research.md) · [更新日志](CHANGELOG.md)
 
 ## 许可证
 

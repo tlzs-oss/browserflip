@@ -4,7 +4,8 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
         Title="BrowserFlip"
-        Width="600" Height="640" MinWidth="440" MinHeight="420"
+        Icon="pack://application:,,,/Assets/browserflip.ico"
+        Width="600" Height="700" MinWidth="440" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
@@ -23,11 +24,38 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
         <DockPanel Grid.Row="0" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Always on top (V2-02) -->
+                <ToggleButton Style="{StaticResource ToolbarToggle}" Margin="0,0,8,0"
+                              DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
+                              IsChecked="{Binding IsTopmost, Mode=TwoWay}"
+                              ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
+                              AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
+                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="15">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="&#xE718;" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsTopmost}" Value="True">
+                                        <Setter Property="Text" Value="&#xE840;" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </ToggleButton>
+                <!-- Compact bar (V2-03) -->
+                <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,0"
+                        Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        ToolTip="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}"
+                        AutomationProperties.Name="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}">
+                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="15" Text="&#xE73F;" />
+                </Button>
                 <ComboBox Width="140" Margin="0,0,8,0" VerticalAlignment="Center"
                           ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
                           DisplayMemberPath="DisplayName"
@@ -201,8 +229,65 @@
                        Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
         </Grid>
 
+        <!-- Display options (V2-02..V2-07) -->
+        <Expander Grid.Row="5" Margin="0,10,0,0" Foreground="{DynamicResource PrimaryTextBrush}"
+                  DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
+                  IsExpanded="{Binding IsOptionsOpen, Mode=TwoWay}"
+                  Header="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">
+            <Border Margin="0,6,0,0" Padding="12,10" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <CheckBox Content="{Binding [Options_Dock], Source={x:Static loc:Loc.Instance}}" Margin="0,0,0,6"
+                                  IsChecked="{Binding DockEnabled, Mode=TwoWay}" Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <DockPanel Margin="22,0,0,6" IsEnabled="{Binding DockEnabled}" LastChildFill="False">
+                            <TextBlock Text="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox MinWidth="90" ItemsSource="{Binding DockEdges}" SelectedItem="{Binding SelectedDockEdge, Mode=TwoWay}"
+                                      DisplayMemberPath="DisplayName"
+                                      AutomationProperties.Name="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" />
+                        </DockPanel>
+                        <CheckBox Content="{Binding [Options_AutoHide], Source={x:Static loc:Loc.Instance}}" Margin="22,0,0,8"
+                                  IsChecked="{Binding AutoHide, Mode=TwoWay}" IsEnabled="{Binding DockEnabled}"
+                                  Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <CheckBox Content="{Binding [Options_Tray], Source={x:Static loc:Loc.Instance}}" Margin="0,0,0,6"
+                                  IsChecked="{Binding TrayEnabled, Mode=TwoWay}" Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <CheckBox Content="{Binding [Options_CloseToTray], Source={x:Static loc:Loc.Instance}}" Margin="22,0,0,0"
+                                  IsChecked="{Binding CloseToTray, Mode=TwoWay}" IsEnabled="{Binding IsCloseToTrayAvailable}"
+                                  Foreground="{DynamicResource PrimaryTextBrush}" />
+                    </StackPanel>
+                    <Grid Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="110" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,6" />
+                        <ComboBox Grid.Column="1" Margin="0,0,0,6" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
+                                  DisplayMemberPath="DisplayName" AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="1" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,6" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" ItemsSource="{Binding BarSizes}" SelectedItem="{Binding SelectedBarSize, Mode=TwoWay}"
+                                  DisplayMemberPath="DisplayName" AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="2" Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" MaxWidth="130" Margin="0,0,8,0" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Orientations}" SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}"
+                                  DisplayMemberPath="DisplayName"
+                                  AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Expander>
+
         <!-- Footer -->
-        <DockPanel Grid.Row="5" Margin="0,10,0,0">
+        <DockPanel Grid.Row="6" Margin="0,10,0,0">
             <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Command="{Binding OpenDefaultAppsCommand}"
                     Content="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Top" />
             <TextBlock Text="{Binding [Footer_Note], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="12"

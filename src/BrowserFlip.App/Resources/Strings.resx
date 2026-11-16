@@ -103,4 +103,106 @@
   <data name="Footer_Note" xml:space="preserve">
     <value>BrowserFlip never changes your default browser silently. Windows asks you to confirm every change.</value>
   </data>
+  <data name="Pin_Tooltip" xml:space="preserve">
+    <value>Always on top</value>
+  </data>
+  <data name="Compact_Tooltip" xml:space="preserve">
+    <value>Switch to the compact bar</value>
+  </data>
+  <data name="Normal_Tooltip" xml:space="preserve">
+    <value>Back to the normal window</value>
+  </data>
+  <data name="Options_Header" xml:space="preserve">
+    <value>Display options</value>
+  </data>
+  <data name="Options_Dock" xml:space="preserve">
+    <value>Dock the compact bar to a screen edge</value>
+  </data>
+  <data name="Options_DockEdge" xml:space="preserve">
+    <value>Edge</value>
+  </data>
+  <data name="Options_AutoHide" xml:space="preserve">
+    <value>Auto-hide while docked (shows when the mouse approaches)</value>
+  </data>
+  <data name="Options_Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Options_BarSize" xml:space="preserve">
+    <value>Bar size</value>
+  </data>
+  <data name="Options_FloatingOrientation" xml:space="preserve">
+    <value>Orientation when not docked</value>
+  </data>
+  <data name="Options_Tray" xml:space="preserve">
+    <value>Show an icon in the notification area</value>
+  </data>
+  <data name="Options_CloseToTray" xml:space="preserve">
+    <value>Keep running in the notification area when the window is closed</value>
+  </data>
+  <data name="Dock_Left" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="Dock_Right" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="Dock_Top" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="Dock_Bottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="Theme_System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Theme_Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Theme_Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="BarSize_Small" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="BarSize_Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="Orientation_Horizontal" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="Orientation_Vertical" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
+  <data name="Menu_Show" xml:space="preserve">
+    <value>Show BrowserFlip</value>
+  </data>
+  <data name="Menu_Topmost" xml:space="preserve">
+    <value>Always on top</value>
+  </data>
+  <data name="Menu_Compact" xml:space="preserve">
+    <value>Compact bar</value>
+  </data>
+  <data name="Menu_Dock" xml:space="preserve">
+    <value>Dock to screen edge</value>
+  </data>
+  <data name="Menu_DockEdge" xml:space="preserve">
+    <value>Dock position</value>
+  </data>
+  <data name="Menu_AutoHide" xml:space="preserve">
+    <value>Auto-hide</value>
+  </data>
+  <data name="Menu_Settings" xml:space="preserve">
+    <value>Settings…</value>
+  </data>
+  <data name="Menu_Exit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="Bar_ShowTab" xml:space="preserve">
+    <value>Show the BrowserFlip toolbar</value>
+  </data>
+  <data name="Bar_Name" xml:space="preserve">
+    <value>BrowserFlip toolbar</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>BrowserFlip — default: {0}</value>
+  </data>
 </root>

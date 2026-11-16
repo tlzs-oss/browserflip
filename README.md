@@ -13,7 +13,7 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 
 > The screenshot will be added before the first release.
 
-> **Status:** pre-release (0.1.0 MVP in development). Nothing has been published as a release yet.
+> **Status:** pre-release (0.1.0 MVP and 0.2.0 desktop features in development). Nothing has been published as a release yet.
 
 ## Features
 
@@ -25,6 +25,16 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 - **Helpful messages** — uninstalled browsers (card disabled), browsers that only registered partially (opens the general *Default apps* page with a hint), Group Policy restrictions, and cancelled changes are each explained.
 - **Dark mode** (follows your Windows app theme), **Per-Monitor V2 high DPI**, and **keyboard navigation / screen reader names**.
 - **English, 日本語, 简体中文** — picked automatically from Windows, switchable at runtime.
+
+New in 0.2 (unreleased):
+
+- **App icon** — an original globe-and-arrows design (MIT), used for the EXE, windows, taskbar and notification area.
+- **Always on top** — pin button; temporarily released while a full-screen app or presentation is running.
+- **Compact bar** — a small horizontal or vertical toolbar with your browsers; the default one is highlighted.
+- **Edge docking** — dock the bar to the left, right, top or bottom edge, or drag it near an edge to snap. It never changes your work area.
+- **Auto-hide** — while docked, the bar slides away and leaves a small tab; hover or click the tab (or use the tray icon) to bring it back.
+- **Notification area icon** — left click to show, right click for a menu. Optional; everything also works without it.
+- **Multi-monitor and per-monitor DPI** — the bar and window are re-placed after monitor, resolution, scaling, taskbar or sleep/resume changes and never get lost off-screen.
 
 ## How it works
 
@@ -80,6 +90,8 @@ dotnet run --project src/BrowserFlip.App
 3. Windows Settings opens. Click **Set default** (Windows 11) or pick the browser under *Web browser* (Windows 10).
 4. Switch back to BrowserFlip. The badge moves to the new default. If nothing changed, BrowserFlip tells you so.
 
+For the compact bar, docking, auto-hide and the notification area icon, see the user guide (Japanese): [docs/user-guide.ja.md](docs/user-guide.ja.md).
+
 ## FAQ
 
 **Why can't BrowserFlip change the default without opening Settings?**
@@ -108,17 +120,17 @@ No. It never asks for elevation.
 - **No telemetry**, no analytics, no crash reporting.
 - **No network access.** BrowserFlip does not connect to the internet.
 - It only **reads** the registry and launches `ms-settings:` URIs. It never writes registry values.
-- The only file it writes is `%LOCALAPPDATA%\BrowserFlip\settings.json`, which stores your language choice.
+- The only file it writes is `%LOCALAPPDATA%\BrowserFlip\settings.json`, which stores your language and display preferences (theme, mode, always on top, docking, auto-hide, tray options, window and bar positions). Delete it to reset.
 
 ## Roadmap
 
-Planned for later phases (not implemented): detection of packaged (MSIX / Store) browsers, system tray, global hotkey, startup check, portable build, installer, update notification, and research into automation — only if Windows offers a supported mechanism.
+Planned for later phases (not implemented): detection of packaged (MSIX / Store) browsers, global hotkey, startup check, portable build, installer, update notification, and research into automation — only if Windows offers a supported mechanism.
 
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Security issues: see [SECURITY.md](SECURITY.md).
 
-Further docs: [Architecture](docs/architecture.md) · [Requirements](docs/requirements.md) · [Testing](docs/testing.md) · [Related OSS research](docs/oss-research.md) · [Changelog](CHANGELOG.md)
+Further docs (Japanese): [User guide](docs/user-guide.ja.md) · [Architecture](docs/architecture.md) · [Desktop design (0.2)](docs/desktop-design.ja.md) · [Requirements](docs/requirements.md) · [Testing](docs/testing.md) · [Related OSS research](docs/oss-research.md) · [Changelog](CHANGELOG.md)
 
 ## License
 
