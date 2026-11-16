@@ -1,6 +1,6 @@
 # アーキテクチャ
 
-BrowserFlip の構成と主要な処理フローを説明します。対象バージョンは 0.1.0(MVP、開発中)です。
+BrowserFlip の構成と主要な処理フローを説明します。対象バージョンは 0.1.0(MVP)で、v0.2 で追加したデスクトップ機能は [7. v0.2 デスクトップ機能](#7-v02-デスクトップ機能) にまとめています。
 
 - 要件: [requirements.md](requirements.md) / テスト: [testing.md](testing.md) / 関連 OSS 調査: [oss-research.md](oss-research.md)
 - 参考: [Launch the Default Apps settings page (Microsoft Learn)](https://learn.microsoft.com/en-us/windows/apps/develop/launch/launch-default-apps-settings)
@@ -241,8 +241,24 @@ ProgID とブラウザーの対応付けは、(1) 同じプロトコルの ProgI
 
 ## 6. App 層の設計
 
-- MVVM。ViewModel は Core のサービスのみを使い、Win32 を直接呼ばない(アイコン抽出 `IconLoader` とタイトルバー配色 `ThemeManager` のみ App 層の Services で P/Invoke を使用)。
+- MVVM。ViewModel は Core のサービスのみを使い、Win32 を直接呼ばない(App 層で P/Invoke を使うのは、アイコン抽出 `IconLoader`、タイトルバー配色 `ThemeManager`、v0.2 の `Desktop/Win32` 配下のモニター・配置・通知領域の実装のみ)。
 - テーマ: Windows のアプリ テーマ(ライト/ダーク)に追従。ハイ コントラスト時はシステム カラーを使用。
 - 高 DPI: アプリケーション マニフェストで Per-Monitor V2 を宣言。
 - 多言語: `Strings.resx`(英語、ニュートラル)/ `Strings.ja.resx` / `Strings.zh-CN.resx`。ユーザーの Windows 表示言語から自動選択し、実行中に切り替え可能。言語に応じて `xml:lang` とフォント(ja: Yu Gothic UI / zh-CN: Microsoft YaHei UI)を切り替え。
 - アクセシビリティ: カードはキーボードで操作可能(Tab / Enter / Space)、`AutomationProperties.Name` を設定。
+
+## 7. v0.2 デスクトップ機能
+
+v0.2(未リリース)では、v0.1 の Core と `MainViewModel` を変更せずに、App 層へ次のデスクトップ機能を追加しました。
+
+- 専用アプリアイコン(`assets/icon/`、オリジナル図案、MIT)
+- 常に手前に表示(全画面アプリ実行中は一時解除)
+- コンパクトバー(横 / 縦、サイズ 小 / 中)と画面端へのドッキング、ドラッグでのスナップ
+- ドッキング中の自動的に隠す(画面端のタブから復帰)
+- 通知領域アイコン(既定で有効、補助的な位置付け)
+- 複数モニター / Per-Monitor DPI 対応の配置と、ディスプレイ構成変更時の再配置・画面外からの復旧
+- 表示設定の `settings.json` への永続化(v0.1 の設定ファイルと互換)
+
+構成要素は `src/BrowserFlip.App/Desktop/` にあり、`DesktopCoordinator` が `ShellViewModel` の状態をウィンドウへ適用します。状態機械(`AutoHideController`)と配置計算(`DockLayout`)は OS に依存しない純粋なロジックで、Win32 への依存は `IMonitorService` / `IWindowPlacement` / `ITrayIcon` のインターフェイス越しに扱います。安全性の方針(レジストリ書き込みなし、管理者権限不要、ネットワーク通信なし)は変わりません。
+
+設計の詳細(構成図、状態遷移、座標系と DPI、イベントループ防止、常駐負荷、通知領域、設定ファイル仕様、既知の制限)は [desktop-design.ja.md](desktop-design.ja.md) を、要件は [backlog.md](backlog.md) を参照してください。
