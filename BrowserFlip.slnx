@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BrowserFlip.Core/BrowserFlip.Core.csproj" />
+    <Project Path="src/BrowserFlip.App/BrowserFlip.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BrowserFlip.Core.Tests/BrowserFlip.Core.Tests.csproj" />
+    <Project Path="tests/BrowserFlip.App.Tests/BrowserFlip.App.Tests.csproj" />
+  </Folder>
+</Solution>
