@@ -56,7 +56,13 @@ public partial class MainWindow : Window
         };
         StateChanged += (_, _) =>
         {
-            if (WindowState == WindowState.Normal)
+            if (WindowState == WindowState.Maximized)
+            {
+                // Maximize is disabled in the UI, but a shortcut set to "Maximized" (SW_MAXIMIZE) can still
+                // request it: the content-sized window stays normal.
+                _ = Dispatcher.BeginInvoke(() => WindowState = WindowState.Normal);
+            }
+            else if (WindowState == WindowState.Normal)
             {
                 LimitHeightToWorkArea(); // a minimized window sits at -32000; measure only when restored
             }
@@ -73,10 +79,12 @@ public partial class MainWindow : Window
     private void RemoveMaximizeBox()
     {
         const int GwlStyle = -16;
-        const long WsMaximizeBox = 0x00010000;
+        const int WsMaximizeBox = 0x00010000;
         var hwnd = new WindowInteropHelper(this).Handle;
-        var style = NativeMethods.GetWindowLongPtrW(hwnd, GwlStyle).ToInt64();
-        _ = NativeMethods.SetWindowLongPtrW(hwnd, GwlStyle, new IntPtr(style & ~WsMaximizeBox));
+
+        // Called at SourceInitialized (before the first show), so no SWP_FRAMECHANGED is needed.
+        var style = NativeMethods.GetWindowLongW(hwnd, GwlStyle);
+        _ = NativeMethods.SetWindowLongW(hwnd, GwlStyle, style & ~WsMaximizeBox);
     }
 
     /// <summary>Re-applies the height cap and keeps the bottom above the taskbar (display / work-area change).</summary>
