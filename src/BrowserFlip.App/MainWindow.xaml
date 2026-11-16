@@ -50,24 +50,11 @@
                               AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}"
                               ToolTip="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
                     <!-- Always on top -->
-                    <ToggleButton Style="{StaticResource ToolbarToggle}" Width="32" Height="30" Padding="0" Margin="6,0,0,0"
+                    <!-- Always on top: shared PinToggle (tilted grey pin = off, upright white pin on blue = on);
+                         tooltip and accessible name follow the state. -->
+                    <ToggleButton x:Name="PinToggleButton" Style="{StaticResource PinToggle}" Width="32" Height="30" Margin="6,0,0,0"
                                   DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}"
-                                  ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
-                                  AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                        <TextBlock>
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource IconGlyph}">
-                                    <Setter Property="Text" Value="&#xE718;" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsTopmost}" Value="True">
-                                            <Setter Property="Text" Value="&#xE840;" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </ToggleButton>
+                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}" />
                     <!-- Compact bar -->
                     <Button Style="{StaticResource HeaderIconButton}"
                             Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}"

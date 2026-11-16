@@ -103,8 +103,11 @@
   <data name="Footer_Note" xml:space="preserve">
     <value>每次更改都由你在 Windows 中确认。</value>
   </data>
-  <data name="Pin_Tooltip" xml:space="preserve">
+  <data name="Pin_TooltipOff" xml:space="preserve">
     <value>置顶显示</value>
+  </data>
+  <data name="Pin_TooltipOn" xml:space="preserve">
+    <value>取消置顶</value>
   </data>
   <data name="Compact_Tooltip" xml:space="preserve">
     <value>切换到紧凑工具栏</value>

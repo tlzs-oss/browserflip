@@ -78,24 +78,24 @@
                            RenderOptions.BitmapScalingMode="HighQuality" />
                 </Button>
                 <!-- Always on top -->
-                <Button x:Name="PinButton" Style="{StaticResource BarButton}" Command="{Binding Shell.ToggleTopmostCommand}"
-                        ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
-                        AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="&#xE718;" />
-                                <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Shell.IsTopmost}" Value="True">
-                                        <Setter Property="Text" Value="&#xE840;" />
-                                        <Setter Property="Foreground" Value="{DynamicResource BfAccentBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Button>
+                <!-- Same PinToggle as the main window. IsChecked is two-way bound to Shell.IsTopmost (the single source
+                     of truth; no Command, so a click toggles exactly once). Tooltip / name follow the state. -->
+                <ToggleButton x:Name="PinButton" IsChecked="{Binding Shell.IsTopmost, Mode=TwoWay}">
+                    <ToggleButton.Resources>
+                        <CornerRadius x:Key="PinToggleCornerRadius">8</CornerRadius>
+                    </ToggleButton.Resources>
+                    <ToggleButton.Style>
+                        <Style TargetType="ToggleButton" BasedOn="{StaticResource PinToggle}">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="Width" Value="{Binding DataContext.Shell.BarButtonSize, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Setter Property="Height" Value="{Binding DataContext.Shell.BarButtonSize, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            <Setter Property="Margin" Value="2" />
+                            <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
                 <!-- Options (opens the normal window with options expanded) -->
                 <Button x:Name="OptionsButton" Style="{StaticResource BarButton}" Command="{Binding Shell.OpenOptionsCommand}"
                         ToolTip="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}"

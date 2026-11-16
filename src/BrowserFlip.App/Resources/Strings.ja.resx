@@ -103,8 +103,11 @@
   <data name="Footer_Note" xml:space="preserve">
     <value>変更は必ず Windows 上であなたが確定します。</value>
   </data>
-  <data name="Pin_Tooltip" xml:space="preserve">
-    <value>常に手前に表示（置頂）</value>
+  <data name="Pin_TooltipOff" xml:space="preserve">
+    <value>常に手前に表示する</value>
+  </data>
+  <data name="Pin_TooltipOn" xml:space="preserve">
+    <value>常に手前に表示を解除</value>
   </data>
   <data name="Compact_Tooltip" xml:space="preserve">
     <value>コンパクトバーに切り替え</value>
