@@ -1,0 +1,38 @@
+name: Feature request / 機能要望
+description: Suggest an idea for BrowserFlip. / BrowserFlip への提案。
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion! Please check the roadmap in the README first.
+        Note: BrowserFlip will **not** change the default browser silently. Requests that require writing
+        `UserChoice` / `UserChoiceLatest`, forging the UserChoice hash, DISM default-association XML,
+        administrator rights, telemetry or network access are out of scope (see CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 解決したい課題
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / 提案する解決策
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 検討した代替案
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Project principles / プロジェクトの原則
+      options:
+        - label: This works without admin rights and without bypassing Windows' default-app confirmation. / 管理者権限なし、かつ Windows の確認を回避しない方法で実現できます。
+          required: true
+        - label: I searched existing issues and this is not a duplicate. / 既存の Issue を検索しました。
+          required: true

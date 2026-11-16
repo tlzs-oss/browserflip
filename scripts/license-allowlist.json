@@ -1,0 +1,29 @@
+{
+  "$comment": "NuGet license allowlist for scripts/license-check.ps1. Every package (direct or transitive) restored by any project must be listed here with its SPDX license. Entries were verified against the nuget.org registration API (https://api.nuget.org/v3/registration5-gz-semver2/<id>/<version>.json, catalogEntry.licenseExpression) on 2026-11-16. Production projects have no NuGet dependencies; everything below is test-only. To add a package: verify its license on nuget.org, add an entry, and get review.",
+  "allowedLicenses": [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD"
+  ],
+  "packages": {
+    "coverlet.collector": { "license": "MIT", "verifiedVersion": "6.0.4", "source": "nuget.org registration licenseExpression" },
+    "Microsoft.CodeCoverage": { "license": "MIT", "verifiedVersion": "17.14.1", "source": "nuget.org registration licenseExpression" },
+    "Microsoft.NET.Test.Sdk": { "license": "MIT", "verifiedVersion": "17.14.1", "source": "nuget.org registration licenseExpression" },
+    "Microsoft.TestPlatform.ObjectModel": { "license": "MIT", "verifiedVersion": "17.14.1", "source": "nuget.org registration licenseExpression" },
+    "Microsoft.TestPlatform.TestHost": { "license": "MIT", "verifiedVersion": "17.14.1", "source": "nuget.org registration licenseExpression" },
+    "Newtonsoft.Json": { "license": "MIT", "verifiedVersion": "13.0.3", "source": "nuget.org registration licenseExpression" },
+    "System.Collections.Immutable": { "license": "MIT", "verifiedVersion": "8.0.0", "source": "nuget.org registration licenseExpression" },
+    "System.Reflection.Metadata": { "license": "MIT", "verifiedVersion": "8.0.0", "source": "nuget.org registration licenseExpression" },
+    "xunit": { "license": "Apache-2.0", "verifiedVersion": "2.9.3", "source": "nuget.org registration licenseExpression" },
+    "xunit.abstractions": { "license": "Apache-2.0", "verifiedVersion": "2.0.3", "source": "nuspec has no licenseExpression; licenseUrl https://raw.githubusercontent.com/xunit/xunit/master/license.txt states Apache License 2.0" },
+    "xunit.analyzers": { "license": "Apache-2.0", "verifiedVersion": "1.18.0", "source": "nuget.org registration licenseExpression" },
+    "xunit.assert": { "license": "Apache-2.0", "verifiedVersion": "2.9.3", "source": "nuget.org registration licenseExpression" },
+    "xunit.core": { "license": "Apache-2.0", "verifiedVersion": "2.9.3", "source": "nuget.org registration licenseExpression" },
+    "xunit.extensibility.core": { "license": "Apache-2.0", "verifiedVersion": "2.9.3", "source": "nuget.org registration licenseExpression" },
+    "xunit.extensibility.execution": { "license": "Apache-2.0", "verifiedVersion": "2.9.3", "source": "nuget.org registration licenseExpression" },
+    "xunit.runner.visualstudio": { "license": "Apache-2.0", "verifiedVersion": "3.1.4", "source": "nuget.org registration licenseExpression" }
+  }
+}
