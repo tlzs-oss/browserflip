@@ -4,153 +4,163 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
         Title="BrowserFlip"
-        Icon="pack://application:,,,/Assets/browserflip.ico"
-        Width="600" Height="700" MinWidth="440" MinHeight="420"
+        Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
+        Width="520" SizeToContent="Height" MinWidth="460" MinHeight="260"
         WindowStartupLocation="CenterScreen"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
-        Background="{DynamicResource WindowBackgroundBrush}"
-        Foreground="{DynamicResource PrimaryTextBrush}"
-        FontSize="14">
+        Background="{DynamicResource BfWindowBackgroundBrush}"
+        Foreground="{DynamicResource BfPrimaryTextBrush}"
+        FontSize="13">
     <Window.InputBindings>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
     </Window.InputBindings>
 
-    <Grid Margin="18,14,18,14">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Window.Resources>
+        <!-- Compact strip used for the current default, warnings and status messages. -->
+        <Style x:Key="Strip" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="Background" Value="{DynamicResource BfInfoBackgroundBrush}" />
+        </Style>
+        <Style x:Key="IconGlyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="HeaderIconButton" TargetType="Button" BasedOn="{StaticResource ToolbarButton}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+    </Window.Resources>
 
-        <!-- Header -->
-        <DockPanel Grid.Row="0" LastChildFill="True">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- Always on top (V2-02) -->
-                <ToggleButton Style="{StaticResource ToolbarToggle}" Margin="0,0,8,0"
-                              DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
-                              IsChecked="{Binding IsTopmost, Mode=TwoWay}"
-                              ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
-                              AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="15">
+    <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <StackPanel Margin="16,12,16,12">
+
+            <!-- Header: icon + name | language, always on top, compact bar, refresh -->
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox MinWidth="104" Height="30" VerticalAlignment="Center"
+                              ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
+                              DisplayMemberPath="DisplayName"
+                              AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}"
+                              ToolTip="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
+                    <!-- Always on top -->
+                    <ToggleButton Style="{StaticResource ToolbarToggle}" Width="32" Height="30" Padding="0" Margin="6,0,0,0"
+                                  DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}"
+                                  ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
+                                  AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
+                        <TextBlock>
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource IconGlyph}">
+                                    <Setter Property="Text" Value="&#xE718;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsTopmost}" Value="True">
+                                            <Setter Property="Text" Value="&#xE840;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </ToggleButton>
+                    <!-- Compact bar -->
+                    <Button Style="{StaticResource HeaderIconButton}"
+                            Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            ToolTip="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}"
+                            AutomationProperties.Name="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}">
+                        <TextBlock Style="{StaticResource IconGlyph}" Text="&#xE73F;" />
+                    </Button>
+                    <!-- Refresh (F5) -->
+                    <Button Style="{StaticResource HeaderIconButton}" Command="{Binding RefreshCommand}"
+                            ToolTip="{Binding [Refresh_Tooltip], Source={x:Static loc:Loc.Instance}}"
+                            AutomationProperties.Name="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}">
+                        <TextBlock Style="{StaticResource IconGlyph}" Text="&#xE72C;" />
+                    </Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="pack://application:,,,/BrowserFlip;component/Assets/browserflip-64.png" Width="28" Height="28" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding [AppTitle], Source={x:Static loc:Loc.Instance}}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding [Tagline], Source={x:Static loc:Loc.Instance}}" FontSize="11.5"
+                                   Foreground="{DynamicResource BfSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- Current default (F04) -->
+            <Border AutomationProperties.LiveSetting="Polite" Margin="0,12,0,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Strip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsMismatch}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource BfWarningBackgroundBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Top" Padding="0,1,0,0">
                         <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="&#xE718;" />
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource IconGlyph}">
+                                <Setter Property="Text" Value="&#xE774;" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsTopmost}" Value="True">
-                                        <Setter Property="Text" Value="&#xE840;" />
+                                    <DataTrigger Binding="{Binding IsMismatch}" Value="True">
+                                        <Setter Property="Text" Value="&#xE7BA;" />
+                                        <Setter Property="Foreground" Value="{DynamicResource BfWarningForegroundBrush}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                </ToggleButton>
-                <!-- Compact bar (V2-03) -->
-                <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,0"
-                        Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                        ToolTip="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}"
-                        AutomationProperties.Name="{Binding [Compact_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                    <TextBlock FontFamily="{StaticResource IconFont}" FontSize="15" Text="&#xE73F;" />
-                </Button>
-                <ComboBox Width="140" Margin="0,0,8,0" VerticalAlignment="Center"
-                          ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
-                          DisplayMemberPath="DisplayName"
-                          AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}"
-                          ToolTip="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
-                <Button Style="{StaticResource ToolbarButton}" Command="{Binding RefreshCommand}"
-                        ToolTip="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}"
-                        AutomationProperties.Name="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72C;" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-            <StackPanel>
-                <TextBlock Text="{Binding [AppTitle], Source={x:Static loc:Loc.Instance}}" FontSize="24" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding [Tagline], Source={x:Static loc:Loc.Instance}}" Foreground="{DynamicResource SecondaryTextBrush}" />
-            </StackPanel>
-        </DockPanel>
+                    <TextBlock Text="{Binding CurrentDefaultText}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
 
-        <!-- Current default (F04) -->
-        <Border Grid.Row="1" Margin="0,14,0,0" Padding="12,10" CornerRadius="6"
-                AutomationProperties.LiveSetting="Polite">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Background" Value="{DynamicResource InfoBackgroundBrush}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsMismatch}" Value="True">
-                            <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource IconFont}" FontSize="16" Margin="0,1,10,0" VerticalAlignment="Top">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="&#xE774;" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsMismatch}" Value="True">
-                                    <Setter Property="Text" Value="&#xE7BA;" />
-                                    <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-                <TextBlock Text="{Binding CurrentDefaultText}" TextWrapping="Wrap" />
-            </DockPanel>
-        </Border>
+            <!-- Policy warning (F05) -->
+            <Border Visibility="{Binding IsAssociationsManaged, Converter={StaticResource BoolToVisibility}}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Strip}">
+                        <Setter Property="Background" Value="{DynamicResource BfWarningBackgroundBrush}" />
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="12.5" />
+            </Border>
 
-        <!-- Policy warning (F05) -->
-        <Border Grid.Row="2" Margin="0,8,0,0" Padding="12,8" CornerRadius="6"
-                Background="{DynamicResource WarningBackgroundBrush}"
-                Visibility="{Binding IsAssociationsManaged, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-        </Border>
+            <!-- Status / guidance -->
+            <Border AutomationProperties.LiveSetting="Assertive">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Strip}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.None}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Success}">
+                                <Setter Property="Background" Value="{DynamicResource BfSuccessBackgroundBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Warning}">
+                                <Setter Property="Background" Value="{DynamicResource BfWarningBackgroundBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Error}">
+                                <Setter Property="Background" Value="{DynamicResource BfErrorBackgroundBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="12.5" />
+                    <TextBlock Text="{Binding GuidanceText}" TextWrapping="Wrap" Margin="0,3,0,0" FontSize="12.5"
+                               Visibility="{Binding IsWaitingForChange, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+            </Border>
 
-        <!-- Status message -->
-        <Border Grid.Row="3" Margin="0,8,0,0" Padding="12,8" CornerRadius="6" AutomationProperties.LiveSetting="Assertive">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Background" Value="{DynamicResource InfoBackgroundBrush}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.None}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Success}">
-                            <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Warning}">
-                            <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding MessageKind}" Value="{x:Static vm:MessageKind.Error}">
-                            <Setter Property="Background" Value="{DynamicResource ErrorBackgroundBrush}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <StackPanel>
-                <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding GuidanceText}" TextWrapping="Wrap" Margin="0,4,0,0"
-                           Visibility="{Binding IsWaitingForChange, Converter={StaticResource BoolToVisibility}}" />
-            </StackPanel>
-        </Border>
-
-        <!-- Browser cards (F01/F02/F03) -->
-        <Grid Grid.Row="4" Margin="0,12,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <TextBlock Text="{Binding [Section_Browsers], Source={x:Static loc:Loc.Instance}}"
-                       Foreground="{DynamicResource SecondaryTextBrush}" Margin="6,0,0,4" />
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <!-- Browser cards (F01/F02/F03): 2 columns, icon + name + state -->
+            <Grid Margin="-4,8,-4,0">
                 <ItemsControl ItemsSource="{Binding Browsers}" Focusable="False"
                               KeyboardNavigation.TabNavigation="Continue"
                               AutomationProperties.Name="{Binding [Section_Browsers], Source={x:Static loc:Loc.Instance}}">
@@ -161,21 +171,22 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:BrowserCardViewModel}">
-                            <Button Style="{StaticResource BrowserCard}"
+                            <Button Style="{StaticResource BrowserCard}" Margin="4" Padding="10,8"
                                     Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
                                     IsEnabled="{Binding IsAvailable}"
-                                    ToolTip="{Binding HintText}"
+                                    ToolTip="{Binding DetailText}"
+                                    ToolTipService.ShowOnDisabled="True"
                                     AutomationProperties.Name="{Binding AutomationName}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Grid Width="40" Height="40" Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <Grid Width="28" Height="28" Margin="0,0,10,0" VerticalAlignment="Center">
                                         <Image Source="{Binding Icon}" RenderOptions.BitmapScalingMode="HighQuality"
                                                Visibility="{Binding HasIcon, Converter={StaticResource BoolToVisibility}}" />
-                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE774;" FontSize="30"
+                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE774;" FontSize="22"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
@@ -189,109 +200,143 @@
                                         </TextBlock>
                                     </Grid>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
-                                        <Border HorizontalAlignment="Left" Margin="0,4,0,0" Padding="6,1" CornerRadius="4"
-                                                Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsPartialDefault}" Value="True">
-                                                            <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock Text="{Binding BadgeText}" FontSize="12">
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis" />
+                                        <!-- State line: badge when (partially) default, otherwise a one-line hint.
+                                             An unavailable browser always shows "Not found", even if it is still the default. -->
+                                        <Grid Margin="0,2,0,0">
+                                            <Border HorizontalAlignment="Left" Padding="6,0,6,1" CornerRadius="4">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource BfAccentBrush}" />
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasBadge}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsPartialDefault}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource BfWarningBackgroundBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding BadgeText}" FontSize="11.5" TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource BfAccentForegroundBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsPartialDefault}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                            <TextBlock Text="{Binding HintText}" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource BfSecondaryTextBrush}">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{DynamicResource AccentForegroundBrush}" />
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsPartialDefault}" Value="True">
-                                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                                            <DataTrigger Binding="{Binding HasBadge}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                        </Border>
-                                        <TextBlock Text="{Binding HintText}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        </Grid>
                                     </StackPanel>
                                 </Grid>
                             </Button>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
-            <TextBlock Grid.Row="1" Text="{Binding [Empty_NoBrowsers], Source={x:Static loc:Loc.Instance}}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"
-                       Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
-        </Grid>
+                <TextBlock Text="{Binding [Empty_NoBrowsers], Source={x:Static loc:Loc.Instance}}" Margin="4,12"
+                           HorizontalAlignment="Center" Foreground="{DynamicResource BfSecondaryTextBrush}"
+                           Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
 
-        <!-- Display options (V2-02..V2-07) -->
-        <Expander Grid.Row="5" Margin="0,10,0,0" Foreground="{DynamicResource PrimaryTextBrush}"
-                  DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
-                  IsExpanded="{Binding IsOptionsOpen, Mode=TwoWay}"
-                  Header="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">
-            <Border Margin="0,6,0,0" Padding="12,10" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}"
-                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <CheckBox Content="{Binding [Options_Dock], Source={x:Static loc:Loc.Instance}}" Margin="0,0,0,6"
-                                  IsChecked="{Binding DockEnabled, Mode=TwoWay}" Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <DockPanel Margin="22,0,0,6" IsEnabled="{Binding DockEnabled}" LastChildFill="False">
-                            <TextBlock Text="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <ComboBox MinWidth="90" ItemsSource="{Binding DockEdges}" SelectedItem="{Binding SelectedDockEdge, Mode=TwoWay}"
-                                      DisplayMemberPath="DisplayName"
-                                      AutomationProperties.Name="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" />
-                        </DockPanel>
-                        <CheckBox Content="{Binding [Options_AutoHide], Source={x:Static loc:Loc.Instance}}" Margin="22,0,0,8"
-                                  IsChecked="{Binding AutoHide, Mode=TwoWay}" IsEnabled="{Binding DockEnabled}"
-                                  Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <CheckBox Content="{Binding [Options_Tray], Source={x:Static loc:Loc.Instance}}" Margin="0,0,0,6"
-                                  IsChecked="{Binding TrayEnabled, Mode=TwoWay}" Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <CheckBox Content="{Binding [Options_CloseToTray], Source={x:Static loc:Loc.Instance}}" Margin="22,0,0,0"
-                                  IsChecked="{Binding CloseToTray, Mode=TwoWay}" IsEnabled="{Binding IsCloseToTrayAvailable}"
-                                  Foreground="{DynamicResource PrimaryTextBrush}" />
-                    </StackPanel>
-                    <Grid Grid.Column="2">
+            <!-- Display options (collapsible). The window grows to fit; beyond the work area it scrolls. -->
+            <Expander Margin="0,8,0,0"
+                      DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
+                      IsExpanded="{Binding IsOptionsOpen, Mode=TwoWay}"
+                      Header="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">
+                <!-- The Fluent Expander already draws the content panel; no extra card frame. -->
+                <Border Padding="2,0,2,2">
+                    <Grid>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="110" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,6" />
-                        <ComboBox Grid.Column="1" Margin="0,0,0,6" ItemsSource="{Binding Themes}" SelectedItem="{Binding SelectedTheme, Mode=TwoWay}"
-                                  DisplayMemberPath="DisplayName" AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
-                        <TextBlock Grid.Row="1" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" Margin="0,0,8,6" />
-                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" ItemsSource="{Binding BarSizes}" SelectedItem="{Binding SelectedBarSize, Mode=TwoWay}"
-                                  DisplayMemberPath="DisplayName" AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
-                        <TextBlock Grid.Row="2" Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center"
-                                   TextWrapping="Wrap" MaxWidth="130" Margin="0,0,8,0" />
-                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Orientations}" SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}"
-                                  DisplayMemberPath="DisplayName"
-                                  AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-                    </Grid>
-                </Grid>
-            </Border>
-        </Expander>
 
-        <!-- Footer -->
-        <DockPanel Grid.Row="6" Margin="0,10,0,0">
-            <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Command="{Binding OpenDefaultAppsCommand}"
-                    Content="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Top" />
-            <TextBlock Text="{Binding [Footer_Note], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="12"
-                       Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,12,0" />
-        </DockPanel>
-    </Grid>
+                        <CheckBox Grid.Row="0" VerticalAlignment="Center"
+                                  IsChecked="{Binding DockEnabled, Mode=TwoWay}">
+                            <TextBlock Text="{Binding [Options_Dock], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <ComboBox Grid.Row="0" Grid.Column="1" Width="132" Margin="8,0,0,0" VerticalAlignment="Center"
+                                  IsEnabled="{Binding DockEnabled}"
+                                  ItemsSource="{Binding DockEdges}" SelectedItem="{Binding SelectedDockEdge, Mode=TwoWay}" DisplayMemberPath="DisplayName"
+                                  AutomationProperties.Name="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" />
+
+                        <CheckBox Grid.Row="1" Grid.ColumnSpan="2" Margin="24,6,0,0"
+                                  IsChecked="{Binding AutoHide, Mode=TwoWay}" IsEnabled="{Binding DockEnabled}">
+                            <TextBlock Text="{Binding [Options_AutoHide], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
+                        </CheckBox>
+
+                        <TextBlock Grid.Row="2" Margin="0,10,0,0" VerticalAlignment="Center" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" Width="132" Margin="8,10,0,0" ItemsSource="{Binding Themes}"
+                                  SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" DisplayMemberPath="DisplayName"
+                                  AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+
+                        <TextBlock Grid.Row="3" Margin="0,6,0,0" VerticalAlignment="Center" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="3" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding BarSizes}"
+                                  SelectedItem="{Binding SelectedBarSize, Mode=TwoWay}" DisplayMemberPath="DisplayName"
+                                  AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+
+                        <TextBlock Grid.Row="4" Margin="0,6,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="4" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding Orientations}"
+                                  SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}" DisplayMemberPath="DisplayName"
+                                  AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
+
+                        <Separator Grid.Row="5" Grid.ColumnSpan="2" Margin="0,10,0,6" Opacity="0.5" />
+
+                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2"
+                                  IsChecked="{Binding TrayEnabled, Mode=TwoWay}">
+                            <TextBlock Text="{Binding [Options_Tray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" Margin="24,6,0,0"
+                                  IsChecked="{Binding CloseToTray, Mode=TwoWay}" IsEnabled="{Binding IsCloseToTrayAvailable}">
+                            <TextBlock Text="{Binding [Options_CloseToTray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
+                        </CheckBox>
+                    </Grid>
+                </Border>
+            </Expander>
+
+            <!-- Footer -->
+            <DockPanel Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButton}" Command="{Binding OpenDefaultAppsCommand}"
+                        Content="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding [Footer_Note], Source={x:Static loc:Loc.Instance}}" FontSize="11.5" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" ToolTip="{Binding [Footer_Note], Source={x:Static loc:Loc.Instance}}"
+                           Foreground="{DynamicResource BfSecondaryTextBrush}" Margin="0,0,8,0" />
+            </DockPanel>
+        </StackPanel>
+    </ScrollViewer>
 </Window>

@@ -185,7 +185,8 @@ public sealed class MainViewModelTests : IDisposable
         var vm = Create();
         var card = Card(vm, "Opera");
         Assert.True(card.IsAvailable);
-        Assert.Equal("Click to open Default apps, then choose it there", card.HintText);
+        Assert.Equal("Choose in Default apps", card.HintText);
+        Assert.Equal("Click to open Default apps, then choose it there", card.DetailText);
 
         vm.Select(card);
         Assert.Equal("ms-settings:defaultapps", _launcher.Launched.Single().OriginalString);

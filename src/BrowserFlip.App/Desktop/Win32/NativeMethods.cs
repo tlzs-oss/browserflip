@@ -202,6 +202,16 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    // GWL_STYLE is a 32-bit value: the non-Ptr functions are exported on x86, x64 and Arm64 alike
+    // (GetWindowLongPtrW does not exist in 32-bit user32).
+    [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static extern int GetWindowLongW(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static extern int SetWindowLongW(IntPtr hWnd, int nIndex, int dwNewLong);
+
     // ---- Native popup menu (notification-area menu) ----------------------------------------
     internal const uint MfString = 0x0000;
     internal const uint MfGrayed = 0x0001;

@@ -56,10 +56,10 @@
     <value>クリックして Windows の設定で確認</value>
   </data>
   <data name="Card_HintTopPage" xml:space="preserve">
-    <value>クリックして「既定のアプリ」を開き、そこで選択</value>
+    <value>「既定のアプリ」で選択</value>
   </data>
   <data name="Card_Missing" xml:space="preserve">
-    <value>見つかりません — アンインストールされた可能性があります</value>
+    <value>見つかりません</value>
   </data>
   <data name="Empty_NoBrowsers" xml:space="preserve">
     <value>ブラウザーが見つかりませんでした。</value>
@@ -101,7 +101,7 @@
     <value>既定のアプリは組織によって管理されています。再サインイン時に変更が元に戻る場合があります。</value>
   </data>
   <data name="Footer_Note" xml:space="preserve">
-    <value>BrowserFlip が既定のブラウザーを勝手に変更することはありません。変更は必ず Windows 上であなたが確定します。</value>
+    <value>変更は必ず Windows 上であなたが確定します。</value>
   </data>
   <data name="Pin_Tooltip" xml:space="preserve">
     <value>常に手前に表示（置頂）</value>
@@ -204,5 +204,14 @@
   </data>
   <data name="Tray_Tooltip" xml:space="preserve">
     <value>BrowserFlip — 既定: {0}</value>
+  </data>
+  <data name="Refresh_Tooltip" xml:space="preserve">
+    <value>再読み込み (F5)</value>
+  </data>
+  <data name="Card_MissingDetail" xml:space="preserve">
+    <value>見つかりません — アンインストールされた可能性があります</value>
+  </data>
+  <data name="Card_HintTopPageDetail" xml:space="preserve">
+    <value>クリックして「既定のアプリ」を開き、そこで選択</value>
   </data>
 </root>

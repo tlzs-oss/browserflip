@@ -83,9 +83,10 @@ public static class ThemeManager
             _ => ReadAppsUseDarkTheme(),
         };
         var file = highContrast ? "Themes/HighContrast.xaml" : IsDark ? "Themes/Dark.xaml" : "Themes/Light.xaml";
-        var uri = new Uri(file, UriKind.Relative);
+        // Assembly-qualified so it also resolves when hosted by another entry assembly (tests).
+        var uri = new Uri($"pack://application:,,,/BrowserFlip;component/{file}", UriKind.Absolute);
         var dictionaries = app.Resources.MergedDictionaries;
-        var existing = dictionaries.FirstOrDefault(d => d.Source is not null && d.Source.OriginalString.StartsWith("Themes/", StringComparison.Ordinal));
+        var existing = dictionaries.FirstOrDefault(d => d.Source is not null && d.Source.OriginalString.Contains("/BrowserFlip;component/Themes/", StringComparison.Ordinal));
         var next = new ResourceDictionary { Source = uri };
         if (existing is null)
         {
@@ -100,6 +101,37 @@ public static class ThemeManager
         {
             ApplyTitleBar(w);
         }
+
+        foreach (var w in FluentWindows)
+        {
+            ApplyFluent(w);
+        }
+    }
+
+    private static readonly List<Window> FluentWindows = [];
+
+    /// <summary>
+    /// Opts a window into the built-in WPF Fluent (Windows 11) control styles, following the current
+    /// light / dark choice. High Contrast keeps the classic system-colour styles. Not used for the
+    /// compact bar (a transparent layered window).
+    /// </summary>
+    public static void UseFluent(Window window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        if (!FluentWindows.Contains(window))
+        {
+            FluentWindows.Add(window);
+            window.Closed += (_, _) => FluentWindows.Remove(window);
+        }
+
+        ApplyFluent(window);
+    }
+
+    private static void ApplyFluent(Window window)
+    {
+#pragma warning disable WPF0001 // ThemeMode is marked experimental in .NET 10 WPF.
+        window.ThemeMode = SystemParameters.HighContrast ? ThemeMode.None : IsDark ? ThemeMode.Dark : ThemeMode.Light;
+#pragma warning restore WPF0001
     }
 
     private static bool ReadAppsUseDarkTheme()

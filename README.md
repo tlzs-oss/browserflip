@@ -11,7 +11,7 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 
 ![BrowserFlip screenshot](docs/images/screenshot.png)
 
-> The screenshot will be added before the first release.
+![BrowserFlip compact bar](docs/images/compact-bar.png)
 
 > **Status:** pre-release (0.1.0 MVP and 0.2.0 desktop features in development). Nothing has been published as a release yet.
 
