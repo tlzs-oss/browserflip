@@ -77,7 +77,10 @@ public partial class CompactBarWindow : Window
     /// <summary>True while the collapse fade is running.</summary>
     internal bool IsCollapsing { get; private set; }
 
-    private bool Animate => AnimationsEnabled && SystemParameters.ClientAreaAnimation;
+    /// <summary>True runs the fades even when Windows animations are off (tests of the fade paths).</summary>
+    internal bool ForceAnimations { get; set; }
+
+    private bool Animate => AnimationsEnabled && (ForceAnimations || SystemParameters.ClientAreaAnimation);
 
     /// <summary>Short fade-in when expanding, unless Windows animations are turned off.</summary>
     public void PlayExpandAnimation()

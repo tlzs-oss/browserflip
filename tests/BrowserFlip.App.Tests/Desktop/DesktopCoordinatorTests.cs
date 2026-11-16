@@ -239,11 +239,9 @@ public sealed class DesktopCoordinatorTests
             using var h = new Harness(Docked(DockEdge.Right), Primary);
             var bar = h.BarBounds;
             h.Coordinator.Bar.AnimationsEnabled = true; // the fade starts (it never completes without rendering)
+            h.Coordinator.Bar.ForceAnimations = true; // also where Windows animations are off (RDP, CI)
             h.Hover(1000, 1000, 2100); // 1.5 s hold + 450 ms: the fade starts
-            if (!h.Coordinator.Bar.IsCollapsing)
-            {
-                return; // Windows animations are turned off on this machine: there is no fade to interrupt
-            }
+            Assert.True(h.Coordinator.Bar.IsCollapsing, "precondition: the collapse fade is running");
 
             h.Hover(bar.Left + 5, bar.Top + 5, 40); // back on the bar while it fades
             Assert.False(h.Coordinator.Bar.IsCollapsing);
