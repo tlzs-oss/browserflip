@@ -52,11 +52,12 @@ public sealed class DesktopCoordinator : IDisposable
     private bool _exiting;
     private bool _menuOpen;
     private bool _barMenuOpen;      // the bar's own context menu (keyboard use continues inside it)
-    private bool _trayOnly;          // every window hidden, only the notification-area icon (X on the main window / floating bar)
+    private bool _trayOnly;          // every window hidden, only the notification-area icon (main window X / Alt+F4 on a floating bar)
     private (int X, int Y)? _floatingCenter; // keep the floating bar centered here (switched from the main window, BF-03)
     private int _overflowRelayouts;          // BF-05: consecutive re-layouts because the browser list did not fit
+    private bool _incompleteMeasure;         // BF-05: the bar was sized before its browser buttons existed
     private PixelRect? _mainRestore;         // main window rectangle before a drag that docked it (undo a Windows snap)
-    private bool _closedUnderPointer;        // docked bar retracted by X: no edge expansion until the cursor leaves the zone once
+    private bool _closedUnderPointer;        // docked bar retracted by Alt+F4: no edge expansion until the cursor leaves the zone once
     private bool _enterCollapsed;    // next compact layout starts collapsed (docked bar, main window closed)
     private bool _keyboardEngaged;   // the user really typed on the bar (not just an activation)
     private PixelRect _expandedRect;
@@ -137,6 +138,17 @@ public sealed class DesktopCoordinator : IDisposable
         _bar.PreviewMouseDown += (_, _) => _keyboardEngaged = false;
         _bar.DpiChanged += (_, _) => ScheduleLayout();
         _bar.BrowserListSizeChanged += (_, _) => OnBrowserListSizeChanged();
+        _bar.LayoutUpdated += (_, _) =>
+        {
+            // BF-05: sized from an incomplete measurement -> size again as soon as the browser buttons exist,
+            // whatever path showed the bar (no reliance on one deferred re-layout after Show).
+            if (_incompleteMeasure && _bar.IsVisible && !_applying && _bar.BrowserButtonsReady())
+            {
+                _incompleteMeasure = false;
+                IncompleteMeasureRelayouts++;
+                ScheduleLayout();
+            }
+        };
 
         // In compact mode the bar is the active surface: re-check the default browser when the
         // user comes back (e.g. from Windows Settings), exactly like the main window does.
@@ -259,8 +271,7 @@ public sealed class DesktopCoordinator : IDisposable
             }
             else if (!_bar.IsVisible)
             {
-                _bar.Show();
-                ScheduleLayout(); // re-measure once the window is live (a never-shown window measures short)
+                _bar.Show(); // sized again once its browser buttons exist (BF-05, see LayoutUpdated)
             }
         }
         else
@@ -537,7 +548,7 @@ public sealed class DesktopCoordinator : IDisposable
     }
 
     /// <summary>
-    /// X button / Alt+F4 on the compact bar never destroys it (BF-04): a docked bar retracts into its edge
+    /// Alt+F4 (WM_CLOSE) on the compact bar never destroys it (BF-04; the bar has no close button, BF-06): a docked bar retracts into its edge
     /// (same edge, monitor and position; it expands again on approach); a floating bar hides to the tray.
     /// </summary>
     private void OnBarClosing(object? sender, CancelEventArgs e)
@@ -560,14 +571,14 @@ public sealed class DesktopCoordinator : IDisposable
 
         if (_shell.IsAutoHideActive)
         {
-            // Explicit X: retract at once. No fade: the pointer is still on the X button, inside the bar, and
+            // Explicit close (Alt+F4): retract at once. No fade: the pointer may still be over the bar, and
             // "back on the bar during the fade" would expand it again.
             _keyboardEngaged = false;
             _autoHide.CollapseNow(Now());
             _bar.CancelCollapseAnimation();
             _shell.IsBarCollapsed = true;
             Layout();
-            // The X may lie inside the edge zone: if the pointer is there, wait until it leaves the zone once.
+            // If the pointer is inside the edge zone, wait until it leaves the zone once before expanding again.
             _closedUnderPointer = _monitors.GetCursorPosition() is { } p && _triggerZone.Contains(p.X, p.Y);
             return;
         }
@@ -707,7 +718,20 @@ public sealed class DesktopCoordinator : IDisposable
             var maxLength = Math.Max(_shell.BarThickness, maxLengthDip);
             // The bar content is only Hidden while collapsed, so it measures at its real size here too (T7, T13).
             var dip = _bar.MeasureExpanded(maxLength);
-            _bar.ShowOverflowScrollBar((vertical ? dip.Height : dip.Width) >= maxLength - 0.5); // longer than the screen allows
+            _incompleteMeasure = !_bar.LastMeasureComplete;
+            if (_incompleteMeasure)
+            {
+                IncompleteMeasurements++;
+            }
+
+            // Longer than the screen allows: a scroll bar along the bar, with the bar made thicker by the scroll bar so
+            // the browser buttons are not covered (browsers never disappear silently).
+            var overflow = (vertical ? dip.Height : dip.Width) >= maxLength - 0.5;
+            _bar.ShowOverflowScrollBar(overflow);
+            if (overflow)
+            {
+                dip = _bar.MeasureExpanded(maxLength, vertical ? SystemParameters.VerticalScrollBarWidth : SystemParameters.HorizontalScrollBarHeight);
+            }
 
             var width = Px(dip.Width, monitor.Scale);
             var height = Px(dip.Height, monitor.Scale);
@@ -1118,8 +1142,7 @@ public sealed class DesktopCoordinator : IDisposable
         {
             _trayOnly = false;
             Layout(); // restore the saved floating position / docked place before showing
-            _bar.Show();
-            ScheduleLayout();
+            _bar.Show(); // sized again once its browser buttons exist (BF-05, see LayoutUpdated)
         }
 
         RaiseBar();
@@ -1135,14 +1158,20 @@ public sealed class DesktopCoordinator : IDisposable
     }
 
     /// <summary>
-    /// BF-05: the bar window is sized from a measurement of its content. When the real layout shows that the browser
-    /// list does not fit (the window was sized from a measurement that missed browsers), size the bar again from a
-    /// fresh measurement. At most twice in a row (no loop); if the browsers still do not fit (the screen is too
-    /// small), a scroll bar shows so that no browser disappears silently.
+    /// BF-05 safety net: the bar window is sized from a measurement of its content (fixed at the source in
+    /// <see cref="CompactBarWindow.MeasureExpanded"/>). If the real layout still shows that the browser list does not
+    /// fit, size the bar again from a fresh measurement, at most twice in a row (no loop).
     /// </summary>
     private void OnBrowserListSizeChanged()
     {
-        if (_applying || _exiting || !_shell.IsCompact || _shell.IsBarCollapsed || _bar.IsDragging || !_bar.IsVisible)
+        if (_applying)
+        {
+            // Reported during our own layout: check again once it is done (never drop it).
+            _ = _bar.Dispatcher.BeginInvoke(DispatcherPriority.Background, OnBrowserListSizeChanged);
+            return;
+        }
+
+        if (_exiting || !_shell.IsCompact || _shell.IsBarCollapsed || _bar.IsDragging || !_bar.IsVisible)
         {
             return;
         }
@@ -1153,17 +1182,21 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
+        // Safety net (the measurement itself is fixed in MeasureExpanded): at most two fresh layouts in a row. A bar
+        // longer than the screen gets its scroll bar from Layout.
         if (_overflowRelayouts < 2)
         {
             _overflowRelayouts++;
             OverflowRelayouts++;
             ScheduleLayout();
         }
-        else
-        {
-            _bar.ShowOverflowScrollBar(true);
-        }
     }
+
+    /// <summary>How often the bar was sized again because it had been measured before its browser buttons existed (tests).</summary>
+    internal int IncompleteMeasureRelayouts { get; private set; }
+
+    /// <summary>How often a layout measured the bar before its browser buttons existed (tests).</summary>
+    internal int IncompleteMeasurements { get; private set; }
 
     /// <summary>How often the bar was laid out again because its browsers did not fit (tests).</summary>
     internal int OverflowRelayouts { get; private set; }

@@ -107,7 +107,7 @@
                 <ScrollViewer x:Name="BrowserScroller" Focusable="False"
                               HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"
                               PreviewMouseWheel="OnBrowserScrollerMouseWheel">
-                    <ItemsControl ItemsSource="{Binding Main.Browsers}" Focusable="False"
+                    <ItemsControl x:Name="BrowserList" ItemsSource="{Binding Main.Browsers}" Focusable="False"
                                   KeyboardNavigation.TabNavigation="Continue">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

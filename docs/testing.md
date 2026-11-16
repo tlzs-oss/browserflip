@@ -52,7 +52,7 @@ Core は OS 依存をすべて `BrowserFlip.Core.Platform` のインターフェ
 
 `tests/BrowserFlip.App.Tests/Desktop/` と `tests/BrowserFlip.App.Tests/UI/` にあります。純粋なロジック(`DockLayout` / `AutoHideController` / `UserSettings` / `ShellViewModel`)は OS に一切触れずに検証し、`DesktopCoordinator` はフェイクのモニター・カーソル・時計・ウィンドウ配置・通知領域アイコンで実物を動かして検証します。Win32 実装のテストは非表示ウィンドウと非表示の通知領域アイコンのみを使います(画面に何も表示せず、Windows の設定も変更しません)。
 
-テスト数は Core 97 件 + App 283 件 = 380 件です。
+テスト数は Core 97 件 + App 295 件 = 392 件です。
 
 > **既知の制限**: UI テスト(`PinButtonTests` など)でのテーマの切り替えは、テーマのリソース ディクショナリを直接差し替えて行います。`ThemeManager` はアプリのスレッド(実際の `App`)を必要とするため、テストからは呼び出しません。
 

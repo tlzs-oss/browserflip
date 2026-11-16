@@ -107,6 +107,50 @@ public sealed class CompactBarContentTests
 
     [Theory]
     [MemberData(nameof(Layouts))]
+    public void A_bar_measured_before_its_browser_buttons_exist_reports_it(string layout)
+    {
+        // BF-05 root cause: before the bar window has been laid out while shown, its browser buttons do not exist and
+        // a measurement covers only the app icon, pin and options buttons.
+        Run(() =>
+        {
+            using var h = new Harness(SettingsFor(layout), Primary);
+            var bar = new CompactBarWindow { DataContext = new DesktopContext(h.Main, h.Shell), ShowActivated = false };
+            try
+            {
+                _ = new System.Windows.Interop.WindowInteropHelper(bar).EnsureHandle(); // like DesktopCoordinator.Start
+                var size = bar.MeasureExpanded(2000);
+                var length = h.Shell.IsVertical ? size.Height : size.Width;
+                Assert.False(bar.LastMeasureComplete, "the incomplete measurement is detected");
+                Assert.True(length < (3 + h.Main.Browsers.Count) * h.Shell.BarButtonSize, $"{layout}: {length:N1} DIP (the BF-05 length)");
+            }
+            finally
+            {
+                bar.Close();
+            }
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
+    public void A_bar_sized_before_its_browser_buttons_existed_is_sized_again_once_they_do(string layout)
+    {
+        // Start-up in compact mode: the first layout runs inside start-up, before the bar was ever laid out, so it
+        // measures without the browsers (the BF-05 length). The bar must be sized again once the buttons exist,
+        // whatever path showed it (no reliance on a single re-layout queued after Show).
+        Run(() =>
+        {
+            var s = SettingsFor(layout);
+            s.BarSize = BarSize.Medium;
+            using var h = new Harness(s, Primary); // Start() + pump
+            Assert.True(h.Coordinator.IncompleteMeasurements > 0, "precondition: the start-up measurement missed the browsers");
+            Assert.True(h.Coordinator.IncompleteMeasureRelayouts > 0,
+                $"the size from the incomplete measurement was corrected (incomplete {h.Coordinator.IncompleteMeasurements}, corrections {h.Coordinator.IncompleteMeasureRelayouts})");
+            AssertAllBrowsersVisible(h, $"start-up {layout}");
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
     public void Every_browser_is_shown_when_the_bar_starts_in_compact_mode(string layout)
     {
         Run(() =>
@@ -256,7 +300,7 @@ public sealed class CompactBarContentTests
     [InlineData("Bottom")]
     [InlineData("Left")]
     [InlineData("floating-horizontal")]
-    public void A_bar_sized_without_its_browsers_is_sized_again_from_its_real_layout(string layout)
+    public void A_browser_list_that_no_longer_fits_makes_the_bar_size_again(string layout)
     {
         Run(() =>
         {
@@ -264,20 +308,16 @@ public sealed class CompactBarContentTests
             AssertAllBrowsersVisible(h, "before");
             var vertical = h.Shell.IsVertical;
 
-            // The state reported in BF-05: the window is only as long as the app / pin / options buttons.
-            var shortDip = 3 * (h.Shell.BarButtonSize + 4) + 8;
-            if (vertical)
-            {
-                h.Coordinator.Bar.Height = shortDip;
-            }
-            else
-            {
-                h.Coordinator.Bar.Width = shortDip;
-            }
-
+            // The browser list grows without any of the usual layout triggers (no default-browser text change):
+            // only the real layout of the list shows that it no longer fits.
+            var before = h.Coordinator.OverflowRelayouts;
+            h.Main.Browsers.Add(h.Main.Browsers[0]);
+            h.Main.Browsers.Add(h.Main.Browsers[1]);
             Harness.Pump();
-            Assert.True(h.Coordinator.OverflowRelayouts > 0, "the overflow was detected");
-            AssertAllBrowsersVisible(h, $"{layout} after a short size");
+            var sc = h.Coordinator.Bar.BrowserScroller;
+            Assert.True(h.Coordinator.OverflowRelayouts > before,
+                $"the overflow was detected (extent {sc.ExtentWidth:N0}x{sc.ExtentHeight:N0}, viewport {sc.ViewportWidth:N0}x{sc.ViewportHeight:N0})");
+            AssertAllBrowsersVisible(h, $"{layout} after the list grew");
         });
     }
 
@@ -293,6 +333,7 @@ public sealed class CompactBarContentTests
             Harness.Pump();
             var scroller = h.Coordinator.Bar.BrowserScroller;
             Assert.Equal(Visibility.Visible, scroller.ComputedHorizontalScrollBarVisibility);
+            Assert.True(scroller.ViewportHeight >= h.Shell.BarButtonSize, $"buttons not covered by the scroll bar: viewport height {scroller.ViewportHeight:N1}");
             Assert.True(scroller.ExtentWidth >= h.Main.Browsers.Count * h.Shell.BarButtonSize, "every browser is in the scrollable list");
             Assert.True(h.BarBounds.Right <= tiny.WorkArea.Right);
         });
@@ -306,8 +347,8 @@ public sealed class CompactBarContentTests
             using var h = new Harness(SettingsFor("Top"), Primary);
             Harness.Pump();
             var scroller = h.Coordinator.Bar.BrowserScroller;
-            Assert.NotEqual(Visibility.Visible, scroller.ComputedHorizontalScrollBarVisibility);
-            Assert.NotEqual(Visibility.Visible, scroller.ComputedVerticalScrollBarVisibility);
+            Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Hidden, scroller.HorizontalScrollBarVisibility);
+            Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Hidden, scroller.VerticalScrollBarVisibility);
         });
     }
 
