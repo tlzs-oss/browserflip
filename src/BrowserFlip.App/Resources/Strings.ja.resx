@@ -11,7 +11,7 @@
     <value>ワンクリックで、あなたのブラウザーへ。</value>
   </data>
   <data name="Refresh" xml:space="preserve">
-    <value>再読み込み</value>
+    <value>状態を更新</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>言語</value>
@@ -20,7 +20,7 @@
     <value>システムに合わせる</value>
   </data>
   <data name="OpenDefaultApps" xml:space="preserve">
-    <value>既定のアプリを開く</value>
+    <value>既定のアプリの設定を開く</value>
   </data>
   <data name="Section_Browsers" xml:space="preserve">
     <value>インストール済みのブラウザー</value>
@@ -50,7 +50,7 @@
     <value>HTTPS のみ既定</value>
   </data>
   <data name="Card_Hint" xml:space="preserve">
-    <value>クリックして既定に設定</value>
+    <value>Windows の設定で変更</value>
   </data>
   <data name="Card_HintDefault" xml:space="preserve">
     <value>クリックして Windows の設定で確認</value>
@@ -71,7 +71,7 @@
     <value>Windows の設定が開きました。「既定のアプリ」で {0} を選んで完了してください（Windows 10 では「Web ブラウザー」）。</value>
   </data>
   <data name="Guide_Waiting" xml:space="preserve">
-    <value>Windows の設定での変更を待っています…</value>
+    <value>Windows での確認を待っています…</value>
   </data>
   <data name="Status_Applied" xml:space="preserve">
     <value>{0} が既定のブラウザーになりました。</value>
@@ -167,7 +167,7 @@
     <value>BrowserFlip — 既定: {0}</value>
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
-    <value>再読み込み (F5)</value>
+    <value>状態を更新 (F5)</value>
   </data>
   <data name="Card_MissingDetail" xml:space="preserve">
     <value>見つかりません — アンインストールされた可能性があります</value>
@@ -188,7 +188,7 @@
     <value>ファイル(_F)</value>
   </data>
   <data name="MenuBar_RefreshBrowsers" xml:space="preserve">
-    <value>ブラウザーを再読み込み(_R)</value>
+    <value>状態を更新(_R)</value>
   </data>
   <data name="MenuBar_Exit" xml:space="preserve">
     <value>終了(_X)</value>
@@ -269,7 +269,7 @@
     <value>メイン ウィンドウの表示</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>変更はすぐに反映されます。［キャンセル］を押すと、このウィンドウで行った変更を元に戻します。</value>
+    <value>変更はすぐに反映されます。［閉じる］と × は変更を保持し、［キャンセル］はこのウィンドウで行った変更を元に戻します。</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>閉じる</value>
@@ -347,15 +347,24 @@
     <value>操作</value>
   </data>
   <data name="List_SetDefault" xml:space="preserve">
-    <value>既定にする</value>
+    <value>既定に設定</value>
   </data>
   <data name="Tray_Current" xml:space="preserve">
-    <value>既定: {0}</value>
+    <value>現在の既定: {0}</value>
   </data>
   <data name="Tray_Switch" xml:space="preserve">
     <value>既定のブラウザーを切り替え</value>
   </data>
   <data name="Tray_NoBrowsers" xml:space="preserve">
     <value>ブラウザーが見つかりません</value>
+  </data>
+  <data name="Panel_CurrentSettings" xml:space="preserve">
+    <value>現在の設定</value>
+  </data>
+  <data name="State_On" xml:space="preserve">
+    <value>オン</value>
+  </data>
+  <data name="State_Off" xml:space="preserve">
+    <value>オフ</value>
   </data>
 </root>

@@ -11,7 +11,7 @@
     <value>One Click. Your Browser.</value>
   </data>
   <data name="Refresh" xml:space="preserve">
-    <value>Refresh</value>
+    <value>Refresh status</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
@@ -20,7 +20,7 @@
     <value>System default</value>
   </data>
   <data name="OpenDefaultApps" xml:space="preserve">
-    <value>Open Default apps</value>
+    <value>Open Default apps settings</value>
   </data>
   <data name="Section_Browsers" xml:space="preserve">
     <value>Installed browsers</value>
@@ -50,7 +50,7 @@
     <value>Default for HTTPS only</value>
   </data>
   <data name="Card_Hint" xml:space="preserve">
-    <value>Click to make default</value>
+    <value>Set in Windows Settings</value>
   </data>
   <data name="Card_HintDefault" xml:space="preserve">
     <value>Click to review in Windows Settings</value>
@@ -71,7 +71,7 @@
     <value>Windows Settings is open. Choose {0} under Default apps ("Web browser" on Windows 10) to finish.</value>
   </data>
   <data name="Guide_Waiting" xml:space="preserve">
-    <value>Waiting for your change in Windows Settings…</value>
+    <value>Waiting for Windows to confirm…</value>
   </data>
   <data name="Status_Applied" xml:space="preserve">
     <value>{0} is now your default browser.</value>
@@ -167,7 +167,7 @@
     <value>BrowserFlip — default: {0}</value>
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
-    <value>Refresh (F5)</value>
+    <value>Refresh status (F5)</value>
   </data>
   <data name="Card_MissingDetail" xml:space="preserve">
     <value>Not found — it may have been uninstalled</value>
@@ -188,7 +188,7 @@
     <value>_File</value>
   </data>
   <data name="MenuBar_RefreshBrowsers" xml:space="preserve">
-    <value>_Refresh Browsers</value>
+    <value>_Refresh Status</value>
   </data>
   <data name="MenuBar_Exit" xml:space="preserve">
     <value>E_xit</value>
@@ -269,7 +269,7 @@
     <value>Main window view</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>Changes take effect immediately. Cancel undoes the changes made in this window.</value>
+    <value>Changes apply immediately. Close (or ×) keeps them; Cancel undoes the changes made in this window.</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>Close</value>
@@ -350,12 +350,21 @@
     <value>Set as default</value>
   </data>
   <data name="Tray_Current" xml:space="preserve">
-    <value>Default: {0}</value>
+    <value>Current default: {0}</value>
   </data>
   <data name="Tray_Switch" xml:space="preserve">
     <value>Switch default browser</value>
   </data>
   <data name="Tray_NoBrowsers" xml:space="preserve">
     <value>No browsers found</value>
+  </data>
+  <data name="Panel_CurrentSettings" xml:space="preserve">
+    <value>Current settings</value>
+  </data>
+  <data name="State_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="State_Off" xml:space="preserve">
+    <value>Off</value>
   </data>
 </root>

@@ -290,8 +290,8 @@ public sealed class MainViewModelTests : IDisposable
 
         Loc.Instance.SetLanguage("ja");
         Assert.Equal("現在の既定のブラウザー: Microsoft Edge", vm.CurrentDefaultText);
-        Assert.Equal("Windows の設定での変更を待っています…", vm.MessageText);
-        Assert.Equal("クリックして既定に設定", Card(vm, "Google Chrome").HintText);
+        Assert.Equal("Windows での確認を待っています…", vm.MessageText);
+        Assert.Equal("Windows の設定で変更", Card(vm, "Google Chrome").HintText);
         Assert.Equal("システムに合わせる", vm.Languages[0].DisplayName);
 
         Loc.Instance.SetLanguage("zh-CN");

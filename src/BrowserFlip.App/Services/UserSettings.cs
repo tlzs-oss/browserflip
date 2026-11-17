@@ -33,7 +33,7 @@ public enum MainView
     Panel,
 }
 
-/// <summary>A main-window size in DIP, remembered per view.</summary>
+/// <summary>A main-window size in DIP, remembered per view. Height 0 = the height follows the content (List / Card until resized).</summary>
 public readonly record struct ViewSize(double Width, double Height);
 
 /// <summary>Size of the compact bar.</summary>
@@ -205,7 +205,7 @@ public sealed class UserSettings
                 if (!int.TryParse(name, out _) && Enum.TryParse<MainView>(name, ignoreCase: true, out var view) && Enum.IsDefined(view)
                     && view != MainView.Classic && node is JsonObject size
                     && Num(size, "Width") is { } width && Num(size, "Height") is { } height
-                    && IsSaneLength(width) && IsSaneLength(height))
+                    && IsSaneLength(width) && (height == 0 || IsSaneLength(height)))
                 {
                     ViewSizes[view] = new ViewSize(width, height);
                 }

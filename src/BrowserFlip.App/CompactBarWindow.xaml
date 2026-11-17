@@ -135,9 +135,7 @@
                                     </Button.Style>
                                     <Button.ToolTip>
                                         <StackPanel>
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{Binding BadgeText}"
-                                                       Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}" />
+                                            <TextBlock Text="{Binding ToolTipTitle}" FontWeight="SemiBold" />
                                             <TextBlock Text="{Binding DetailText}" Opacity="0.8" />
                                         </StackPanel>
                                     </Button.ToolTip>

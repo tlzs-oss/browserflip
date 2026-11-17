@@ -545,10 +545,9 @@ public sealed class DesktopCoordinator : IDisposable
 
         var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
         _mainWindow.WindowState = WindowState.Normal;
-        var layout = MainWindow.LayoutFor(_mainWindow.View);
-        _mainWindow.SizeToContent = layout.HeightFollowsContent ? SizeToContent.Height : SizeToContent.Manual; // a snap turned it to Manual
+        _mainWindow.SizeToContent = _mainWindow.HeightFromContent ? SizeToContent.Height : SizeToContent.Manual; // a snap turned it to Manual
         _mainWindow.SetRestoredWidth(Math.Max(_mainWindow.MinWidth, r.Width / target.Scale), target.WorkArea.Width / target.Scale);
-        if (!layout.HeightFollowsContent)
+        if (!_mainWindow.HeightFromContent)
         {
             _mainWindow.Height = Math.Max(_mainWindow.MinHeight, r.Height / target.Scale);
         }
@@ -1227,7 +1226,9 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         var settings = _shell.Settings;
-        settings.ViewSizes[_mainWindow.View] = new ViewSize(Math.Max(100, bounds.Width / scale), Math.Max(100, bounds.Height / scale));
+        // A height taken from the content is not a preference (0 = follow the content, e.g. when browsers are added).
+        var height = _mainWindow.HeightFromContent ? 0 : Math.Max(100, bounds.Height / scale);
+        settings.ViewSizes[_mainWindow.View] = new ViewSize(Math.Max(100, bounds.Width / scale), height);
         if (settings.MainBounds is { } classic)
         {
             settings.MainBounds = PixelRect.FromSize(bounds.Left, bounds.Top, classic.Width, classic.Height);
@@ -1247,7 +1248,10 @@ public sealed class DesktopCoordinator : IDisposable
     private void RestoreViewBounds()
     {
         var layout = MainWindow.LayoutFor(_mainWindow.View);
-        var size = _shell.Settings.ViewSizes.TryGetValue(_mainWindow.View, out var s) ? s : new ViewSize(layout.Width, Math.Max(100, layout.Height));
+        var size = _shell.Settings.ViewSizes.TryGetValue(_mainWindow.View, out var s) ? s : new ViewSize(layout.Width, layout.Height);
+        _mainWindow.ViewHeightByUser = layout.ContentHeightUntilResized && size.Height > 0;
+        var manualHeight = !layout.HeightFollowsContent && (!layout.ContentHeightUntilResized || size.Height > 0);
+        _mainWindow.SizeToContent = manualHeight ? SizeToContent.Manual : SizeToContent.Height;
         var hwnd = new WindowInteropHelper(_mainWindow).Handle;
         (int Left, int Top)? at = null;
         if (_shell.Settings.MainBounds is { } saved)
@@ -1264,7 +1268,7 @@ public sealed class DesktopCoordinator : IDisposable
         var maxWidth = monitor.WorkArea.Width / monitor.Scale;
         var maxHeight = Math.Max(100, (monitor.WorkArea.Height / monitor.Scale) - 16);
         _mainWindow.SetRestoredWidth(size.Width, maxWidth);
-        if (!layout.HeightFollowsContent)
+        if (manualHeight)
         {
             _mainWindow.Height = Math.Max(Math.Min(_mainWindow.MinHeight, maxHeight), Math.Min(size.Height, maxHeight));
         }
@@ -1275,7 +1279,7 @@ public sealed class DesktopCoordinator : IDisposable
         }
 
         // A content-sized height is not known yet: the bottom is kept above the taskbar once laid out (window).
-        var height = layout.HeightFollowsContent ? Math.Min(maxHeight, 200) : _mainWindow.Height;
+        var height = manualHeight ? _mainWindow.Height : Math.Min(maxHeight, 200);
         var rect = FitInside(PixelRect.FromSize(pos.Left, pos.Top, Px(_mainWindow.Width, monitor.Scale), Px(height, monitor.Scale)), monitor.WorkArea);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
         _placement.Move(hwnd, rect.Left, rect.Top);

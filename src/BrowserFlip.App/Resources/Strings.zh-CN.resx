@@ -11,7 +11,7 @@
     <value>一键切换，你的浏览器。</value>
   </data>
   <data name="Refresh" xml:space="preserve">
-    <value>刷新</value>
+    <value>刷新状态</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>语言</value>
@@ -20,7 +20,7 @@
     <value>跟随系统</value>
   </data>
   <data name="OpenDefaultApps" xml:space="preserve">
-    <value>打开默认应用</value>
+    <value>打开默认应用设置</value>
   </data>
   <data name="Section_Browsers" xml:space="preserve">
     <value>已安装的浏览器</value>
@@ -50,7 +50,7 @@
     <value>仅 HTTPS 默认</value>
   </data>
   <data name="Card_Hint" xml:space="preserve">
-    <value>点击设为默认</value>
+    <value>在 Windows 设置中更改</value>
   </data>
   <data name="Card_HintDefault" xml:space="preserve">
     <value>点击在 Windows 设置中查看</value>
@@ -71,7 +71,7 @@
     <value>已打开 Windows 设置。请在“默认应用”中选择 {0} 以完成（Windows 10 中为“Web 浏览器”）。</value>
   </data>
   <data name="Guide_Waiting" xml:space="preserve">
-    <value>正在等待你在 Windows 设置中的更改…</value>
+    <value>正在等待 Windows 确认…</value>
   </data>
   <data name="Status_Applied" xml:space="preserve">
     <value>{0} 已成为默认浏览器。</value>
@@ -167,7 +167,7 @@
     <value>BrowserFlip — 默认：{0}</value>
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
-    <value>刷新 (F5)</value>
+    <value>刷新状态 (F5)</value>
   </data>
   <data name="Card_MissingDetail" xml:space="preserve">
     <value>未找到 — 可能已被卸载</value>
@@ -188,7 +188,7 @@
     <value>文件(_F)</value>
   </data>
   <data name="MenuBar_RefreshBrowsers" xml:space="preserve">
-    <value>刷新浏览器列表(_R)</value>
+    <value>刷新状态(_R)</value>
   </data>
   <data name="MenuBar_Exit" xml:space="preserve">
     <value>退出(_X)</value>
@@ -269,7 +269,7 @@
     <value>主窗口视图</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>更改会立即生效。点击“取消”可撤销在此窗口中所做的更改。</value>
+    <value>更改会立即生效。“关闭”和 × 保留更改；“取消”撤销在此窗口中所做的更改。</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>关闭</value>
@@ -350,12 +350,21 @@
     <value>设为默认</value>
   </data>
   <data name="Tray_Current" xml:space="preserve">
-    <value>默认：{0}</value>
+    <value>当前默认：{0}</value>
   </data>
   <data name="Tray_Switch" xml:space="preserve">
     <value>切换默认浏览器</value>
   </data>
   <data name="Tray_NoBrowsers" xml:space="preserve">
     <value>未找到浏览器</value>
+  </data>
+  <data name="Panel_CurrentSettings" xml:space="preserve">
+    <value>当前设置</value>
+  </data>
+  <data name="State_On" xml:space="preserve">
+    <value>开</value>
+  </data>
+  <data name="State_Off" xml:space="preserve">
+    <value>关</value>
   </data>
 </root>

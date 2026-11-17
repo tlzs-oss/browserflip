@@ -68,12 +68,21 @@
                             AutomationProperties.Name="{Binding AutomationName}">
                         <Button.ToolTip>
                             <StackPanel>
-                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ToolTipTitle}" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding DetailText}" />
                             </StackPanel>
                         </Button.ToolTip>
-                        <ContentControl Width="26" Height="26" HorizontalAlignment="Center" Focusable="False" IsTabStop="False"
-                                        Content="{Binding}" ContentTemplate="{StaticResource BrowserIconTemplate}" />
+                        <Grid>
+                            <ContentControl Width="26" Height="26" HorizontalAlignment="Center" Focusable="False" IsTabStop="False"
+                                            Content="{Binding}" ContentTemplate="{StaticResource BrowserIconTemplate}" />
+                            <!-- Default mark: a check badge, so the state is not shown by colour alone. -->
+                            <Border Width="14" Height="14" CornerRadius="7" Margin="0,0,-10,-10" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Background="{DynamicResource BfAccentBrush}" BorderBrush="{DynamicResource BfCardBackgroundBrush}" BorderThickness="1.5"
+                                    Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE73E;" FontSize="7.5"
+                                           Foreground="{DynamicResource BfAccentForegroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
                     </Button>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>

@@ -231,7 +231,8 @@ public sealed class MultiViewTests
                         _ => null,
                     }, window.CurrentPage?.GetType());
                     AssertMenuChecks(window, view);
-                    Assert.Equal(MainWindow.LayoutFor(view).HeightFollowsContent ? SizeToContent.Height : SizeToContent.Manual, window.SizeToContent);
+                    var rules = MainWindow.LayoutFor(view);
+                    Assert.Equal(rules.HeightFollowsContent || rules.ContentHeightUntilResized ? SizeToContent.Height : SizeToContent.Manual, window.SizeToContent);
                     if (window.CurrentPage is { } page)
                     {
                         // The page fills the window width (not docked at its own desired width).
@@ -315,23 +316,37 @@ public sealed class MultiViewTests
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
             Assert.Equal(680, window.Width, 1);
-            Assert.Equal(560, window.Height, 1);
+            Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
+            Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
             Assert.Equal((500, 350), (h.Settings.MainBounds!.Value.Left, h.Settings.MainBounds.Value.Top));
 
-            // Card resized / moved by the user, then List: Card's size is saved; the classic width rules are kept.
+            // Only the width changed so far: the saved height stays "follow the content" (0).
+            h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(600, 400, 1800, 1000));
+            h.Shell.CurrentView = MainView.List;
+            Harness.Pump();
+            Assert.Equal(new ViewSize(800, 0), h.Settings.ViewSizes[MainView.Card]);
+            Assert.Equal(440, window.Width, 1);
+            Assert.Equal(SizeToContent.Height, window.SizeToContent);
+
+            // Card resized in height by the user (what WM_EXITSIZEMOVE records), then List: Card's size is kept.
+            h.Shell.CurrentView = MainView.Card;
+            Harness.Pump();
+            window.ViewHeightByUser = true;
+            window.SizeToContent = SizeToContent.Manual;
             h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(600, 400, 1800, 1350));
             h.Shell.CurrentView = MainView.List;
             Harness.Pump();
             Assert.Equal(new ViewSize(800, 600), h.Settings.ViewSizes[MainView.Card]);
-            Assert.Equal(PixelRect.FromSize(600, 400, 1170, 900), h.Settings.MainBounds);
-            Assert.Equal(460, window.Width, 1);
+            Assert.Equal(PixelRect.FromSize(600, 400, 1170, 900), h.Settings.MainBounds); // classic width rules kept
 
             // Back to Card: its own size again.
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             Assert.Equal(800, window.Width, 1);
             Assert.Equal(600, window.Height, 1);
+            Assert.Equal(SizeToContent.Manual, window.SizeToContent); // the user's height wins over the content
+            Assert.True(window.ViewHeightByUser);
 
             // Back to Classic: the v0.2 rules (app-chosen width, height from the content).
             h.Shell.CurrentView = MainView.Classic;
@@ -357,8 +372,8 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(820 * 2.25), b.Left);
-                Assert.Equal(2292 - (int)Math.Round(580 * 2.25), b.Top);
+                Assert.Equal(3840 - (int)Math.Round(740 * 2.25), b.Left);
+                Assert.Equal(2292 - (int)Math.Round(540 * 2.25), b.Top);
             }
 
             // Saved on a monitor that is gone: started in the Card view on the remaining monitor, fully inside.
@@ -417,7 +432,7 @@ public sealed class MultiViewTests
             Harness.Pump();
             Assert.True(h.Coordinator.MainWindow.IsVisible);
             Assert.Equal(MainView.List, h.Coordinator.MainWindow.View);
-            Assert.Equal(SizeToContent.Manual, h.Coordinator.MainWindow.SizeToContent);
+            Assert.Equal(SizeToContent.Height, h.Coordinator.MainWindow.SizeToContent); // List: height from its content
 
             // A view chosen while the toolbar is shown (Settings window) is the one the main window comes back in.
             h.Shell.EnterCompactCommand.Execute(null);
@@ -690,6 +705,172 @@ public sealed class MultiViewTests
             Assert.True(h.Tray!.Disposed);
             Assert.False(h.Coordinator.MainWindow.IsVisible);
         });
+    }
+
+    // ------------------------------------------------------------------ Phase 3 (UI polish)
+
+    [Fact]
+    public void List_and_card_start_as_tall_as_their_content_and_scroll_when_there_are_many_browsers()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.List), Primary);
+            var window = h.Coordinator.MainWindow;
+            Harness.Pump();
+
+            // UI-01 / UI-02: three browsers, no empty half window; nothing to scroll; the footer is inside the window.
+            Assert.Equal(SizeToContent.Height, window.SizeToContent);
+            Assert.InRange(window.ActualHeight, 200, 420);
+            var scroller = Descendants<ScrollViewer>(window.CurrentPage!).First();
+            Assert.Equal(0, scroller.ScrollableHeight, 1);
+            AssertFooterInside(window);
+
+            h.Shell.CurrentView = MainView.Card;
+            Harness.Pump();
+            Assert.InRange(window.ActualHeight, 200, 420);
+            AssertFooterInside(window);
+
+            // Many browsers: the window grows only up to the work area; the list scrolls; the footer stays visible.
+            for (var i = 0; i < 60; i++)
+            {
+                var exe = $@"C:\X{i}\browser{i}.exe";
+                h.Registry.AddBrowser(Core.Platform.RegistryRoot.LocalMachine, Core.Platform.RegistryViewKind.Registry64,
+                    $"Browser {i:00}", $"Browser {i:00}", $"\"{exe}\"", $"B{i}HTML", $"B{i}HTML", $"Browser {i:00}");
+                h.Files.Files.Add(exe);
+            }
+
+            h.Main.Refresh();
+            foreach (var view in new[] { MainView.Card, MainView.List })
+            {
+                h.Shell.CurrentView = view;
+                Harness.Pump();
+                Assert.Equal(63, h.Main.Browsers.Count);
+                // The cap is the work area of the (real) monitor the parked test window is on.
+                Assert.True(double.IsFinite(window.MaxHeight) && window.ActualHeight <= window.MaxHeight + 0.5, $"{view}: {window.ActualHeight:N0} DIP, cap {window.MaxHeight:N0}");
+                Assert.True(Descendants<ScrollViewer>(window.CurrentPage!).First().ScrollableHeight > 0, $"{view}: the browsers scroll");
+                AssertFooterInside(window);
+            }
+        });
+    }
+
+    [Fact]
+    public void Panel_default_size_is_smaller_and_four_tiles_fit_in_one_row()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Panel), Primary);
+            Harness.Pump();
+            var window = h.Coordinator.MainWindow;
+            Assert.Equal(740, window.Width, 1);
+            Assert.Equal(540, window.Height, 1);
+            var page = window.CurrentPage!;
+            var tiles = Descendants<Button>((DependencyObject)page.FindName("HomeTiles")).Where(b => b.CommandParameter is BrowserCardViewModel).ToList();
+            Assert.Equal(3, tiles.Count);
+            Assert.Single(tiles.Select(t => Math.Round(t.TranslatePoint(new Point(), page).Y)).Distinct()); // one row
+
+            // UI-05: the name is shown once (no "Current default browser: Microsoft Edge" sentence under it).
+            var home = (FrameworkElement)page.FindName("HomePage");
+            Assert.DoesNotContain(Descendants<TextBlock>(home), t => IsShown(t) && t.Text == h.Main.CurrentDefaultText);
+            Assert.Equal("Microsoft Edge", ((TextBlock)page.FindName("HomeCurrentName")).Text);
+        });
+    }
+
+    [Fact]
+    public void Panel_settings_page_summarizes_the_live_settings_without_a_second_copy()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Panel), Primary);
+            var page = h.Coordinator.MainWindow.CurrentPage!;
+            ((ListBoxItem)page.FindName("NavSettings")).IsSelected = true;
+            Harness.Pump();
+            Assert.Equal(h.Shell.SelectedView.DisplayName, ((TextBlock)page.FindName("SummaryView")).Text);
+            Assert.Equal(L("State_Off"), ((TextBlock)page.FindName("SummaryTopmost")).Text);
+            Assert.Equal(h.Main.SelectedLanguage.DisplayName, ((TextBlock)page.FindName("SummaryLanguage")).Text);
+
+            h.Shell.IsTopmost = true; // e.g. changed in the Settings window
+            Harness.Pump();
+            Assert.Equal(L("State_On"), ((TextBlock)page.FindName("SummaryTopmost")).Text);
+            h.Shell.IsTopmost = false;
+        });
+    }
+
+    [Fact]
+    public void Settings_close_and_x_keep_changes_and_cancel_never_undoes_what_was_set_before_opening()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(), Primary);
+            h.Shell.BarSize = BarSize.Medium; // set before the window opens
+
+            h.Coordinator.OpenSettings(SettingsPage.FloatingToolbar);
+            Harness.Pump();
+            h.Shell.FloatingOrientation = BarOrientation.Vertical;
+            h.Coordinator.SettingsWindow!.Close(); // title bar X = Close
+            Harness.Pump();
+            Assert.Equal(BarOrientation.Vertical, h.Shell.FloatingOrientation);
+
+            h.Coordinator.OpenSettings(SettingsPage.FloatingToolbar);
+            Harness.Pump();
+            h.Shell.FloatingOrientation = BarOrientation.Horizontal;
+            h.Shell.IsTopmost = true;
+            ((Button)h.Coordinator.SettingsWindow!.FindName("CancelButton")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            Harness.Pump();
+            Assert.Equal(BarOrientation.Vertical, h.Shell.FloatingOrientation); // back to the value at opening
+            Assert.False(h.Shell.IsTopmost);
+            Assert.Equal(BarSize.Medium, h.Shell.BarSize); // set before opening: untouched
+            Assert.Equal(BarSize.Medium, h.Settings.BarSize);
+        });
+    }
+
+    [Fact]
+    public void Tooltips_name_the_browser_and_say_whether_it_is_the_default()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(), Primary);
+            var edge = h.Main.Browsers.Single(b => b.DisplayName == "Microsoft Edge");
+            var chrome = h.Main.Browsers.Single(b => b.DisplayName == "Google Chrome");
+            Assert.Equal($"Microsoft Edge — {L("Home_Current")}", edge.ToolTipTitle);
+            Assert.Equal("Google Chrome", chrome.ToolTipTitle);
+            Assert.StartsWith(chrome.ToolTipTitle, chrome.ToolTipText, StringComparison.Ordinal);
+            Assert.EndsWith(chrome.DetailText, chrome.ToolTipText, StringComparison.Ordinal);
+
+            // The views show the same text (one source: the shared card view model).
+            h.Shell.CurrentView = MainView.Card;
+            Harness.Pump();
+            var tile = Descendants<Button>(h.Coordinator.MainWindow.CurrentPage!).First(b => b.CommandParameter == edge);
+            Assert.Equal(edge.ToolTipText, tile.ToolTip);
+        });
+    }
+
+    [Fact]
+    public void Tray_menu_has_no_duplicate_entries_and_clean_separators()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(), Primary);
+            for (var round = 0; round < 3; round++)
+            {
+                h.Main.Refresh(); // refreshing never adds entries
+                var model = h.Coordinator.BuildMenuModel();
+                var texts = model.Where(i => !i.IsSeparator).Select(i => i.Text).ToList();
+                Assert.Equal(texts.Count, texts.Distinct().Count());
+                Assert.False(model[0].IsSeparator || model[^1].IsSeparator);
+                Assert.DoesNotContain(model.Zip(model.Skip(1)), p => p.First.IsSeparator && p.Second.IsSeparator);
+                var browsers = model.Single(i => i.Text == L("Tray_Switch")).Children!;
+                Assert.Equal(3, browsers.Count);
+                Assert.Single(browsers, b => b.IsChecked);
+            }
+        });
+    }
+
+    private static void AssertFooterInside(MainWindow window)
+    {
+        var page = window.CurrentPage!;
+        var link = Descendants<Button>(page).First(b => b.Content is string s && s == L("OpenDefaultApps"));
+        var bottom = link.TranslatePoint(new Point(0, link.ActualHeight), page).Y;
+        Assert.True(bottom <= page.ActualHeight + 0.5, $"footer cut off ({bottom:N1} > {page.ActualHeight:N1})");
     }
 
     // ------------------------------------------------------------------ helpers

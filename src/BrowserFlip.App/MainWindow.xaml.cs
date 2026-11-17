@@ -77,6 +77,7 @@ public partial class MainWindow : Window
     private bool _inSizeMove;
     private bool _resizedInSizeMove;
     private int _sizeMoveStartWidth;     // physical pixels, at WM_ENTERSIZEMOVE
+    private int _sizeMoveStartHeight;    // physical pixels, at WM_ENTERSIZEMOVE
     private double? _widthBeforeCap;     // width wanted before a narrower work area capped it (BF-07)
     private bool _languageWidthStale;    // the language changed while the window was hidden / minimized
 
@@ -118,21 +119,36 @@ public partial class MainWindow : Window
     /// <summary>The layout shown in the window (v0.3). Classic is the v0.2 content.</summary>
     internal MainView View { get; private set; } = MainView.Classic;
 
-    /// <summary>Size rules of a view in DIP: default size, minimum size, and whether the height follows the content.</summary>
-    internal readonly record struct ViewLayout(double Width, double Height, double MinWidth, double MinHeight, bool HeightFollowsContent);
+    /// <summary>
+    /// Size rules of a view in DIP: default size, minimum size, whether the height always follows the content, and
+    /// whether it follows the content until the user sets a height (<see cref="ViewHeightByUser"/>).
+    /// </summary>
+    internal readonly record struct ViewLayout(double Width, double Height, double MinWidth, double MinHeight, bool HeightFollowsContent,
+        bool ContentHeightUntilResized = false);
 
     /// <summary>
-    /// Size rules per view. Classic keeps its v0.2 rules (width from the header, height from the content). Compact is
-    /// the smallest window (height from the content); List / Card / Panel are resizable in both directions.
+    /// Size rules per view (UI-07). Classic keeps its v0.2 rules (width from the header, height from the content).
+    /// Compact is the smallest window (height from the content). List and Card start as tall as their content (no
+    /// empty half window with four browsers, scrolling beyond the work area) until the user resizes the height.
+    /// Panel has a fixed default size (its pages differ in height; the window must not jump between pages).
     /// </summary>
     internal static ViewLayout LayoutFor(MainView view) => view switch
     {
-        MainView.List => new(460, 540, 380, 340, false),
-        MainView.Card => new(680, 560, 420, 360, false),
+        MainView.List => new(440, 0, 360, 240, false, ContentHeightUntilResized: true),
+        MainView.Card => new(680, 0, 420, 260, false, ContentHeightUntilResized: true),
         MainView.Compact => new(340, 0, 300, 150, true),
-        MainView.Panel => new(820, 580, 640, 440, false),
+        MainView.Panel => new(740, 540, 600, 420, false),
         _ => new(DefaultWidth, 0, 460, 260, true),
     };
+
+    /// <summary>
+    /// List / Card: the user has set this view's height (a resize that changed the height); it is saved and kept.
+    /// Otherwise the height follows the content.
+    /// </summary>
+    internal bool ViewHeightByUser { get; set; }
+
+    /// <summary>Whether the current view's height is taken from its content now.</summary>
+    internal bool HeightFromContent => LayoutFor(View) is var l && (l.HeightFollowsContent || (l.ContentHeightUntilResized && !ViewHeightByUser));
 
     /// <summary>
     /// Shows <paramref name="view"/> (immediately, no restart). The view-model state, the timers and the bindings are
@@ -177,7 +193,8 @@ public partial class MainWindow : Window
         BaseMinWidth = view == MainView.Classic ? ClassicMinWidth : layout.MinWidth;
         MinWidth = BaseMinWidth;
         MinHeight = view == MainView.Classic ? _classicMinHeight : layout.MinHeight;
-        SizeToContent = layout.HeightFollowsContent ? SizeToContent.Height : SizeToContent.Manual;
+        ViewHeightByUser = false; // the coordinator applies the saved size (and with it the user's height)
+        SizeToContent = layout.HeightFollowsContent || layout.ContentHeightUntilResized ? SizeToContent.Height : SizeToContent.Manual;
         if (view == MainView.Classic)
         {
             FollowLanguageWidthIfStale(); // the language may have changed while another view was shown
@@ -420,6 +437,7 @@ public partial class MainWindow : Window
             _resizedInSizeMove = false;
             var hasStart = NativeMethods.GetWindowRect(hwnd, out var start);
             _sizeMoveStartWidth = hasStart ? start.Right - start.Left : 0;
+            _sizeMoveStartHeight = hasStart ? start.Bottom - start.Top : 0;
             _moveTracker.Enter(hasStart ? start.ToPixelRect() : default);
         }
         else if (msg == WmMoving)
@@ -437,6 +455,12 @@ public partial class MainWindow : Window
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
+            if (_resizedInSizeMove && NativeMethods.GetWindowRect(hwnd, out var endRect) && endRect.Bottom - endRect.Top != _sizeMoveStartHeight
+                && LayoutFor(View).ContentHeightUntilResized)
+            {
+                ViewHeightByUser = true; // List / Card: the user chose a height; it is kept (and saved) from now on
+            }
+
             if (_resizedInSizeMove && NativeMethods.GetWindowRect(hwnd, out var end) && end.Right - end.Left != _sizeMoveStartWidth)
             {
                 // The user chose a width (not just dragged the top / bottom border, whose height is not kept):
@@ -458,7 +482,7 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
         }
 
-        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual && LayoutFor(View).HeightFollowsContent)
+        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual && HeightFromContent)
         {
             SizeToContent = SizeToContent.Height;
         }
