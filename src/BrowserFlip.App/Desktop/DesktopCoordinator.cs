@@ -94,9 +94,10 @@ public sealed class DesktopCoordinator : IDisposable
                 return null;
             }
 
-            var m = _monitors.FromWindow(hwnd);
+            var m = MainWindowMonitor(hwnd);
             return m.WorkArea.Width / m.Scale;
         };
+        _mainWindow.AutomaticWidthChanged += (_, _) => KeepMainRightEdgeInWorkArea();
         _bar = new CompactBarWindow { DataContext = new DesktopContext(main, shell) };
         BarHasKeyboardFocus = () => _bar.IsKeyboardFocusWithin;
 
@@ -527,6 +528,7 @@ public sealed class DesktopCoordinator : IDisposable
         var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.SizeToContent = SizeToContent.Height; // a snap turned it to Manual with the snapped height
+        _mainWindow.ForgetCappedWidth();
         _mainWindow.Width = Math.Max(_mainWindow.MinWidth, Math.Min(r.Width, target.WorkArea.Width) / target.Scale);
         var fixedRect = DockLayout.EnsureVisible(r, _monitors.GetMonitors(), 48);
         _placement.Move(hwnd, fixedRect.Left, fixedRect.Top);
@@ -1031,13 +1033,29 @@ public sealed class DesktopCoordinator : IDisposable
         // BF-07: a width the user chose is kept. An app-chosen width becomes the measured preferred width; a width
         // saved before BF-07 is widened to it when it is too narrow for the header (never narrowed).
         var savedScale = _shell.Settings.MainScale;
-        _mainWindow.WidthIsAutomatic = _shell.Settings.MainWidthByUser != true;
-        var widthDip = _shell.Settings.MainWidthByUser switch
+        var savedDip = saved.Width / savedScale;
+        double widthDip;
+        if (_shell.Settings.MainWidthByUser == true)
         {
-            true => saved.Width / savedScale,
-            false => _mainWindow.PreferredWidth(),
-            null => Math.Max(saved.Width / savedScale, _mainWindow.PreferredWidth()),
-        };
+            widthDip = savedDip;
+            _mainWindow.WidthIsAutomatic = false;
+        }
+        else if (_shell.Settings.MainWidthByUser == false)
+        {
+            widthDip = _mainWindow.PreferredWidth();
+            _mainWindow.WidthIsAutomatic = true;
+        }
+        else
+        {
+            // Saved before BF-07: that version always opened at its fixed default width, so any other width the
+            // header has room in was chosen by the user and stays theirs. The old default, or anything narrower than
+            // the header needs, becomes the app-chosen preferred width.
+            var preferred = _mainWindow.PreferredWidth();
+            var userWidth = savedDip >= preferred - 0.5 && Math.Abs(savedDip - MainWindow.DefaultWidth) > 1;
+            widthDip = userWidth ? savedDip : Math.Max(savedDip, preferred);
+            _mainWindow.WidthIsAutomatic = !userWidth;
+        }
+
         widthDip = Math.Max(_mainWindow.BaseMinWidth, widthDip);
         var heightDip = Math.Max(_mainWindow.MinHeight, saved.Height / savedScale);
 
@@ -1049,10 +1067,39 @@ public sealed class DesktopCoordinator : IDisposable
         // Width is restored (never wider than the work area); the height follows the content
         // (SizeToContent=Height, capped at the work area by the window itself).
         var workWidth = finalMonitor.WorkArea.Width / finalMonitor.Scale;
+        _mainWindow.ForgetCappedWidth();
         _mainWindow.MinWidth = Math.Min(_mainWindow.BaseMinWidth, workWidth);
         _mainWindow.Width = Math.Min(widthDip, workWidth);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
         _placement.Move(new WindowInteropHelper(_mainWindow).Handle, fixedRect.Left, fixedRect.Top);
+    }
+
+    /// <summary>The monitor under the main window's title bar (the same rule the window uses for its height cap).</summary>
+    private MonitorInfo MainWindowMonitor(IntPtr hwnd)
+    {
+        var b = _placement.GetBounds(hwnd);
+        return b.Width > 0 ? _monitors.FromPoint(b.Left + (b.Width / 2), b.Top + 8) : _monitors.FromWindow(hwnd);
+    }
+
+    /// <summary>
+    /// BF-07: the width grew to follow the language; a window near the right edge of the work area is moved left so
+    /// its right side (language, pin, compact, refresh) stays on screen.
+    /// </summary>
+    private void KeepMainRightEdgeInWorkArea()
+    {
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        if (hwnd == IntPtr.Zero || !_mainWindow.IsVisible || _mainWindow.WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        var b = _placement.GetBounds(hwnd);
+        var m = MainWindowMonitor(hwnd);
+        var width = Px(_mainWindow.Width, m.Scale);
+        if (b.Left + width > m.WorkArea.Right)
+        {
+            _placement.Move(hwnd, Math.Max(m.WorkArea.Left, m.WorkArea.Right - width), b.Top);
+        }
     }
 
     private void EnsureMainVisible()

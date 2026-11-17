@@ -55,6 +55,7 @@ public partial class MainWindow : Window
                 _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
             }
         };
+        IsVisibleChanged += (_, _) => FollowLanguageWidthIfStale();
         StateChanged += (_, _) =>
         {
             if (WindowState == WindowState.Maximized)
@@ -66,12 +67,22 @@ public partial class MainWindow : Window
             else if (WindowState == WindowState.Normal)
             {
                 LimitHeightToWorkArea(); // a minimized window sits at -32000; measure only when restored
+                FollowLanguageWidthIfStale();
             }
         };
     }
 
     private bool _inSizeMove;
     private bool _resizedInSizeMove;
+    private int _sizeMoveStartWidth;     // physical pixels, at WM_ENTERSIZEMOVE
+    private double? _widthBeforeCap;     // width wanted before a narrower work area capped it (BF-07)
+    private bool _languageWidthStale;    // the language changed while the window was hidden / minimized
+
+    /// <summary>
+    /// The app changed the width to follow the language (BF-07). The coordinator keeps the right edge (and with it
+    /// the header tools) inside the work area.
+    /// </summary>
+    internal event EventHandler? AutomaticWidthChanged;
 
     /// <summary>Default width from MainWindow.xaml (DIP).</summary>
     internal const double DefaultWidth = 520;
@@ -123,6 +134,7 @@ public partial class MainWindow : Window
     /// <summary>Sets the app-chosen width: the preferred width, never wider than <paramref name="maxWidth"/> (work area, DIP).</summary>
     internal void ApplyPreferredWidth(double maxWidth)
     {
+        _widthBeforeCap = null;
         MinWidth = Math.Min(BaseMinWidth, maxWidth);
         Width = Math.Max(MinWidth, Math.Min(PreferredWidth(), maxWidth));
     }
@@ -198,8 +210,9 @@ public partial class MainWindow : Window
         }
 
         // BF-07: never wider than the work area (narrow screen / high DPI); MinWidth gives way and the header
-        // degrades (wraps, then two rows) instead.
-        if (!TryGetWorkAreaWidth(out var maxWidth))
+        // degrades (wraps, then two rows) instead. Not inside a drag (no resizing inside the move loop): once at
+        // its end. The wanted width comes back when the window is on a wide enough work area again.
+        if (_inSizeMove || !TryGetWorkAreaWidth(out var maxWidth))
         {
             return;
         }
@@ -212,9 +225,21 @@ public partial class MainWindow : Window
 
         if (Width > maxWidth + 0.5)
         {
+            _widthBeforeCap ??= Width;
             Width = maxWidth;
         }
+        else if (_widthBeforeCap is { } wanted && Width + 0.5 < Math.Min(wanted, maxWidth))
+        {
+            Width = Math.Min(wanted, maxWidth);
+            if (wanted <= maxWidth + 0.5)
+            {
+                _widthBeforeCap = null;
+            }
+        }
     }
+
+    /// <summary>The width was set from settings or a saved rectangle: no earlier cap applies any more.</summary>
+    internal void ForgetCappedWidth() => _widthBeforeCap = null;
 
     /// <summary>Work-area width of the window's monitor in DIP, when the window has a handle.</summary>
     private bool TryGetWorkAreaWidth(out double width)
@@ -288,7 +313,9 @@ public partial class MainWindow : Window
         {
             _inSizeMove = true;
             _resizedInSizeMove = false;
-            _moveTracker.Enter(NativeMethods.GetWindowRect(hwnd, out var start) ? start.ToPixelRect() : default);
+            var hasStart = NativeMethods.GetWindowRect(hwnd, out var start);
+            _sizeMoveStartWidth = hasStart ? start.Right - start.Left : 0;
+            _moveTracker.Enter(hasStart ? start.ToPixelRect() : default);
         }
         else if (msg == WmMoving)
         {
@@ -305,10 +332,15 @@ public partial class MainWindow : Window
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
-            if (_resizedInSizeMove)
+            if (_resizedInSizeMove && NativeMethods.GetWindowRect(hwnd, out var end) && end.Right - end.Left != _sizeMoveStartWidth)
             {
-                WidthIsAutomatic = false; // the user chose a width: keep it from now on (BF-07)
+                // The user chose a width (not just dragged the top / bottom border, whose height is not kept):
+                // keep it from now on (BF-07).
+                WidthIsAutomatic = false;
+                _widthBeforeCap = null;
             }
+
+            _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, LimitHeightToWorkArea);
 
             if (_moveTracker.Exit() is { } before)
             {
@@ -334,17 +366,29 @@ public partial class MainWindow : Window
         ApplyLanguage();
 
         // BF-07: an app-chosen width follows the header of the new language (the header itself re-lays out on
-        // its own either way: it wraps or goes to two rows rather than overlap). After the bindings have updated.
-        if (WidthIsAutomatic && IsVisible && WindowState == WindowState.Normal)
+        // its own either way: it wraps or goes to two rows rather than overlap). Hidden / minimized: when shown.
+        _languageWidthStale = WidthIsAutomatic;
+        FollowLanguageWidthIfStale();
+    }
+
+    private void FollowLanguageWidthIfStale()
+    {
+        if (!_languageWidthStale || !WidthIsAutomatic || !IsVisible || WindowState != WindowState.Normal)
         {
-            _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
-            {
-                if (WidthIsAutomatic && WindowState == WindowState.Normal && TryGetWorkAreaWidth(out var max))
-                {
-                    ApplyPreferredWidth(max);
-                }
-            });
+            return;
         }
+
+        _languageWidthStale = false;
+
+        // After the bindings have picked up the new language.
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            if (WidthIsAutomatic && WindowState == WindowState.Normal && TryGetWorkAreaWidth(out var max))
+            {
+                ApplyPreferredWidth(max);
+                AutomaticWidthChanged?.Invoke(this, EventArgs.Empty);
+            }
+        });
     }
 
     /// <summary>xml:lang + per-language font stack so CJK text uses the correct regional glyphs.</summary>

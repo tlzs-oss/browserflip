@@ -53,10 +53,26 @@ public sealed class MainWindowWidthTests
         Assert.True(actual >= expected - 0.5 && actual <= expected + 6, $"{label}: width {actual:N1}, preferred {expected:N1}");
     }
 
+    /// <summary>
+    /// Header problems in the window's own layout (the shown, off-screen window at the real frame and DPI, no manual
+    /// layout) and, independently, when laid out at the window width.
+    /// </summary>
     private static List<string> HeaderProblems(Harness h, string label)
     {
         var w = h.Coordinator.MainWindow;
-        return MainWindowHeaderTests.Problems(MainWindowHeaderTests.LayoutHeader(w, w.Width), label);
+        Harness.Pump();
+        var problems = MainWindowHeaderTests.Problems(MainWindowHeaderTests.ReadHeader(w), $"{label} (window layout)");
+        problems.AddRange(MainWindowHeaderTests.Problems(MainWindowHeaderTests.LayoutHeader(w, w.Width), label));
+        w.InvalidateMeasure();
+        Harness.Pump();
+        return problems;
+    }
+
+    /// <summary>Layout mode of the header in the window's own layout pass.</summary>
+    private static HeaderLayoutMode RealMode(Harness h)
+    {
+        Harness.Pump();
+        return MainWindowHeaderTests.ReadHeader(h.Coordinator.MainWindow).Mode;
     }
 
     // ------------------------------------------------------------------ first start
@@ -71,11 +87,10 @@ public sealed class MainWindowWidthTests
         {
             using var h = new Harness(MainOpen(), Primary);
             var w = h.Coordinator.MainWindow;
+            Assert.Equal(HeaderLayoutMode.SingleLine, RealMode(h)); // independent of PreferredWidth: the shown window
             AssertPreferredWidth(w.PreferredWidth(), w.Width, language);
             Assert.True(w.WidthIsAutomatic);
-            var l = MainWindowHeaderTests.LayoutHeader(w, w.Width);
-            Assert.Equal(HeaderLayoutMode.SingleLine, l.Mode);
-            Assert.Empty(MainWindowHeaderTests.Problems(l, language));
+            Assert.Empty(HeaderProblems(h, language));
         });
     }
 
@@ -86,13 +101,13 @@ public sealed class MainWindowWidthTests
     {
         InLanguage("en", () =>
         {
-            using var h = new Harness(MainOpen(language: "en"), Primary);
+            using var h = new Harness(MainOpen(), Primary);
             var w = h.Coordinator.MainWindow;
             var en = w.Width;
             Loc.Instance.SetLanguage("ja");
             Harness.Pump();
             AssertPreferredWidth(w.PreferredWidth(), w.Width, "en -> ja");
-            Assert.True(w.Width >= en, $"ja {w.Width:N0} >= en {en:N0}");
+            Assert.True(w.Width > en, $"ja {w.Width:N0} > en {en:N0}");
             Assert.Empty(HeaderProblems(h, "en -> ja"));
             Loc.Instance.SetLanguage("zh-CN");
             Harness.Pump();
@@ -151,6 +166,39 @@ public sealed class MainWindowWidthTests
         {
             using var h = new Harness(MainOpen(PixelRect.FromSize(800, 400, 1800, 1500), byUser: null), Primary); // 800 DIP
             Assert.Equal(800, h.Coordinator.MainWindow.Width, 1);
+        });
+    }
+
+    [Fact]
+    public void R4_T06_a_wider_width_saved_before_BF07_is_the_users_and_survives_later_starts_and_language_changes()
+    {
+        // Review H1: v0.2 always opened at 520 DIP, so a wider saved width was chosen by the user.
+        InLanguage("en", () =>
+        {
+            var settings = MainOpen(PixelRect.FromSize(800, 400, 1800, 1500), byUser: null); // 800 DIP
+            using (var h = new Harness(settings, Primary))
+            {
+                var w = h.Coordinator.MainWindow;
+                Assert.False(w.WidthIsAutomatic);
+                Loc.Instance.SetLanguage("ja");
+                Harness.Pump();
+                Assert.Equal(800, w.Width, 1);
+                h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(800, 400, 1800, 1500));
+            }
+
+            Assert.True(settings.MainWidthByUser);
+            using var again = new Harness(settings, Primary);
+            Assert.Equal(800, again.Coordinator.MainWindow.Width, 1);
+        });
+    }
+
+    [Fact]
+    public void R4_T06_the_old_fixed_default_width_saved_before_BF07_stays_app_chosen()
+    {
+        InLanguage("en", () =>
+        {
+            using var h = new Harness(MainOpen(PixelRect.FromSize(800, 400, 1170, 1500), byUser: null), Primary); // 520 DIP
+            Assert.True(h.Coordinator.MainWindow.WidthIsAutomatic);
         });
     }
 
@@ -225,6 +273,68 @@ public sealed class MainWindowWidthTests
                 Assert.Empty(HeaderProblems(h, $"{language} {width}x{height}@{scale}"));
             });
         }
+    }
+
+    // ------------------------------------------------------------------ review M1 / M2 / L2
+
+    [Fact]
+    public void A_width_capped_on_a_narrow_monitor_comes_back_on_a_wide_one()
+    {
+        InLanguage("ja", () =>
+        {
+            var narrow = new MonitorInfo(@"\\.\DISPLAY2", new PixelRect(3840, 0, 4640, 1280), new PixelRect(3840, 0, 4640, 1240), 1.0, false); // 800 DIP
+            using var h = new Harness(MainOpen(PixelRect.FromSize(400, 300, 2025, 1500), byUser: true), Primary, narrow); // 900 DIP
+            var w = h.Coordinator.MainWindow;
+            Assert.Equal(900, w.Width, 1);
+
+            h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(3850, 100, 900, 800)); // moved onto the narrow monitor
+            w.LimitHeightToWorkArea();
+            Assert.Equal(800, w.Width, 1);
+            Assert.Empty(HeaderProblems(h, "capped on the narrow monitor"));
+
+            h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(400, 300, 1800, 1500)); // back on the wide one
+            w.LimitHeightToWorkArea();
+            Assert.Equal(900, w.Width, 1);
+        });
+    }
+
+    [Fact]
+    public void Widening_for_a_new_language_keeps_the_tools_inside_the_work_area()
+    {
+        InLanguage("en", () =>
+        {
+            using var h = new Harness(MainOpen(), Primary);
+            var w = h.Coordinator.MainWindow;
+            var px = (int)Math.Round(w.Width * 2.25);
+            h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(Primary.WorkArea.Right - px, 400, px, 1500)); // against the right edge
+            Loc.Instance.SetLanguage("ja");
+            Harness.Pump();
+            var b = h.Placement.GetBounds(h.MainHandle);
+            var width = (int)Math.Round(w.Width * 2.25);
+            Assert.True(width > px, $"ja is wider: {width} > {px}");
+            Assert.True(b.Left + width <= Primary.WorkArea.Right, $"right edge {b.Left + width} <= {Primary.WorkArea.Right}");
+        });
+    }
+
+    [Fact]
+    public void A_language_change_while_the_main_window_is_hidden_is_applied_when_it_is_shown()
+    {
+        InLanguage("en", () =>
+        {
+            using var h = new Harness(MainOpen(), Primary);
+            var w = h.Coordinator.MainWindow;
+            var en = w.Width;
+            h.Shell.EnterCompactCommand.Execute(null);
+            Harness.Pump();
+            Assert.False(w.IsVisible);
+            Loc.Instance.SetLanguage("ja");
+            Harness.Pump();
+            h.Shell.ShowNormalCommand.Execute(null);
+            Harness.Pump();
+            Assert.True(w.IsVisible);
+            Assert.True(w.Width > en, $"ja {w.Width:N0} > en {en:N0}");
+            Assert.Equal(HeaderLayoutMode.SingleLine, RealMode(h));
+        });
     }
 
     // ------------------------------------------------------------------ R4-T09: multi-monitor / work area
