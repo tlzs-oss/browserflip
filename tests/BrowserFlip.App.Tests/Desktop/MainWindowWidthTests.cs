@@ -376,6 +376,41 @@ public sealed class MainWindowWidthTests
         });
     }
 
+    [Fact]
+    public void A_user_width_capped_at_start_is_saved_uncapped()
+    {
+        InLanguage("ja", () =>
+        {
+            var small = Monitor(900, 700, 1.0);
+            var settings = MainOpen(PixelRect.FromSize(0, 0, 1200, 600), scale: 1.0, byUser: true); // 1200 DIP
+            using (var h = new Harness(settings, small))
+            {
+                var w = h.Coordinator.MainWindow;
+                Assert.Equal(900, w.Width, 1);
+                Assert.Equal(1200, w.WantedWidth, 1);
+                h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(0, 0, 900, 600));
+            }
+
+            Assert.Equal(1200, settings.MainBounds!.Value.Width / settings.MainScale, 1);
+        });
+    }
+
+    [Fact]
+    public void A_window_widened_at_start_against_the_right_edge_keeps_its_tools_on_screen()
+    {
+        InLanguage("ja", () =>
+        {
+            // v0.2: 520 DIP (1170 px at 225 %) flush with the right edge of the work area; ja needs more.
+            var saved = PixelRect.FromSize(Primary.WorkArea.Right - 1170, 300, 1170, 1500);
+            using var h = new Harness(MainOpen(saved, byUser: null), Primary);
+            var w = h.Coordinator.MainWindow;
+            var width = (int)Math.Round(w.Width * 2.25);
+            Assert.True(width > 1170, $"widened: {width}");
+            var b = h.Placement.GetBounds(h.MainHandle);
+            Assert.True(b.Left + width <= Primary.WorkArea.Right, $"right edge {b.Left + width} <= {Primary.WorkArea.Right}");
+        });
+    }
+
     // ------------------------------------------------------------------ review M1 / M2 / L2
 
     [Fact]

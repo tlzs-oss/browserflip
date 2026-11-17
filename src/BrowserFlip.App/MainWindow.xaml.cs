@@ -235,9 +235,11 @@ public partial class MainWindow : Window
         {
             _widthBeforeCap ??= Width;
             Width = maxWidth;
+            AutomaticWidthChanged?.Invoke(this, EventArgs.Empty); // now as wide as the work area: keep it inside
         }
-        else if (_widthBeforeCap is { } wanted && Width + 0.5 < Math.Min(wanted, maxWidth))
+        else if (_widthBeforeCap is { } wanted && Width + 0.5 < Math.Min(wanted, maxWidth) && SizeToContent != SizeToContent.Manual)
         {
+            // (Not while snapped: that would undo the snap's width.)
             Width = Math.Min(wanted, maxWidth);
             if (wanted <= maxWidth + 0.5)
             {
@@ -248,8 +250,16 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>The width was set from settings or a saved rectangle: no earlier cap applies any more.</summary>
-    internal void ForgetCappedWidth() => _widthBeforeCap = null;
+    /// <summary>
+    /// Sets a width restored from settings or a saved rectangle. Wider than the work area: capped, and the wanted
+    /// width is kept (it comes back on a wide enough work area and is what gets saved) (BF-07).
+    /// </summary>
+    internal void SetRestoredWidth(double wanted, double maxWidth)
+    {
+        _widthBeforeCap = wanted > maxWidth + 0.5 ? wanted : null;
+        MinWidth = Math.Min(BaseMinWidth, maxWidth);
+        Width = Math.Max(MinWidth, Math.Min(wanted, maxWidth));
+    }
 
     /// <summary>Work-area width of the window's monitor in DIP, when the window has a handle.</summary>
     private bool TryGetWorkAreaWidth(out double width)

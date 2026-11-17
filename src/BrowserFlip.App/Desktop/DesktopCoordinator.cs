@@ -528,8 +528,7 @@ public sealed class DesktopCoordinator : IDisposable
         var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
         _mainWindow.WindowState = WindowState.Normal;
         _mainWindow.SizeToContent = SizeToContent.Height; // a snap turned it to Manual with the snapped height
-        _mainWindow.ForgetCappedWidth();
-        _mainWindow.Width = Math.Max(_mainWindow.MinWidth, Math.Min(r.Width, target.WorkArea.Width) / target.Scale);
+        _mainWindow.SetRestoredWidth(Math.Max(_mainWindow.MinWidth, r.Width / target.Scale), target.WorkArea.Width / target.Scale);
         var fixedRect = DockLayout.EnsureVisible(r, _monitors.GetMonitors(), 48);
         _placement.Move(hwnd, fixedRect.Left, fixedRect.Top);
         return (fixedRect.Left, fixedRect.Top);
@@ -1066,12 +1065,15 @@ public sealed class DesktopCoordinator : IDisposable
 
         // Width is restored (never wider than the work area); the height follows the content
         // (SizeToContent=Height, capped at the work area by the window itself).
-        var workWidth = finalMonitor.WorkArea.Width / finalMonitor.Scale;
-        _mainWindow.ForgetCappedWidth();
-        _mainWindow.MinWidth = Math.Min(_mainWindow.BaseMinWidth, workWidth);
-        _mainWindow.Width = Math.Min(widthDip, workWidth);
+        var work = finalMonitor.WorkArea;
+        _mainWindow.SetRestoredWidth(widthDip, work.Width / finalMonitor.Scale);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
-        _placement.Move(new WindowInteropHelper(_mainWindow).Handle, fixedRect.Left, fixedRect.Top);
+
+        // BF-07: the width may differ from the saved one (widened for the header, capped): keep the right side
+        // (language box and buttons) inside the work area.
+        var widthPx = Px(_mainWindow.Width, finalMonitor.Scale);
+        var left = fixedRect.Left + widthPx > work.Right ? Math.Max(work.Left, work.Right - widthPx) : fixedRect.Left;
+        _placement.Move(new WindowInteropHelper(_mainWindow).Handle, left, fixedRect.Top);
     }
 
     /// <summary>The monitor under the main window's title bar (the same rule the window uses for its height cap).</summary>
