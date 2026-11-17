@@ -468,6 +468,7 @@ public sealed class MultiViewTests
             Harness.Pump();
             Assert.Same(settings, h.Coordinator.SettingsWindow);
             Assert.Equal(2, ((TabControl)settings.FindName("Pages")).SelectedIndex);
+            Assert.Equal(FontWeights.Normal, ((TabItem)settings.FindName("ToolbarTab")).FontWeight); // page text stays normal (only the tab header is bold)
 
             // The user had clicked another page; asking for a page again activates the window, which gives the focus
             // back to that page's header, and a TabItem selects itself on focus (found on the real desktop). The

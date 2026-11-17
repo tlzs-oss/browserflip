@@ -313,7 +313,7 @@
                                     <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5" Margin="-12,0,0,0"
                                             HorizontalAlignment="Left" VerticalAlignment="Center"
                                             Background="{DynamicResource BfAccentBrush}" Visibility="Collapsed" />
-                                    <ContentPresenter ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                                    <ContentPresenter x:Name="HeaderText" ContentSource="Header" VerticalAlignment="Center" RecognizesAccessKey="True" />
                                 </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -323,7 +323,8 @@
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BfInfoBackgroundBrush}" />
                                     <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
-                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <!-- Only the header: the page content (the selected TabItem's content) must not turn bold. -->
+                                    <Setter TargetName="HeaderText" Property="TextElement.FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
