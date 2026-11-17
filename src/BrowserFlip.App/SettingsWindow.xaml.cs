@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using BrowserFlip.App.Desktop;
 using BrowserFlip.App.Localization;
@@ -43,7 +44,7 @@ public partial class SettingsWindow : Window
     /// <summary>The user asked for the floating toolbar from the Floating Toolbar page.</summary>
     internal event EventHandler? ShowToolbarRequested;
 
-    /// <summary>Shows a page (e.g. Settings &gt; Floating Toolbar Settings) and remembers the values to undo to.</summary>
+    /// <summary>Shows a page (e.g. Settings &gt; Floating Toolbar Settings).</summary>
     internal void ShowPage(SettingsPage page)
     {
         Pages.SelectedIndex = page switch
@@ -54,7 +55,22 @@ public partial class SettingsWindow : Window
             SettingsPage.Advanced => 4,
             _ => 0,
         };
+
+        // A TabItem selects itself when it gets the keyboard focus, and activating the window gives the focus back to
+        // the element that had it: the header of the page the user last clicked, which would select that page again.
+        // Move the window's remembered focus to the page asked for (and the real focus when the window is active).
+        if (Pages.SelectedItem is TabItem tab)
+        {
+            FocusManager.SetFocusedElement(this, tab);
+            if (IsActive)
+            {
+                _ = tab.Focus();
+            }
+        }
     }
+
+    /// <summary>The page shown (tests).</summary>
+    internal int PageIndex => Pages.SelectedIndex;
 
     /// <summary>Puts back the values from when the window was opened (Cancel).</summary>
     internal void Revert()

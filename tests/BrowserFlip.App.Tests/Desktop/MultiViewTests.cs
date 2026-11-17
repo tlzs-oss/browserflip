@@ -454,6 +454,17 @@ public sealed class MultiViewTests
             Assert.Same(settings, h.Coordinator.SettingsWindow);
             Assert.Equal(2, ((TabControl)settings.FindName("Pages")).SelectedIndex);
 
+            // The user had clicked another page (its header keeps the window's focus). Activating the window gives
+            // the focus back to that header, and a TabItem selects itself on focus: the remembered focus must move to
+            // the requested page, or the old page comes back (found on the real desktop).
+            var advanced = (TabItem)settings.FindName("AdvancedTab");
+            advanced.IsSelected = true;
+            System.Windows.Input.FocusManager.SetFocusedElement(settings, advanced);
+            h.Coordinator.OpenSettings(SettingsPage.General);
+            Harness.Pump();
+            Assert.Equal(0, settings.PageIndex);
+            Assert.Same(settings.FindName("GeneralTab"), System.Windows.Input.FocusManager.GetFocusedElement(settings));
+
             // Live changes (same view models as the Classic options) ...
             // (Not the theme here: applying it touches the shared Application, which lives on another test thread.)
             h.Shell.FloatingOrientation = BarOrientation.Vertical;
