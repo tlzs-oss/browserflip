@@ -2,7 +2,7 @@
 
 BrowserFlip v0.2 で追加したデスクトップ操作機能(最前面表示、コンパクトバー、画面端ドッキング、自動的に隠す、通知領域アイコン、複数モニター / DPI 対応、設定の永続化)の設計をまとめます。
 
-- 状態: **実装済み(v0.2、未リリース)**
+- 状態: **実装済み(v0.2.0)**
 - 要件と受け入れ条件: [backlog.md](backlog.md) / [requirements.md](requirements.md) の「v0.2」節
 - 全体構成(Core・検出・設定遷移): [architecture.md](architecture.md)
 - テスト: [testing.md](testing.md) / 操作説明: [user-guide.ja.md](user-guide.ja.md)

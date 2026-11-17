@@ -4,7 +4,7 @@ BrowserFlip — "One Click. Your Browser." の MVP(0.1.0)要件と、v0.2(デス
 
 ## 1. 目的とスコープ
 
-Windows 10/11 で、インストール済みブラウザーの中から既定ブラウザーを「ワンクリックで Windows の正規の設定画面へ到達して」切り替えられるようにする。既定の変更そのものは Windows の設定画面でユーザーが確定し、BrowserFlip は Windows の確認を省略・偽装しない。
+Windows(v0.2.0 のサポート対象は Windows 11)で、インストール済みブラウザーの中から既定ブラウザーを「ワンクリックで Windows の正規の設定画面へ到達して」切り替えられるようにする。既定の変更そのものは Windows の設定画面でユーザーが確定し、BrowserFlip は Windows の確認を省略・偽装しない。
 
 対象 OS(設計上の目標): Windows 10 バージョン 1809(ビルド 17763)以降 / Windows 11。アーキテクチャ: x64 / Arm64。
 
@@ -107,7 +107,7 @@ HKCU と HKLM(64 ビット / 32 ビット ビュー)の `Software\Clients\StartM
 
 ## 6. v0.2 要件(デスクトップ機能)
 
-状態: **実装済み(v0.2、未リリース)**。要件の詳細と計画は [backlog.md](backlog.md)、設計は [desktop-design.ja.md](desktop-design.ja.md)、操作方法は [user-guide.ja.md](user-guide.ja.md) を参照してください。v0.1 の F01〜F05 の動作は変更しません。
+状態: **実装済み(v0.2.0)**。要件の詳細と計画は [backlog.md](backlog.md)、設計は [desktop-design.ja.md](desktop-design.ja.md)、操作方法は [user-guide.ja.md](user-guide.ja.md) を参照してください。v0.1 の F01〜F05 の動作は変更しません。
 
 | ID | 要件 | 主な仕様 |
 | --- | --- | --- |
