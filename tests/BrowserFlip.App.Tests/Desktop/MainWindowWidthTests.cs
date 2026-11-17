@@ -218,7 +218,8 @@ public sealed class MainWindowWidthTests
             {
                 using var h = new Harness(settings, Primary);
                 var w = h.Coordinator.MainWindow;
-                Assert.Equal(pixels / 2.25, w.Width, 1);
+                // The window snaps its size to whole device pixels at the test machine's DPI (711.1 DIP -> 711 at 100 %).
+                Assert.True(Math.Abs((pixels / 2.25) - w.Width) <= 1, $"start {start}: {w.Width:N2} ~ {pixels / 2.25:N2}");
                 Assert.False(w.WidthIsAutomatic);
                 Assert.Empty(HeaderProblems(h, $"start {start}"));
                 h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(800, 400, pixels, 1500));
