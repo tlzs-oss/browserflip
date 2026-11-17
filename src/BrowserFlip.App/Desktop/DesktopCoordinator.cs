@@ -86,6 +86,17 @@ public sealed class DesktopCoordinator : IDisposable
         _trayFactory = trayFactory;
 
         _mainWindow = new MainWindow { DataContext = main, Shell = shell };
+        _mainWindow.WorkAreaWidthProvider = () =>
+        {
+            var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+            if (hwnd == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            var m = _monitors.FromWindow(hwnd);
+            return m.WorkArea.Width / m.Scale;
+        };
         _bar = new CompactBarWindow { DataContext = new DesktopContext(main, shell) };
         BarHasKeyboardFocus = () => _bar.IsKeyboardFocusWithin;
 
@@ -1008,13 +1019,26 @@ public sealed class DesktopCoordinator : IDisposable
     {
         if (_shell.Settings.MainBounds is not { } saved)
         {
+            // First run (BF-07): a width measured from the header in the current language, within the work area.
+            var monitor = _monitors.FromWindow(new WindowInteropHelper(_mainWindow).Handle);
+            _mainWindow.WidthIsAutomatic = true;
+            _mainWindow.ApplyPreferredWidth(monitor.WorkArea.Width / monitor.Scale);
             return;
         }
 
         // Size is restored in DIP (WPF owns it and rescales it per monitor DPI); only the position is
         // applied in physical pixels. This keeps size consistent across monitors with different scaling.
+        // BF-07: a width the user chose is kept. An app-chosen width becomes the measured preferred width; a width
+        // saved before BF-07 is widened to it when it is too narrow for the header (never narrowed).
         var savedScale = _shell.Settings.MainScale;
-        var widthDip = Math.Max(_mainWindow.MinWidth, saved.Width / savedScale);
+        _mainWindow.WidthIsAutomatic = _shell.Settings.MainWidthByUser != true;
+        var widthDip = _shell.Settings.MainWidthByUser switch
+        {
+            true => saved.Width / savedScale,
+            false => _mainWindow.PreferredWidth(),
+            null => Math.Max(saved.Width / savedScale, _mainWindow.PreferredWidth()),
+        };
+        widthDip = Math.Max(_mainWindow.BaseMinWidth, widthDip);
         var heightDip = Math.Max(_mainWindow.MinHeight, saved.Height / savedScale);
 
         var target = _monitors.FromPoint(saved.Left + (saved.Width / 2), saved.Top + (saved.Height / 2));
@@ -1024,7 +1048,9 @@ public sealed class DesktopCoordinator : IDisposable
 
         // Width is restored (never wider than the work area); the height follows the content
         // (SizeToContent=Height, capped at the work area by the window itself).
-        _mainWindow.Width = Math.Min(widthDip, finalMonitor.WorkArea.Width / finalMonitor.Scale);
+        var workWidth = finalMonitor.WorkArea.Width / finalMonitor.Scale;
+        _mainWindow.MinWidth = Math.Min(_mainWindow.BaseMinWidth, workWidth);
+        _mainWindow.Width = Math.Min(widthDip, workWidth);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
         _placement.Move(new WindowInteropHelper(_mainWindow).Handle, fixedRect.Left, fixedRect.Top);
     }
@@ -1055,6 +1081,7 @@ public sealed class DesktopCoordinator : IDisposable
 
         _shell.Settings.MainBounds = _placement.GetBounds(hwnd);
         _shell.Settings.MainScale = _monitors.FromWindow(hwnd).Scale;
+        _shell.Settings.MainWidthByUser = !_mainWindow.WidthIsAutomatic;
         _shell.Settings.Save();
     }
 

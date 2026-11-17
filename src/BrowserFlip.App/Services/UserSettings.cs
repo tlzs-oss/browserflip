@@ -81,6 +81,12 @@ public sealed class UserSettings
     /// <summary>DPI scale of the monitor the main window was on when <see cref="MainBounds"/> was saved.</summary>
     public double MainScale { get; set; } = 1.0;
 
+    /// <summary>
+    /// BF-07: true = the user resized the main window (its width is kept), false = the width was chosen by the app
+    /// (it follows the header), null = saved by a version before BF-07 (a width too small for the header is widened once).
+    /// </summary>
+    public bool? MainWidthByUser { get; set; }
+
     /// <summary>Floating compact bar position in physical pixels, or null.</summary>
     public PixelRect? CompactBounds { get; set; }
 
@@ -141,6 +147,7 @@ public sealed class UserSettings
         [nameof(FloatingOrientation)] = FloatingOrientation.ToString(),
         [nameof(MainBounds)] = RectToJson(MainBounds),
         [nameof(MainScale)] = MainScale,
+        [nameof(MainWidthByUser)] = MainWidthByUser,
         [nameof(CompactBounds)] = RectToJson(CompactBounds),
     };
 
@@ -159,6 +166,7 @@ public sealed class UserSettings
         MainBounds = RectFromJson(json[nameof(MainBounds)]);
         MainScale = Num(json, nameof(MainScale)) is { } sc && double.IsFinite(sc) && sc is >= 0.5 and <= 5 ? sc : 1.0;
         CompactBounds = RectFromJson(json[nameof(CompactBounds)]);
+        MainWidthByUser = json[nameof(MainWidthByUser)] is JsonValue w && w.TryGetValue<bool>(out var byUser) ? byUser : null;
     }
 
     private static string? Str(JsonObject json, string name)

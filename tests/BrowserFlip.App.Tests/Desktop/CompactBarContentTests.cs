@@ -137,15 +137,35 @@ public sealed class CompactBarContentTests
         // Start-up in compact mode: the first layout runs inside start-up, before the bar was ever laid out, so it
         // measures without the browsers (the BF-05 length). The bar must be sized again once the buttons exist,
         // whatever path showed it (no reliance on a single re-layout queued after Show).
+        // A saved, user-chosen main window width: start-up does not measure the main window header (BF-07 first-run
+        // width), which keeps the bar's first measurement ahead of any layout work, as in v0.2 (BF-05 path).
         Run(() =>
         {
             var s = SettingsFor(layout);
             s.BarSize = BarSize.Medium;
+            s.MainBounds = PixelRect.FromSize(400, 300, 1300, 900);
+            s.MainScale = 2.25;
+            s.MainWidthByUser = true;
             using var h = new Harness(s, Primary); // Start() + pump
             Assert.True(h.Coordinator.IncompleteMeasurements > 0, "precondition: the start-up measurement missed the browsers");
             Assert.True(h.Coordinator.IncompleteMeasureRelayouts > 0,
                 $"the size from the incomplete measurement was corrected (incomplete {h.Coordinator.IncompleteMeasurements}, corrections {h.Coordinator.IncompleteMeasureRelayouts})");
             AssertAllBrowsersVisible(h, $"start-up {layout}");
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Layouts))]
+    public void Every_browser_is_shown_at_a_first_start_in_compact_mode(string layout)
+    {
+        // BF-07 first run: the main window width is measured from its header during start-up (no saved bounds).
+        Run(() =>
+        {
+            var s = SettingsFor(layout);
+            s.BarSize = BarSize.Medium;
+            s.MainBounds = null;
+            using var h = new Harness(s, Primary);
+            AssertAllBrowsersVisible(h, $"first start {layout}");
         });
     }
 

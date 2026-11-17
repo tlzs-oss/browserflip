@@ -40,6 +40,7 @@ public partial class MainWindow : Window
         Deactivated += (_, _) => (DataContext as MainViewModel)?.OnDeactivated();
         DpiChanged += (_, _) => LimitHeightToWorkArea();
         LocationChanged += (_, _) => LimitHeightToWorkArea();
+        BaseMinWidth = MinWidth;
         Loaded += (_, _) =>
         {
             LimitHeightToWorkArea();
@@ -70,6 +71,79 @@ public partial class MainWindow : Window
     }
 
     private bool _inSizeMove;
+    private bool _resizedInSizeMove;
+
+    /// <summary>Default width from MainWindow.xaml (DIP).</summary>
+    internal const double DefaultWidth = 520;
+
+    /// <summary>
+    /// Reserve added to the measured header width (DIP): text in Display formatting mode is hinted per device pixel
+    /// size, so the same text can be a few DIP wider at another scale than where it was measured.
+    /// </summary>
+    private const double HeaderReserve = 8;
+
+    /// <summary>
+    /// Work-area width (DIP) of the monitor the window is on. Set by the desktop coordinator from its monitor service
+    /// (the same Win32 monitors in the app; fakes in tests); null = ask Win32 directly.
+    /// </summary>
+    internal Func<double?>? WorkAreaWidthProvider { get; set; }
+
+    /// <summary>MinWidth from XAML; lowered only when a work area is narrower (BF-07).</summary>
+    internal double BaseMinWidth { get; }
+
+    /// <summary>
+    /// True while the width is chosen by the app (first run, upgraded old setting): it follows the header when the
+    /// language changes. False once the user resized the window: their width is kept (BF-07).
+    /// </summary>
+    internal bool WidthIsAutomatic { get; set; } = true;
+
+    /// <summary>
+    /// BF-07: the width at which the header shows icon, name, tagline and every tool on one line in the current
+    /// language and font, measured (never a fixed per-language number); at least the XAML default width.
+    /// </summary>
+    internal double PreferredWidth()
+    {
+        var content = (FrameworkElement)RootScroller.Content;
+        if (!IsLoaded)
+        {
+            // Never laid out yet (start-up, before the first show): the language box has not picked up its selected
+            // item, so it would measure ~40 DIP too narrow. One layout pass of the content resolves it (no dispatcher
+            // pump: nothing else runs re-entrantly).
+            RootScroller.Measure(new Size(Math.Max(MinWidth, Width - FrameWidth()), double.PositiveInfinity));
+            RootScroller.Arrange(new Rect(RootScroller.DesiredSize));
+            RootScroller.UpdateLayout();
+        }
+
+        Header.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var needed = Header.SingleLineWidth + content.Margin.Left + content.Margin.Right + FrameWidth() + HeaderReserve;
+        Header.InvalidateMeasure(); // the next layout pass measures it again at the real width (and picks its mode)
+        return Math.Ceiling(Math.Max(DefaultWidth, needed));
+    }
+
+    /// <summary>Sets the app-chosen width: the preferred width, never wider than <paramref name="maxWidth"/> (work area, DIP).</summary>
+    internal void ApplyPreferredWidth(double maxWidth)
+    {
+        MinWidth = Math.Min(BaseMinWidth, maxWidth);
+        Width = Math.Max(MinWidth, Math.Min(PreferredWidth(), maxWidth));
+    }
+
+    /// <summary>Width of the window frame (window width minus client width, incl. invisible resize borders), DIP.</summary>
+    private double FrameWidth()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var source = PresentationSource.FromVisual(this);
+        if (hwnd != IntPtr.Zero && source?.CompositionTarget is not null
+            && NativeMethods.GetWindowRect(hwnd, out var window) && NativeMethods.GetClientRect(hwnd, out var client))
+        {
+            var pixels = (window.Right - window.Left) - (client.Right - client.Left);
+            if (pixels is > 0 and < 200)
+            {
+                return pixels / source.CompositionTarget.TransformToDevice.M11;
+            }
+        }
+
+        return 16;
+    }
     private readonly Desktop.MainWindowMoveTracker _moveTracker = new();
 
     /// <summary>The user is dragging the window (WM_MOVING inside a move loop).</summary>
@@ -122,6 +196,44 @@ public partial class MainWindow : Window
         {
             MaxHeight = max;
         }
+
+        // BF-07: never wider than the work area (narrow screen / high DPI); MinWidth gives way and the header
+        // degrades (wraps, then two rows) instead.
+        if (!TryGetWorkAreaWidth(out var maxWidth))
+        {
+            return;
+        }
+
+        var minWidth = Math.Min(BaseMinWidth, maxWidth);
+        if (Math.Abs(MinWidth - minWidth) > 0.5)
+        {
+            MinWidth = minWidth;
+        }
+
+        if (Width > maxWidth + 0.5)
+        {
+            Width = maxWidth;
+        }
+    }
+
+    /// <summary>Work-area width of the window's monitor in DIP, when the window has a handle.</summary>
+    private bool TryGetWorkAreaWidth(out double width)
+    {
+        width = 0;
+        if (WorkAreaWidthProvider is not null)
+        {
+            width = WorkAreaWidthProvider() ?? 0;
+            return width > 0;
+        }
+
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget is null || !TryGetWorkArea(out var work))
+        {
+            return false;
+        }
+
+        width = (work.Right - work.Left) / source.CompositionTarget.TransformToDevice.M11;
+        return true;
     }
 
     /// <summary>When the window grows past the bottom of the work area (taskbar), move it up just enough.</summary>
@@ -175,6 +287,7 @@ public partial class MainWindow : Window
         if (msg == WmEnterSizeMove)
         {
             _inSizeMove = true;
+            _resizedInSizeMove = false;
             _moveTracker.Enter(NativeMethods.GetWindowRect(hwnd, out var start) ? start.ToPixelRect() : default);
         }
         else if (msg == WmMoving)
@@ -187,10 +300,16 @@ public partial class MainWindow : Window
         else if (msg == WmSizing)
         {
             _moveTracker.Sizing();
+            _resizedInSizeMove = true;
         }
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
+            if (_resizedInSizeMove)
+            {
+                WidthIsAutomatic = false; // the user chose a width: keep it from now on (BF-07)
+            }
+
             if (_moveTracker.Exit() is { } before)
             {
                 // After Windows has finished the move (and any snap): docking may replace the window (BF-01).
@@ -210,7 +329,23 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
-    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e) => ApplyLanguage();
+    private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        ApplyLanguage();
+
+        // BF-07: an app-chosen width follows the header of the new language (the header itself re-lays out on
+        // its own either way: it wraps or goes to two rows rather than overlap). After the bindings have updated.
+        if (WidthIsAutomatic && IsVisible && WindowState == WindowState.Normal)
+        {
+            _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+            {
+                if (WidthIsAutomatic && WindowState == WindowState.Normal && TryGetWorkAreaWidth(out var max))
+                {
+                    ApplyPreferredWidth(max);
+                }
+            });
+        }
+    }
 
     /// <summary>xml:lang + per-language font stack so CJK text uses the correct regional glyphs.</summary>
     private void ApplyLanguage()
