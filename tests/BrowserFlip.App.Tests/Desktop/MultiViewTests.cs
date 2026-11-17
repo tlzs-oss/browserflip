@@ -469,6 +469,31 @@ public sealed class MultiViewTests
     }
 
     [Fact]
+    public void Toolbar_options_button_opens_the_settings_window_outside_the_classic_view()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Card), Primary);
+            h.Shell.EnterCompactCommand.Execute(null);
+            Harness.Pump();
+            h.Shell.OpenOptionsCommand.Execute(null); // the gear on the floating toolbar
+            Harness.Pump();
+            Assert.True(h.Shell.IsCompact); // the toolbar stays
+            Assert.NotNull(h.Coordinator.SettingsWindow);
+            Assert.Equal(2, ((TabControl)h.Coordinator.SettingsWindow!.FindName("Pages")).SelectedIndex);
+            h.Coordinator.SettingsWindow.Close();
+
+            // Classic: the v0.2 behavior (main window with the display options open).
+            h.Shell.CurrentView = MainView.Classic;
+            h.Shell.OpenOptionsCommand.Execute(null);
+            Harness.Pump();
+            Assert.False(h.Shell.IsCompact);
+            Assert.True(h.Shell.IsOptionsOpen);
+            Assert.Null(h.Coordinator.SettingsWindow);
+        });
+    }
+
+    [Fact]
     public void One_about_window()
     {
         Run(() =>

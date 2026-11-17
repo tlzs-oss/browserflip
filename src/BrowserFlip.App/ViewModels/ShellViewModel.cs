@@ -87,6 +87,14 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         ToggleCompactCommand = new RelayCommand(_ => IsCompact = !IsCompact);
         OpenOptionsCommand = new RelayCommand(_ =>
         {
+            if (CurrentView != MainView.Classic)
+            {
+                // The display options panel exists only in the Classic view; the other views use the Settings
+                // window (Floating Toolbar page), and the toolbar stays where it is.
+                SettingsRequested?.Invoke(this, SettingsPage.FloatingToolbar);
+                return;
+            }
+
             IsCompact = false;
             IsOptionsOpen = true;
             ShowMainRequested?.Invoke(this, EventArgs.Empty);
