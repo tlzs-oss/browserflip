@@ -22,6 +22,7 @@ on:
       - "global.json"
       - "src/BrowserFlip.App/app.manifest"
       - "assets/icon/**"
+      - "scripts/Write-ThirdPartyNotices.ps1"
 
 permissions:
   contents: read
@@ -90,6 +91,11 @@ jobs:
             dotnet publish $env:APP_PROJECT -c Release -r $rid --self-contained true -o $out @props
             if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $rid" }
             Copy-Item LICENSE (Join-Path $out 'LICENSE.txt')
+            # License and notice files of the embedded .NET runtime packs (exact versions used by this build).
+            ./scripts/Write-ThirdPartyNotices.ps1 -Project $env:APP_PROJECT -RuntimeIdentifier $rid -OutputDirectory $out -Label $env:LABEL
+            foreach ($required in 'LICENSE.txt', 'THIRD-PARTY-NOTICES.txt', 'licenses') {
+              if (-not (Test-Path (Join-Path $out $required))) { throw "$required missing from the $rid package" }
+            }
             $zip = Join-Path $dist "BrowserFlip-$($env:LABEL)-$rid.zip"
             Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
           }
