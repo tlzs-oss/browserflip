@@ -1354,6 +1354,18 @@ public sealed class DesktopCoordinator : IDisposable
         {
             _ = _settingsWindow.Activate();
         }
+
+        // A TabItem selects itself when it gets the keyboard focus, and activating the window gives the focus back
+        // to the header of the page the user clicked last, which selects that page again (found on the real
+        // desktop). Apply the requested page once more after that has happened.
+        var settingsWindow = _settingsWindow;
+        _ = settingsWindow.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            if (ReferenceEquals(_settingsWindow, settingsWindow))
+            {
+                settingsWindow.ShowPage(page);
+            }
+        });
     }
 
     /// <summary>Help &gt; About (one window).</summary>

@@ -56,16 +56,9 @@ public partial class SettingsWindow : Window
             _ => 0,
         };
 
-        // A TabItem selects itself when it gets the keyboard focus, and activating the window gives the focus back to
-        // the element that had it: the header of the page the user last clicked, which would select that page again.
-        // Move the window's remembered focus to the page asked for (and the real focus when the window is active).
-        if (Pages.SelectedItem is TabItem tab)
+        if (IsActive && Pages.SelectedItem is TabItem tab)
         {
-            FocusManager.SetFocusedElement(this, tab);
-            if (IsActive)
-            {
-                _ = tab.Focus();
-            }
+            _ = tab.Focus(); // keyboard users continue on the page they asked for
         }
     }
 
