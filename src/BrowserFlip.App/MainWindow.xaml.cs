@@ -137,7 +137,7 @@ public partial class MainWindow : Window
         MainView.List => new(440, 0, 360, 240, false, ContentHeightUntilResized: true),
         MainView.Card => new(680, 0, 420, 260, false, ContentHeightUntilResized: true),
         MainView.Compact => new(340, 0, 300, 150, true),
-        MainView.Panel => new(740, 540, 600, 420, false),
+        MainView.Panel => new(740, 500, 600, 420, false),
         _ => new(DefaultWidth, 0, 460, 260, true),
     };
 

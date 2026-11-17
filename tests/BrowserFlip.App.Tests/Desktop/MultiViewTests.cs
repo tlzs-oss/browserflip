@@ -373,7 +373,7 @@ public sealed class MultiViewTests
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
                 Assert.Equal(3840 - (int)Math.Round(740 * 2.25), b.Left);
-                Assert.Equal(2292 - (int)Math.Round(540 * 2.25), b.Top);
+                Assert.Equal(2292 - (int)Math.Round(500 * 2.25), b.Top);
             }
 
             // Saved on a monitor that is gone: started in the Card view on the remaining monitor, fully inside.
@@ -762,17 +762,71 @@ public sealed class MultiViewTests
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
             Assert.Equal(740, window.Width, 1);
-            Assert.Equal(540, window.Height, 1);
+            Assert.Equal(500, window.Height, 1);
             var page = window.CurrentPage!;
             var tiles = Descendants<Button>((DependencyObject)page.FindName("HomeTiles")).Where(b => b.CommandParameter is BrowserCardViewModel).ToList();
             Assert.Equal(3, tiles.Count);
             Assert.Single(tiles.Select(t => Math.Round(t.TranslatePoint(new Point(), page).Y)).Distinct()); // one row
+
+            // Every line of every tile's text lies inside the tile (a two-line hint must not be cut, found on the real desktop).
+            foreach (var tile in tiles)
+            {
+                foreach (var text in Descendants<TextBlock>(tile).Where(t => IsShown(t)))
+                {
+                    // Content taller than the tile overflows its bottom (the tile clips it).
+                    var bottom = text.TranslatePoint(new Point(0, text.ActualHeight), tile).Y;
+                    Assert.True(bottom <= tile.ActualHeight - 1, $"'{text.Text}' cut in its tile (bottom {bottom:N1} of {tile.ActualHeight:N1})");
+                }
+            }
 
             // UI-05: the name is shown once (no "Current default browser: Microsoft Edge" sentence under it).
             var home = (FrameworkElement)page.FindName("HomePage");
             Assert.DoesNotContain(Descendants<TextBlock>(home), t => IsShown(t) && t.Text == h.Main.CurrentDefaultText);
             Assert.Equal("Microsoft Edge", ((TextBlock)page.FindName("HomeCurrentName")).Text);
         });
+    }
+
+    [Fact]
+    public void Tile_texts_are_never_cut_in_any_language()
+    {
+        var problems = new List<string>();
+        Run(() =>
+        {
+            var before = BrowserFlip.App.Localization.Loc.Instance.Culture.Name;
+            try
+            {
+                foreach (var language in BrowserFlip.App.Localization.Loc.SupportedCultures)
+                {
+                    BrowserFlip.App.Localization.Loc.Instance.SetLanguage(language);
+                    using var h = new Harness(Normal(MainView.Panel), Primary);
+                    Harness.Pump();
+                    foreach (var view in new[] { MainView.Panel, MainView.Card })
+                    {
+                        h.Shell.CurrentView = view;
+                        Harness.Pump();
+                        foreach (var tile in Descendants<Button>(h.Coordinator.MainWindow.CurrentPage!).Where(b => b.CommandParameter is BrowserCardViewModel && b.Height > 0))
+                        {
+                            // The tile clips its content at the inner edge (padding + border): every line must end above it.
+                            var inner = tile.ActualHeight - tile.Padding.Bottom - tile.BorderThickness.Bottom;
+                            foreach (var text in Descendants<TextBlock>(tile).Where(IsShown))
+                            {
+                                var bottom = text.TranslatePoint(new Point(0, text.ActualHeight), tile).Y;
+                                if (bottom > inner + 0.5)
+                                {
+                                    problems.Add($"{language}/{view}: '{text.Text}' ends at {bottom:N1}, tile content ends at {inner:N1}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                BrowserFlip.App.Localization.Loc.Instance.SetLanguage(before);
+            }
+        });
+
+        Assert.Empty(problems);
     }
 
     [Fact]

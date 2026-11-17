@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <!-- Smaller tiles than the Card view: four fit in one row at the default window width (UI-03). -->
         <sys:Double x:Key="BfTileWidth">120</sys:Double>
-        <sys:Double x:Key="BfTileHeight">108</sys:Double>
+        <sys:Double x:Key="BfTileHeight">126</sys:Double>
         <sys:Double x:Key="BfTileIcon">36</sys:Double>
         <Style x:Key="SummaryLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />

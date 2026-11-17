@@ -512,7 +512,7 @@
                                 <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BfBadgeText}" />
                             </Border>
                             <TextBlock Text="{Binding HintText}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"
-                               TextWrapping="Wrap" TextAlignment="Center" MaxHeight="30"
+                               TextWrapping="Wrap" TextAlignment="Center" MaxHeight="34" LineStackingStrategy="BlockLineHeight" LineHeight="15"
                                        Foreground="{DynamicResource BfSecondaryTextBrush}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">

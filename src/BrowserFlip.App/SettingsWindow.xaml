@@ -35,14 +35,15 @@
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}"
                 BorderThickness="0,1,0,0" Padding="16,10">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <!-- The explanation gets the full width (no word broken next to the buttons), the buttons stay below it. -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding [Settings_LiveHint], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Note}"
+                           Margin="0,0,0,8" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="CloseButton" Style="{StaticResource ToolbarButton}" MinWidth="88" IsDefault="True" Click="OnClose"
                             Content="{Binding [Settings_Close], Source={x:Static loc:Loc.Instance}}" />
                     <Button x:Name="CancelButton" Style="{StaticResource ToolbarButton}" MinWidth="88" Margin="8,0,0,0" Click="OnCancel"
                             Content="{Binding [Settings_Cancel], Source={x:Static loc:Loc.Instance}}" />
                 </StackPanel>
-                <TextBlock Text="{Binding [Settings_LiveHint], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Note}"
-                           VerticalAlignment="Center" Margin="0,0,16,0" />
             </DockPanel>
         </Border>
 
