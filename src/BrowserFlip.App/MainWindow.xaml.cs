@@ -84,6 +84,12 @@ public partial class MainWindow : Window
     /// </summary>
     internal event EventHandler? AutomaticWidthChanged;
 
+    /// <summary>
+    /// The width the window wants: the current width, or the wider one it had before a narrower work area capped it.
+    /// Saved instead of the capped width so a user's width survives a stay on a small screen (BF-07).
+    /// </summary>
+    internal double WantedWidth => _widthBeforeCap ?? Width;
+
     /// <summary>Default width from MainWindow.xaml (DIP).</summary>
     internal const double DefaultWidth = 520;
 
@@ -119,7 +125,9 @@ public partial class MainWindow : Window
         {
             // Never laid out yet (start-up, before the first show): the language box has not picked up its selected
             // item, so it would measure ~40 DIP too narrow. One layout pass of the content resolves it (no dispatcher
-            // pump: nothing else runs re-entrantly).
+            // pump: nothing else runs re-entrantly). UpdateLayout runs this thread's shared layout queue, so other
+            // windows with pending layout (the compact bar during start-up) may be laid out here too: layout only,
+            // and the bar keeps its own guard for a measurement taken before its browser buttons exist (BF-05).
             RootScroller.Measure(new Size(Math.Max(MinWidth, Width - FrameWidth()), double.PositiveInfinity));
             RootScroller.Arrange(new Rect(RootScroller.DesiredSize));
             RootScroller.UpdateLayout();
@@ -235,6 +243,8 @@ public partial class MainWindow : Window
             {
                 _widthBeforeCap = null;
             }
+
+            AutomaticWidthChanged?.Invoke(this, EventArgs.Empty); // grew back: keep the tools on screen
         }
     }
 
@@ -373,7 +383,10 @@ public partial class MainWindow : Window
 
     private void FollowLanguageWidthIfStale()
     {
-        if (!_languageWidthStale || !WidthIsAutomatic || !IsVisible || WindowState != WindowState.Normal)
+        // Not while snapped (Win+arrow: SizeToContent is Manual with the snapped size): changing only the width would
+        // leave an odd shape. Applied once the window is back to its normal content-sized state.
+        if (!_languageWidthStale || !WidthIsAutomatic || !IsVisible || WindowState != WindowState.Normal
+            || SizeToContent == SizeToContent.Manual)
         {
             return;
         }

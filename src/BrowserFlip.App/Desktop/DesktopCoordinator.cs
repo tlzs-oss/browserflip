@@ -1126,8 +1126,16 @@ public sealed class DesktopCoordinator : IDisposable
             return;
         }
 
-        _shell.Settings.MainBounds = _placement.GetBounds(hwnd);
-        _shell.Settings.MainScale = _monitors.FromWindow(hwnd).Scale;
+        var bounds = _placement.GetBounds(hwnd);
+        var scale = _monitors.FromWindow(hwnd).Scale;
+        if (!_mainWindow.WidthIsAutomatic && _mainWindow.WantedWidth > _mainWindow.Width + 0.5)
+        {
+            // Capped by a narrow work area: keep the user's width (restore caps it again where needed).
+            bounds = PixelRect.FromSize(bounds.Left, bounds.Top, Px(_mainWindow.WantedWidth, scale), bounds.Height);
+        }
+
+        _shell.Settings.MainBounds = bounds;
+        _shell.Settings.MainScale = scale;
         _shell.Settings.MainWidthByUser = !_mainWindow.WidthIsAutomatic;
         _shell.Settings.Save();
     }

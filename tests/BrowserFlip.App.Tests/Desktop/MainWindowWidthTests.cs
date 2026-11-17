@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 using BrowserFlip.App.Controls;
 using BrowserFlip.App.Desktop;
 using BrowserFlip.App.Localization;
@@ -273,6 +275,105 @@ public sealed class MainWindowWidthTests
                 Assert.Empty(HeaderProblems(h, $"{language} {width}x{height}@{scale}"));
             });
         }
+    }
+
+    // ------------------------------------------------------------------ user resize (window messages to the own, off-screen HWND)
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect32
+    {
+        public int Left, Top, Right, Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessageW(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hwnd, out Rect32 rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    private const int WmEnterSizeMove = 0x0231;
+    private const int WmExitSizeMove = 0x0232;
+    private const int WmSizing = 0x0214;
+
+    /// <summary>
+    /// The message sequence of a border drag (WM_ENTERSIZEMOVE, WM_SIZING, resize, WM_EXITSIZEMOVE), sent to the test's own
+    /// off-screen window. These are window messages to that window only: no mouse or keyboard input is generated.
+    /// </summary>
+    private static void SizeMoveLoop(Harness h, int widthDelta, int heightDelta, bool sizing, Action? during = null)
+    {
+        var hwnd = h.MainHandle;
+        _ = SendMessageW(hwnd, WmEnterSizeMove, IntPtr.Zero, IntPtr.Zero);
+        Assert.True(GetWindowRect(hwnd, out var r));
+        if (sizing)
+        {
+            var rect = Marshal.AllocHGlobal(Marshal.SizeOf<Rect32>());
+            try
+            {
+                Marshal.StructureToPtr(r with { Right = r.Right + widthDelta, Bottom = r.Bottom + heightDelta }, rect, false);
+                _ = SendMessageW(hwnd, WmSizing, (IntPtr)8 /* WMSZ_BOTTOMRIGHT */, rect);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(rect);
+            }
+
+            const uint NoMoveNoZOrderNoActivate = 0x0002 | 0x0004 | 0x0010;
+            Assert.True(SetWindowPos(hwnd, IntPtr.Zero, 0, 0, r.Right - r.Left + widthDelta, r.Bottom - r.Top + heightDelta, NoMoveNoZOrderNoActivate));
+        }
+
+        during?.Invoke();
+        _ = SendMessageW(hwnd, WmExitSizeMove, IntPtr.Zero, IntPtr.Zero);
+        Harness.Pump();
+    }
+
+    [Theory]
+    [InlineData(120, 0, true, false)]   // border drag that changes the width: the user's width from now on
+    [InlineData(0, 120, true, true)]    // top / bottom border only (the height is not kept): still app-chosen
+    [InlineData(0, 0, false, true)]     // size-move loop without resizing: still app-chosen
+    public void Only_a_width_change_by_the_user_makes_the_width_theirs(int widthDelta, int heightDelta, bool sizing, bool stillAutomatic)
+    {
+        InLanguage("ja", () =>
+        {
+            var settings = MainOpen();
+            using var h = new Harness(settings, Primary);
+            var w = h.Coordinator.MainWindow;
+            Assert.True(w.WidthIsAutomatic);
+            SizeMoveLoop(h, widthDelta, heightDelta, sizing);
+            Assert.Equal(stillAutomatic, w.WidthIsAutomatic);
+            h.Shell.EnterCompactCommand.Execute(null); // hides the main window: saves its bounds
+            Harness.Pump();
+            Assert.Equal(!stillAutomatic, settings.MainWidthByUser);
+        });
+    }
+
+    [Fact]
+    public void The_width_cap_waits_for_the_end_of_a_drag_and_a_capped_user_width_is_saved_uncapped()
+    {
+        InLanguage("ja", () =>
+        {
+            var narrow = new MonitorInfo(@"\\.\DISPLAY2", new PixelRect(3840, 0, 4640, 1280), new PixelRect(3840, 0, 4640, 1240), 1.0, false); // 800 DIP
+            var settings = MainOpen(PixelRect.FromSize(400, 300, 2025, 1500), byUser: true); // 900 DIP
+            using var h = new Harness(settings, Primary, narrow);
+            var w = h.Coordinator.MainWindow;
+            SizeMoveLoop(h, 0, 0, sizing: false, during: () =>
+            {
+                h.Placement.SetBounds(h.MainHandle, PixelRect.FromSize(3850, 100, 900, 800)); // dragged onto the narrow monitor
+                w.LimitHeightToWorkArea(); // LocationChanged inside the move loop
+                Assert.Equal(900, w.Width, 1); // no resize inside the move loop
+            });
+            Assert.Equal(800, w.Width, 1); // capped once at the end of the drag
+            Assert.Equal(900, w.WantedWidth, 1);
+
+            h.Shell.EnterCompactCommand.Execute(null); // saves the bounds while capped
+            Harness.Pump();
+            Assert.True(settings.MainWidthByUser);
+            Assert.Equal(900, settings.MainBounds!.Value.Width / settings.MainScale, 1);
+        });
     }
 
     // ------------------------------------------------------------------ review M1 / M2 / L2

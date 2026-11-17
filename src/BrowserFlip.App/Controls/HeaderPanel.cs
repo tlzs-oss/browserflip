@@ -105,7 +105,9 @@ public sealed class HeaderPanel : Panel
         var beside = width - Gap - t.Width;
         if (beside > 0)
         {
-            brand.Measure(new Size(beside, double.PositiveInfinity));
+            // Measured a little narrower than its slot: arrange rounding can then never make the slot narrower than
+            // the measured lines (which would wrap again and clip the last line).
+            brand.Measure(new Size(Math.Max(0, beside - RoundingReserve), double.PositiveInfinity));
             var b = brand.DesiredSize;
             if (b.Width <= beside + 0.5 && b.Height <= (natural.Height * MaxWrapGrowth) + 0.5)
             {
