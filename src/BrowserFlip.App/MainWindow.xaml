@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
+        xmlns:ctl="clr-namespace:BrowserFlip.App.Controls"
         Title="BrowserFlip"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
         Width="520" SizeToContent="Height" MinWidth="460" MinHeight="260"
@@ -41,33 +42,31 @@
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
         <StackPanel Margin="16,12,16,12">
 
-            <!-- Header: icon + name | language, always on top, compact bar, refresh -->
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Header (BF-07): brand (icon, name, tagline) | tools (language, always on top, compact bar, refresh).
+                 HeaderPanel never overlaps or pushes out the tools: one line, then the tagline wraps, then two rows. -->
+            <ctl:HeaderPanel x:Name="Header">
+                <DockPanel x:Name="HeaderBrand" VerticalAlignment="Center" LastChildFill="True">
+                    <Image DockPanel.Dock="Left" Source="pack://application:,,,/BrowserFlip;component/Assets/browserflip-64.png" Width="28" Height="28" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="HeaderTitle" Text="{Binding [AppTitle], Source={x:Static loc:Loc.Instance}}" FontSize="16" FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="HeaderTagline" Text="{Binding [Tagline], Source={x:Static loc:Loc.Instance}}" FontSize="11.5"
+                                   Foreground="{DynamicResource BfSecondaryTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+                <StackPanel x:Name="HeaderTools" Orientation="Horizontal" VerticalAlignment="Center">
                     <ComboBox MinWidth="104" Height="30" VerticalAlignment="Center"
                               ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}"
                               DisplayMemberPath="DisplayName"
                               AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}"
                               ToolTip="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
                     <!-- Always on top -->
-                    <ToggleButton Style="{StaticResource ToolbarToggle}" Width="32" Height="30" Padding="0" Margin="6,0,0,0"
+                    <!-- Always on top: shared PinToggle (tilted grey pin = off, upright white pin on blue = on);
+                         tooltip and accessible name follow the state. -->
+                    <ToggleButton x:Name="PinToggleButton" Style="{StaticResource PinToggle}" Width="32" Height="30" Margin="6,0,0,0"
                                   DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}"
-                                  ToolTip="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}"
-                                  AutomationProperties.Name="{Binding [Pin_Tooltip], Source={x:Static loc:Loc.Instance}}">
-                        <TextBlock>
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource IconGlyph}">
-                                    <Setter Property="Text" Value="&#xE718;" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsTopmost}" Value="True">
-                                            <Setter Property="Text" Value="&#xE840;" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </ToggleButton>
+                                  IsChecked="{Binding IsTopmost, Mode=TwoWay}" />
                     <!-- Compact bar -->
                     <Button Style="{StaticResource HeaderIconButton}"
                             Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -82,16 +81,7 @@
                         <TextBlock Style="{StaticResource IconGlyph}" Text="&#xE72C;" />
                     </Button>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="pack://application:,,,/BrowserFlip;component/Assets/browserflip-64.png" Width="28" Height="28" Margin="0,0,10,0"
-                           RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding [AppTitle], Source={x:Static loc:Loc.Instance}}" FontSize="16" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding [Tagline], Source={x:Static loc:Loc.Instance}}" FontSize="11.5"
-                                   Foreground="{DynamicResource BfSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </StackPanel>
-            </DockPanel>
+            </ctl:HeaderPanel>
 
             <!-- Current default (F04) -->
             <Border AutomationProperties.LiveSetting="Polite" Margin="0,12,0,0">
@@ -279,52 +269,28 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <CheckBox Grid.Row="0" VerticalAlignment="Center"
-                                  IsChecked="{Binding DockEnabled, Mode=TwoWay}">
-                            <TextBlock Text="{Binding [Options_Dock], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-                        <ComboBox Grid.Row="0" Grid.Column="1" Width="132" Margin="8,0,0,0" VerticalAlignment="Center"
-                                  IsEnabled="{Binding DockEnabled}"
-                                  ItemsSource="{Binding DockEdges}" SelectedItem="{Binding SelectedDockEdge, Mode=TwoWay}" DisplayMemberPath="DisplayName"
-                                  AutomationProperties.Name="{Binding [Options_DockEdge], Source={x:Static loc:Loc.Instance}}" />
-
-                        <CheckBox Grid.Row="1" Grid.ColumnSpan="2" Margin="24,6,0,0"
-                                  IsChecked="{Binding AutoHide, Mode=TwoWay}" IsEnabled="{Binding DockEnabled}">
-                            <TextBlock Text="{Binding [Options_AutoHide], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-
-                        <TextBlock Grid.Row="2" Margin="0,10,0,0" VerticalAlignment="Center" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="2" Grid.Column="1" Width="132" Margin="8,10,0,0" ItemsSource="{Binding Themes}"
+                        <!-- Docking, auto-hide and the notification-area icon are fixed behavior (no options):
+                             drag the compact bar to any screen edge to dock it; it hides there and comes back on hover. -->
+                        <TextBlock Grid.Row="0" Margin="0,4,0,0" VerticalAlignment="Center" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" Width="132" Margin="8,4,0,0" ItemsSource="{Binding Themes}"
                                   SelectedItem="{Binding SelectedTheme, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
 
-                        <TextBlock Grid.Row="3" Margin="0,6,0,0" VerticalAlignment="Center" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="3" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding BarSizes}"
+                        <TextBlock Grid.Row="1" Margin="0,6,0,0" VerticalAlignment="Center" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding BarSizes}"
                                   SelectedItem="{Binding SelectedBarSize, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
 
-                        <TextBlock Grid.Row="4" Margin="0,6,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                        <TextBlock Grid.Row="2" Margin="0,6,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-                        <ComboBox Grid.Row="4" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding Orientations}"
+                        <ComboBox Grid.Row="2" Grid.Column="1" Width="132" Margin="8,6,0,0" ItemsSource="{Binding Orientations}"
                                   SelectedItem="{Binding SelectedOrientation, Mode=TwoWay}" DisplayMemberPath="DisplayName"
                                   AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-
-                        <Separator Grid.Row="5" Grid.ColumnSpan="2" Margin="0,10,0,6" Opacity="0.5" />
-
-                        <CheckBox Grid.Row="6" Grid.ColumnSpan="2"
-                                  IsChecked="{Binding TrayEnabled, Mode=TwoWay}">
-                            <TextBlock Text="{Binding [Options_Tray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
-                        <CheckBox Grid.Row="7" Grid.ColumnSpan="2" Margin="24,6,0,0"
-                                  IsChecked="{Binding CloseToTray, Mode=TwoWay}" IsEnabled="{Binding IsCloseToTrayAvailable}">
-                            <TextBlock Text="{Binding [Options_CloseToTray], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
-                        </CheckBox>
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource BfSecondaryTextBrush}"
+                                   Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
                     </Grid>
                 </Border>
             </Expander>

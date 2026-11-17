@@ -31,13 +31,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public ShellViewModel(UserSettings settings)
     {
         _settings = settings;
-        DockEdges =
-        [
-            new(DockEdge.Left, "Dock_Left"),
-            new(DockEdge.Right, "Dock_Right"),
-            new(DockEdge.Top, "Dock_Top"),
-            new(DockEdge.Bottom, "Dock_Bottom"),
-        ];
         Themes =
         [
             new(ThemePreference.System, "Theme_System"),
@@ -56,23 +49,24 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         ];
 
         ToggleTopmostCommand = new RelayCommand(_ => IsTopmost = !IsTopmost);
-        EnterCompactCommand = new RelayCommand(_ => IsCompact = true);
+        EnterCompactCommand = new RelayCommand(_ =>
+        {
+            // The coordinator places the bar next to the main window (BF-03); without one, just switch.
+            if (EnterCompactRequested is { } handler)
+            {
+                handler(this, EventArgs.Empty);
+            }
+            else
+            {
+                IsCompact = true;
+            }
+        });
         ShowNormalCommand = new RelayCommand(_ =>
         {
             IsCompact = false;
             ShowMainRequested?.Invoke(this, EventArgs.Empty);
         });
         ToggleCompactCommand = new RelayCommand(_ => IsCompact = !IsCompact);
-        ToggleAutoHideCommand = new RelayCommand(_ => AutoHide = !AutoHide);
-        ToggleDockCommand = new RelayCommand(_ => DockEnabled = !DockEnabled);
-        DockToCommand = new RelayCommand(p =>
-        {
-            if (p is DockEdge edge)
-            {
-                DockEdge = edge;
-                DockEnabled = true;
-            }
-        });
         OpenOptionsCommand = new RelayCommand(_ =>
         {
             IsCompact = false;
@@ -84,6 +78,9 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         Loc.Instance.PropertyChanged += OnLanguageChanged;
     }
 
+    /// <summary>The user asked to switch from the main window to the compact bar (compact button).</summary>
+    public event EventHandler? EnterCompactRequested;
+
     /// <summary>The main window should be shown and activated.</summary>
     public event EventHandler? ShowMainRequested;
 
@@ -91,8 +88,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public event EventHandler? ExitRequested;
 
     public UserSettings Settings => _settings;
-
-    public IReadOnlyList<Choice<DockEdge>> DockEdges { get; }
 
     public IReadOnlyList<Choice<ThemePreference>> Themes { get; }
 
@@ -107,12 +102,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public ICommand ShowNormalCommand { get; }
 
     public ICommand ToggleCompactCommand { get; }
-
-    public ICommand ToggleAutoHideCommand { get; }
-
-    public ICommand ToggleDockCommand { get; }
-
-    public ICommand DockToCommand { get; }
 
     public ICommand OpenOptionsCommand { get; }
 
@@ -150,37 +139,21 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     {
         get => _settings.DockEnabled;
         set => Update(_settings.DockEnabled, value, v => _settings.DockEnabled = v,
-            nameof(DockEnabled), nameof(Orientation), nameof(IsVertical), nameof(IsAutoHideActive), nameof(SelectedDockEdge));
+            nameof(DockEnabled), nameof(Orientation), nameof(IsVertical), nameof(IsAutoHideActive));
     }
 
     public DockEdge DockEdge
     {
         get => _settings.DockEdge;
         set => Update(_settings.DockEdge, value, v => _settings.DockEdge = v,
-            nameof(DockEdge), nameof(Orientation), nameof(IsVertical), nameof(SelectedDockEdge));
+            nameof(DockEdge), nameof(Orientation), nameof(IsVertical));
     }
 
-    public Choice<DockEdge> SelectedDockEdge
-    {
-        get => DockEdges.First(c => c.Value == DockEdge);
-        set
-        {
-            if (value is not null)
-            {
-                DockEdge = value.Value;
-            }
-        }
-    }
-
-    /// <summary>User preference for auto show / hide (only effective while docked).</summary>
-    public bool AutoHide
-    {
-        get => _settings.AutoHide;
-        set => Update(_settings.AutoHide, value, v => _settings.AutoHide = v, nameof(AutoHide), nameof(IsAutoHideActive));
-    }
-
-    /// <summary>Auto-hide actually runs only for a docked compact bar.</summary>
-    public bool IsAutoHideActive => _settings.AutoHide && _settings.DockEnabled;
+    /// <summary>
+    /// Auto show / hide is the fixed behavior of a docked bar (no setting): it hides at its edge and
+    /// comes back when the mouse approaches. A floating bar never hides.
+    /// </summary>
+    public bool IsAutoHideActive => _settings.DockEnabled;
 
     public ThemePreference Theme
     {
@@ -238,23 +211,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    public bool TrayEnabled
-    {
-        get => _settings.TrayEnabled;
-        set => Update(_settings.TrayEnabled, value, v => _settings.TrayEnabled = v, nameof(TrayEnabled), nameof(IsCloseToTrayAvailable));
-    }
-
-    public bool CloseToTray
-    {
-        get => _settings.CloseToTray;
-        set => Update(_settings.CloseToTray, value, v => _settings.CloseToTray = v, nameof(CloseToTray));
-    }
-
-    public bool IsCloseToTrayAvailable => _settings.TrayEnabled;
-
-    /// <summary>True when closing the main window should hide it instead of exiting.</summary>
-    public bool ShouldHideOnClose => _settings.TrayEnabled && _settings.CloseToTray;
-
     /// <summary>Effective bar orientation (docking edge wins over the floating preference).</summary>
     public BarOrientation Orientation => DockLayout.OrientationFor(_settings.DockEnabled ? _settings.DockEdge : null, _settings.FloatingOrientation);
 
@@ -265,7 +221,10 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         => IsVertical ? System.Windows.Controls.Orientation.Vertical : System.Windows.Controls.Orientation.Horizontal;
 
     /// <summary>Bar thickness in DIP: horizontal 44/52, vertical 48/56 (Small/Medium).</summary>
-    public double BarThickness => (IsVertical, BarSize) switch
+    public double BarThickness => BarThicknessFor(IsVertical);
+
+    /// <summary>Bar thickness in DIP for an orientation (also used for the docking preview).</summary>
+    public double BarThicknessFor(bool vertical) => (vertical, BarSize) switch
     {
         (false, BarSize.Small) => 44,
         (false, _) => 52,
@@ -276,12 +235,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public double BarButtonSize => BarSize == BarSize.Small ? 36 : 44;
 
     public double BarIconSize => BarSize == BarSize.Small ? 24 : 28;
-
-    /// <summary>Thickness of the collapsed tab in DIP.</summary>
-    public static double TabThickness => 8;
-
-    /// <summary>Length of the collapsed tab in DIP.</summary>
-    public static double TabLength => 56;
 
     /// <summary>Set by the coordinator: the docked bar is collapsed to its tab.</summary>
     public bool IsBarCollapsed
@@ -321,11 +274,6 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
 
     private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
     {
-        foreach (var c in DockEdges)
-        {
-            c.Relocalize();
-        }
-
         foreach (var c in Themes)
         {
             c.Relocalize();

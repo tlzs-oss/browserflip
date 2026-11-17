@@ -31,10 +31,9 @@ public sealed class ShellAndSettingsTests : IDisposable
         var s = UserSettings.InMemory();
         Assert.Equal(WindowMode.Normal, s.Mode);
         Assert.False(s.Topmost);
-        Assert.False(s.DockEnabled);
-        Assert.False(s.AutoHide);
-        Assert.True(s.TrayEnabled);
-        Assert.False(s.CloseToTray); // "close to tray" is OFF by default
+        Assert.True(s.DockEnabled); // docked out of the box ...
+        Assert.Equal(DockEdge.Right, s.DockEdge); // ... at the right edge ...
+        Assert.Equal(string.Empty, s.DockMonitor); // ... of the primary monitor
         Assert.Equal(ThemePreference.System, s.Theme);
     }
 
@@ -46,7 +45,22 @@ public sealed class ShellAndSettingsTests : IDisposable
         var s = UserSettings.Load(path);
         Assert.Equal("ja", s.Language);
         Assert.Equal(WindowMode.Normal, s.Mode);
-        Assert.True(s.TrayEnabled);
+        Assert.True(s.DockEnabled);
+    }
+
+    [Fact]
+    public void Removed_options_in_old_files_are_ignored()
+    {
+        var path = File();
+        System.IO.File.WriteAllText(path, "{ \"AutoHide\": false, \"TrayEnabled\": false, \"CloseToTray\": false, \"Language\": \"en\" }");
+        var s = UserSettings.Load(path);
+        Assert.Equal("en", s.Language);
+        var json = s.ToJson();
+        Assert.False(json.ContainsKey("AutoHide"));
+        Assert.False(json.ContainsKey("TrayEnabled"));
+        Assert.False(json.ContainsKey("CloseToTray"));
+        using var shell = new ShellViewModel(s);
+        Assert.True(shell.IsAutoHideActive); // fixed behavior: a docked bar always auto-hides
     }
 
     [Fact]
@@ -62,11 +76,8 @@ public sealed class ShellAndSettingsTests : IDisposable
         s.DockEdge = DockEdge.Top;
         s.DockPosition = 0.3;
         s.DockMonitor = @"\\.\DISPLAY2";
-        s.AutoHide = true;
         s.BarSize = BarSize.Medium;
         s.FloatingOrientation = BarOrientation.Vertical;
-        s.TrayEnabled = false;
-        s.CloseToTray = true;
         s.MainBounds = PixelRect.FromSize(-1500, 100, 900, 1000);
         s.CompactBounds = PixelRect.FromSize(10, 20, 300, 44);
         s.Save();
@@ -101,7 +112,6 @@ public sealed class ShellAndSettingsTests : IDisposable
         Assert.Equal(DockEdge.Right, s.DockEdge); // numeric strings are not accepted as enum values
         Assert.Equal(0.5, s.DockPosition);
         Assert.False(s.Topmost);
-        Assert.True(s.AutoHide);
         Assert.Null(s.MainBounds);
         Assert.Null(s.CompactBounds);
         Assert.Equal(string.Empty, s.DockMonitor);
@@ -128,15 +138,15 @@ public sealed class ShellAndSettingsTests : IDisposable
         var path = File();
         using var shell = new ShellViewModel(UserSettings.Load(path));
         shell.IsTopmost = true;
-        shell.DockEnabled = true;
-        shell.AutoHide = true;
+        shell.DockEnabled = false;
         shell.IsCompact = true;
-        shell.SelectedDockEdge = shell.DockEdges.Single(e => e.Value == DockEdge.Left);
+        shell.DockEdge = DockEdge.Left;
+        shell.FloatingOrientation = BarOrientation.Vertical;
 
         var r = UserSettings.Load(path);
         Assert.True(r.Topmost);
-        Assert.True(r.DockEnabled);
-        Assert.True(r.AutoHide);
+        Assert.False(r.DockEnabled);
+        Assert.Equal(BarOrientation.Vertical, r.FloatingOrientation);
         Assert.Equal(WindowMode.Compact, r.Mode);
         Assert.Equal(DockEdge.Left, r.DockEdge);
     }
@@ -145,6 +155,8 @@ public sealed class ShellAndSettingsTests : IDisposable
     public void Orientation_and_thickness_follow_dock_edge()
     {
         using var shell = new ShellViewModel(UserSettings.InMemory());
+        Assert.True(shell.IsVertical); // default: docked right = vertical
+        shell.DockEnabled = false;
         Assert.False(shell.IsVertical); // floating default: horizontal
         Assert.Equal(44, shell.BarThickness);
 
@@ -176,15 +188,20 @@ public sealed class ShellAndSettingsTests : IDisposable
             Assert.InRange(shell.BarThickness, 48, 60); // vertical: 48-60 DIP
         }
 
-        Assert.InRange(ShellViewModel.TabThickness, 6, 10); // tab: 6-10 DIP
+        foreach (var scale in new[] { 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 3.0 })
+        {
+            Assert.InRange(DockLayout.HintThickness(scale), 3, 5); // visible strip of a hidden bar: 3-5 px
+            Assert.InRange(DockLayout.TriggerDepth(scale), 12, 20); // expand trigger distance: 12-20 px
+        }
     }
 
     [Fact]
-    public void AutoHide_is_only_active_while_docked()
+    public void AutoHide_is_the_fixed_behavior_of_a_docked_bar()
     {
         using var shell = new ShellViewModel(UserSettings.InMemory());
-        shell.AutoHide = true;
-        Assert.False(shell.IsAutoHideActive);
+        Assert.True(shell.IsAutoHideActive); // default: docked, so it auto-hides
+        shell.DockEnabled = false;
+        Assert.False(shell.IsAutoHideActive); // a floating bar never hides
         shell.DockEnabled = true;
         Assert.True(shell.IsAutoHideActive);
     }
@@ -200,17 +217,6 @@ public sealed class ShellAndSettingsTests : IDisposable
         Assert.True(shell.IsTopmost); // preference unchanged
         shell.IsFullScreenAppActive = false;
         Assert.True(shell.EffectiveTopmost);
-    }
-
-    [Fact]
-    public void Close_to_tray_requires_tray()
-    {
-        using var shell = new ShellViewModel(UserSettings.InMemory());
-        shell.CloseToTray = true;
-        Assert.True(shell.ShouldHideOnClose);
-        shell.TrayEnabled = false;
-        Assert.False(shell.ShouldHideOnClose); // without a tray icon, closing must exit (never an invisible app)
-        Assert.False(shell.IsCloseToTrayAvailable);
     }
 
     [Fact]
@@ -232,10 +238,6 @@ public sealed class ShellAndSettingsTests : IDisposable
         Assert.True(shell.IsOptionsOpen);
         Assert.Equal(2, shown);
 
-        shell.DockToCommand.Execute(DockEdge.Top);
-        Assert.True(shell.DockEnabled);
-        Assert.Equal(DockEdge.Top, shell.DockEdge);
-
         shell.ToggleTopmostCommand.Execute(null);
         Assert.True(shell.IsTopmost);
         shell.ExitCommand.Execute(null);
@@ -247,7 +249,7 @@ public sealed class ShellAndSettingsTests : IDisposable
     {
         using var shell = new ShellViewModel(UserSettings.InMemory());
         Loc.Instance.SetLanguage("ja");
-        Assert.Equal("右", shell.DockEdges.Single(e => e.Value == DockEdge.Right).DisplayName);
+        Assert.Equal("縦", shell.Orientations.Single(e => e.Value == BarOrientation.Vertical).DisplayName);
         Loc.Instance.SetLanguage("zh-CN");
         Assert.Equal("深色", shell.Themes.Single(e => e.Value == ThemePreference.Dark).DisplayName);
     }

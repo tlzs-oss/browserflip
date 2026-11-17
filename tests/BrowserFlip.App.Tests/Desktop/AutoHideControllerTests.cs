@@ -27,13 +27,13 @@ public class AutoHideControllerTests
     }
 
     [Fact]
-    public void Stays_open_for_initial_idle_then_collapses_600ms_after_leaving()
+    public void Stays_open_for_initial_idle_then_collapses_450ms_after_leaving()
     {
         var c = Enabled();
         Assert.Equal(AutoHideState.Expanded, Step(c, 1_000));       // within initial idle (1.5 s)
         Assert.Equal(AutoHideState.PendingCollapse, Step(c, 1_500));
-        Assert.Equal(AutoHideState.PendingCollapse, Step(c, 2_000)); // 500 ms
-        Assert.Equal(AutoHideState.Collapsed, Step(c, 2_100));       // 600 ms
+        Assert.Equal(AutoHideState.PendingCollapse, Step(c, 1_900)); // 400 ms
+        Assert.Equal(AutoHideState.Collapsed, Step(c, 1_950));       // 450 ms (Owner range 400-600 ms incl. polling)
         Assert.True(c.IsCollapsed);
     }
 
@@ -55,8 +55,8 @@ public class AutoHideControllerTests
         Assert.Equal(AutoHideState.PendingCollapse, Step(c, 1_700));
         Assert.Equal(AutoHideState.Expanded, Step(c, 1_800, overBar: true));
         Assert.Equal(AutoHideState.PendingCollapse, Step(c, 1_900));
-        Assert.Equal(AutoHideState.PendingCollapse, Step(c, 2_400)); // timer restarted at 1.9 s
-        Assert.Equal(AutoHideState.Collapsed, Step(c, 2_500));
+        Assert.Equal(AutoHideState.PendingCollapse, Step(c, 2_300)); // timer restarted at 1.9 s
+        Assert.Equal(AutoHideState.Collapsed, Step(c, 2_350));
     }
 
     [Theory]
@@ -91,8 +91,8 @@ public class AutoHideControllerTests
         var c = Collapsed();
         Assert.Equal(AutoHideState.PendingExpand, Step(c, 3_000, overTab: true));
         Assert.True(c.IsCollapsed);
-        Assert.Equal(AutoHideState.PendingExpand, Step(c, 3_100, overTab: true));
-        Assert.Equal(AutoHideState.Expanded, Step(c, 3_150, overTab: true)); // 150 ms dwell
+        Assert.Equal(AutoHideState.PendingExpand, Step(c, 3_050, overTab: true));
+        Assert.Equal(AutoHideState.Expanded, Step(c, 3_100, overTab: true)); // 100 ms dwell (Owner range 100-150 ms)
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class AutoHideControllerTests
         Step(c, 3_200, overTab: true);
         Assert.Equal(AutoHideState.Expanded, Step(c, 3_300, overBar: true));
         Assert.Equal(AutoHideState.PendingCollapse, Step(c, 3_400));
-        Assert.Equal(AutoHideState.Collapsed, Step(c, 4_000));
+        Assert.Equal(AutoHideState.Collapsed, Step(c, 3_850));
     }
 
     [Fact]
@@ -148,6 +148,19 @@ public class AutoHideControllerTests
         c.SetEnabled(true, T0);
         Step(c, 0);
         Assert.Equal(AutoHideState.Collapsed, Step(c, 100));
+    }
+
+    [Fact]
+    public void Time_until_transition_reports_the_pending_deadline()
+    {
+        var c = Enabled();
+        Assert.Equal(TimeSpan.FromMilliseconds(500), c.TimeUntilTransition(At(1_000))); // hold until 1.5 s
+        Step(c, 1_500);
+        Assert.Equal(TimeSpan.FromMilliseconds(350), c.TimeUntilTransition(At(1_600))); // collapse at 1.95 s
+        Step(c, 1_950);
+        Assert.Null(c.TimeUntilTransition(At(2_000))); // collapsed: nothing pending
+        Step(c, 2_000, overTab: true);
+        Assert.Equal(TimeSpan.FromMilliseconds(70), c.TimeUntilTransition(At(2_030))); // dwell ends at 2.1 s
     }
 
     private static AutoHideController Collapsed()

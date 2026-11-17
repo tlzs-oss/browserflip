@@ -19,4 +19,13 @@
     <SolidColorBrush x:Key="BfErrorForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
     <SolidColorBrush x:Key="BfSuccessForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
     <SolidColorBrush x:Key="BfControlBackgroundBrush" Color="{x:Static SystemColors.ControlColor}" />
+    <!-- Always-on-top toggle: ON uses the system selection pair (Highlight / HighlightText); hover adds a HotTrack border. -->
+    <SolidColorBrush x:Key="BfPinOffForegroundBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfPinOffHoverBorderBrush" Color="{x:Static SystemColors.HotTrackColor}" />
+    <SolidColorBrush x:Key="BfPinOnBackgroundBrush" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="BfPinOnHoverBrush" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="BfPinOnPressedBrush" Color="{x:Static SystemColors.HighlightColor}" />
+    <SolidColorBrush x:Key="BfPinOnBorderBrush" Color="{x:Static SystemColors.WindowTextColor}" />
+    <SolidColorBrush x:Key="BfPinOnHoverBorderBrush" Color="{x:Static SystemColors.HotTrackColor}" />
+    <SolidColorBrush x:Key="BfPinOnForegroundBrush" Color="{x:Static SystemColors.HighlightTextColor}" />
 </ResourceDictionary>
