@@ -374,7 +374,7 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(760 * 2.25), b.Left);
+                Assert.Equal(3840 - (int)Math.Round(800 * 2.25), b.Left);
                 Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
@@ -764,7 +764,7 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(760, window.Width, 1);
+            Assert.Equal(800, window.Width, 1);
             // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
             Assert.Equal(SizeToContent.Manual, window.SizeToContent);
             Assert.False(window.ViewHeightByUser);

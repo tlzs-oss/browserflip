@@ -40,10 +40,6 @@
             <Setter Property="FontSize" Value="{StaticResource BfFontCaption}" />
             <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
         </Style>
-        <Style x:Key="Choice" TargetType="ComboBox">
-            <Setter Property="Width" Value="200" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
     </Window.Resources>
 
     <DockPanel>
@@ -75,7 +71,7 @@
                         <TextBlock Text="{Binding [Settings_General], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="LanguageBox"
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="LanguageBox"
                                           ItemsSource="{Binding Main.Languages}" SelectedItem="{Binding Main.SelectedLanguage}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
@@ -84,7 +80,7 @@
                         </Border>
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="ViewBox"
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="ViewBox"
                                           ItemsSource="{Binding Shell.Views}" SelectedItem="{Binding Shell.SelectedView, Mode=TwoWay}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" />
@@ -106,7 +102,7 @@
                         <TextBlock Text="{Binding [Settings_Appearance], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="ThemeBox"
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="ThemeBox"
                                           ItemsSource="{Binding Shell.Themes}" SelectedItem="{Binding Shell.SelectedTheme, Mode=TwoWay}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
@@ -124,7 +120,7 @@
                         <TextBlock Text="{Binding [Settings_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="BarSizeBox"
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="BarSizeBox"
                                           ItemsSource="{Binding Shell.BarSizes}" SelectedItem="{Binding Shell.SelectedBarSize, Mode=TwoWay}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
@@ -133,7 +129,7 @@
                         </Border>
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="OrientationBox"
+                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="OrientationBox"
                                           ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
