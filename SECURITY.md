@@ -6,8 +6,8 @@
 
 | バージョン | サポート |
 | --- | --- |
-| 0.1.x | :white_check_mark: |
-| < 0.1 | :x: |
+| 0.2.x | :white_check_mark: |
+| < 0.2 | :x: |
 
 ## 脆弱性の報告
 
@@ -59,8 +59,8 @@ BrowserFlip は次の原則に基づいて設計されています。これら�
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | :white_check_mark: |
-| < 0.1 | :x: |
+| 0.2.x | :white_check_mark: |
+| < 0.2 | :x: |
 
 ### Reporting a vulnerability
 

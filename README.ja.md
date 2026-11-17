@@ -7,13 +7,13 @@
 
 > **One Click. Your Browser.**
 
-BrowserFlip は、PC にインストールされている Web ブラウザーを一覧表示し、現在の既定ブラウザーを示し、ワンクリックで Windows の設定の該当ページへ直接移動できる、小さなオープンソースの Windows 10/11 デスクトップアプリです。
+BrowserFlip は、PC にインストールされている Web ブラウザーを一覧表示し、現在の既定ブラウザーを示し、ワンクリックで Windows の設定の該当ページへ直接移動できる、小さなオープンソースの Windows 11 デスクトップアプリです。
 
 ![BrowserFlip のスクリーンショット](docs/images/screenshot.png)
 
 ![BrowserFlip のコンパクトバー](docs/images/compact-bar.png)
 
-> **ステータス:** プレリリース(0.1.0 MVP と 0.2.0 デスクトップ機能を開発中)。リリースはまだ公開されていません。
+> **ステータス:** v0.2.0 が最初の公開リリースです。動作を確認しているのは Windows 11(x64)のみです(「[動作要件](#動作要件)」を参照)。
 
 ## 機能
 
@@ -26,8 +26,9 @@ BrowserFlip は、PC にインストールされている Web ブラウザーを
 - **ダークモード**(Windows のアプリ テーマに追従)、**Per-Monitor V2 高 DPI**、**キーボード操作 / スクリーン リーダー対応**。
 - **English・日本語・简体中文** — Windows の言語から自動選択し、実行中に切り替え可能です。
 
-0.2 の新機能(未リリース):
+0.2 の新機能:
 
+- **言語に合わせたメイン画面** — 既定の幅は表示言語に合わせて実測し、ヘッダーが重なりません。ウィンドウが狭いときは、まずキャッチコピーが折り返し、さらに狭いとボタンが 2 段目に移ります(ボタンは隠れません)。枠をドラッグして変えた幅は次回以降も保持されます。
 - **専用アイコン** — 地球と矢印のオリジナル図案(MIT)。EXE・ウィンドウ・タスクバー・通知領域で使用します。
 - **常に手前に表示** — 通常画面とバーのピン ボタンで切り替えます。OFF は斜めの灰色のピン、ON は青い背景に白い直立したピンです。他のウィンドウより手前に出すかどうかはこの設定だけで決まります(ドッキングとは無関係)。全画面アプリやプレゼンテーションの実行中は一時的に解除します。
 - **コンパクトバー** — ブラウザーを並べた小さな横 / 縦のツールバー。既定のブラウザーを強調表示します。通常画面のコンパクトバー ボタンで、通常画面の中央にフローティングで表示します。アプリ アイコンのボタンで、元の位置の通常画面に戻ります。
@@ -54,24 +55,32 @@ BrowserFlip はサポートされた方法だけを使います。
 
 ## 動作要件
 
-- Windows 10 バージョン 1809(ビルド 17763)以降、または Windows 11
-  - ブラウザー別の設定ページは、2023 年 4 月の累積更新プログラム適用済みの Windows 11(21H2 は 22000.1817 以上、22H2 は 22621.1555 以上)または 23H2 以降で開きます。Windows 10 とそれより古い Windows 11 では「既定のアプリ」全体のページが開きます。
-- x64 または Arm64
+- Windows 11(x64 で動作確認済み)
+  - ブラウザー別の設定ページは、2023 年 4 月の累積更新プログラム適用済みの Windows 11(21H2 は 22000.1817 以上、22H2 は 22621.1555 以上)または 23H2 以降で開きます。それより古い Windows 11 では「既定のアプリ」全体のページが開きます。
+  - **Windows 10 は未検証のため、v0.2.0 の動作保証対象外です。**
+- x64 または Arm64(Arm64 版は実機では未検証)
 - 管理者権限は不要
 - ソースからのビルドには [.NET 10 SDK](https://dotnet.microsoft.com/download) が必要
 
 ## インストール
 
-最初のリリースで、`win-x64` / `win-arm64` 向けの自己完結型シングルファイル `.zip` と `SHA256SUMS` を [Releases](https://github.com/tlzs-oss/browserflip/releases) ページで配布する **予定** です。
+最新版(**v0.2.0**)をダウンロードしてください。自己完結型のシングルファイルで、.NET のインストールは不要です。
 
-PowerShell でのハッシュ確認:
+- [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip)(Windows 11、x64)
+- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11、Arm64)
+- [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) ・ [すべてのリリース](https://github.com/tlzs-oss/browserflip/releases/latest)
+
+zip を展開して `BrowserFlip.exe` を実行します。PowerShell でのハッシュ確認:
 
 ```powershell
-Get-FileHash .\BrowserFlip-win-x64.zip -Algorithm SHA256
-# SHA256SUMS の該当行と比較してください
+Get-FileHash .\BrowserFlip-v0.2.0-win-x64.zip -Algorithm SHA256
+# SHA256SUMS.txt の該当行と比較してください
+
+# 任意: GitHub CLI でビルドの出所(Sigstore)を確認
+gh attestation verify .\BrowserFlip-v0.2.0-win-x64.zip --repo tlzs-oss/browserflip
 ```
 
-> リリース バイナリはまだコード署名されていないため、Windows SmartScreen の警告が表示される場合があります。
+> EXE は **Authenticode によるコード署名をしていない** ため、Windows SmartScreen の「Windows によって PC が保護されました」が表示される場合があります。ダウンロード元を信頼できる場合は「詳細情報」→「実行」を選んでください。Sigstore の証明はファイルのビルド元を示すもので、コード署名ではありません。
 
 ## ソースからのビルド
 
@@ -87,7 +96,7 @@ dotnet run --project src/BrowserFlip.App
 
 1. BrowserFlip を起動します。インストール済みのブラウザーがカードで表示され、現在の既定にはバッジが付きます。
 2. 使いたいブラウザーをクリック(または Enter / Space)します。
-3. Windows の設定が開きます。「既定値に設定」(Windows 11)をクリックするか、「Web ブラウザー」でブラウザーを選択(Windows 10)します。
+3. Windows の設定が開きます。「既定値に設定」(Windows 11)をクリックするか、「Web ブラウザー」でブラウザーを選択(Windows 10。v0.2.0 では未検証・動作保証対象外)します。
 4. BrowserFlip に戻ると、バッジが新しい既定に移動します。変更がなかった場合はその旨を表示します。
 
 コンパクトバー・ドッキング・自動的に隠す・通知領域アイコンの使い方は [操作説明 (docs/user-guide.ja.md)](docs/user-guide.ja.md) を参照してください。
@@ -104,7 +113,7 @@ BrowserFlip は `StartMenuInternet` に登録され、`http`/`https` の URL 関
 登録は残っていますが、実行ファイルが見つかりません。アンインストールされた可能性があります。
 
 **ブラウザー専用ではなく「既定のアプリ」全体のページが開きました。**
-Windows 10 や 2023 年 4 月の更新プログラム未適用の Windows 11 の場合、またはブラウザーが `RegisteredApplications` に登録されていない場合です。表示されたページでブラウザーを手動で選択してください。
+Windows 10(v0.2.0 では動作保証対象外)や 2023 年 4 月の更新プログラム未適用の Windows 11 の場合、またはブラウザーが `RegisteredApplications` に登録されていない場合です。表示されたページでブラウザーを手動で選択してください。
 
 **http と https で別のアプリが使われていると表示されます。**
 設定でそのブラウザーのページを開き、両方の既定に設定してください(Windows 11 の「既定値に設定」ボタンで両方設定されます)。
