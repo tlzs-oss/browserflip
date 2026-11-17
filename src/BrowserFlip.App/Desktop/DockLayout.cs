@@ -81,20 +81,94 @@ public static class DockLayout
         return PixelRect.FromSize(x, y, length, thickness);
     }
 
-    /// <summary>Returns the edge the window should snap to (closest edge within <paramref name="threshold"/>), or null.</summary>
-    public static DockEdge? SnapEdge(PixelRect window, PixelRect workArea, int threshold)
+    /// <summary>
+    /// Returns the edge the bar should dock to when a drag ends, or null to let it float.
+    /// The cursor decides first (the user "pushes" the bar to an edge): the nearest work-area edge
+    /// within <paramref name="threshold"/> of the cursor wins, including a cursor that went past the
+    /// edge (onto the taskbar). Otherwise the window decides: a window edge within the threshold counts,
+    /// and so does a window pushed past an outer edge (<paramref name="isOuterEdge"/>: no other monitor
+    /// beyond it). Past an edge shared with another monitor the distance counts normally, so a floating
+    /// bar dropped across two monitors is not docked to the inner edge.
+    /// </summary>
+    public static DockEdge? SnapEdge(PixelRect window, PixelRect workArea, int threshold, (int X, int Y)? cursor = null, Func<DockEdge, bool>? isOuterEdge = null)
     {
+        if (cursor is { } c && workArea.Inflate(threshold, threshold).Contains(c.X, c.Y))
+        {
+            var byCursor = new (DockEdge Edge, int Distance)[]
+            {
+                (DockEdge.Left, c.X - workArea.Left),
+                (DockEdge.Right, workArea.Right - 1 - c.X),
+                (DockEdge.Top, c.Y - workArea.Top),
+                (DockEdge.Bottom, workArea.Bottom - 1 - c.Y),
+            }.MinBy(d => d.Distance);
+            if (byCursor.Distance <= threshold)
+            {
+                return byCursor.Edge;
+            }
+        }
+
+        // Past an outer edge (overshoot) is distance 0, never "far away".
+        int Distance(DockEdge edge, int inside) => inside >= 0 ? inside : (isOuterEdge?.Invoke(edge) ?? true) ? 0 : -inside;
         var distances = new (DockEdge Edge, int Distance)[]
         {
-            (DockEdge.Left, Math.Abs(window.Left - workArea.Left)),
-            (DockEdge.Right, Math.Abs(workArea.Right - window.Right)),
-            (DockEdge.Top, Math.Abs(window.Top - workArea.Top)),
-            (DockEdge.Bottom, Math.Abs(workArea.Bottom - window.Bottom)),
+            (DockEdge.Left, Distance(DockEdge.Left, window.Left - workArea.Left)),
+            (DockEdge.Right, Distance(DockEdge.Right, workArea.Right - window.Right)),
+            (DockEdge.Top, Distance(DockEdge.Top, window.Top - workArea.Top)),
+            (DockEdge.Bottom, Distance(DockEdge.Bottom, workArea.Bottom - window.Bottom)),
         };
 
         var best = distances.MinBy(d => d.Distance);
         return best.Distance <= threshold ? best.Edge : null;
     }
+
+    /// <summary>
+    /// Area where the cursor expands a collapsed bar: the whole length of the expanded bar along the
+    /// edge (plus <paramref name="alongMargin"/>), <paramref name="depth"/> pixels into the work area.
+    /// When nothing stops the cursor at that edge (no taskbar there and possibly a neighbor monitor),
+    /// the zone also extends <paramref name="overshoot"/> pixels past the edge so a cursor that slips
+    /// onto the neighbor still counts; it never extends onto a taskbar.
+    /// </summary>
+    public static PixelRect TriggerZone(PixelRect workArea, PixelRect monitorBounds, DockEdge edge, PixelRect expanded, int depth, int alongMargin, int overshoot)
+    {
+        depth = Math.Max(1, depth);
+        if (edge is DockEdge.Left or DockEdge.Right)
+        {
+            var top = Math.Max(workArea.Top, expanded.Top - alongMargin);
+            var bottom = Math.Min(workArea.Bottom, expanded.Bottom + alongMargin);
+            return edge == DockEdge.Left
+                ? new PixelRect(workArea.Left - (workArea.Left == monitorBounds.Left ? overshoot : 0), top, workArea.Left + depth, bottom)
+                : new PixelRect(workArea.Right - depth, top, workArea.Right + (workArea.Right == monitorBounds.Right ? overshoot : 0), bottom);
+        }
+
+        var left = Math.Max(workArea.Left, expanded.Left - alongMargin);
+        var right = Math.Min(workArea.Right, expanded.Right + alongMargin);
+        return edge == DockEdge.Top
+            ? new PixelRect(left, workArea.Top - (workArea.Top == monitorBounds.Top ? overshoot : 0), right, workArea.Top + depth)
+            : new PixelRect(left, workArea.Bottom - depth, right, workArea.Bottom + (workArea.Bottom == monitorBounds.Bottom ? overshoot : 0));
+    }
+
+    /// <summary>
+    /// Edge of <paramref name="workArea"/> the cursor is pushed against: within <paramref name="threshold"/>
+    /// pixels of it, or past it (onto a taskbar). Used when the main window is dragged to a screen edge: only a
+    /// deliberate push to the edge counts, never a window that merely ends up near it.
+    /// </summary>
+    public static DockEdge? PushedEdge(PixelRect workArea, int threshold, (int X, int Y) cursor)
+    {
+        var nearest = new (DockEdge Edge, int Distance)[]
+        {
+            (DockEdge.Left, cursor.X - workArea.Left),
+            (DockEdge.Right, workArea.Right - 1 - cursor.X),
+            (DockEdge.Top, cursor.Y - workArea.Top),
+            (DockEdge.Bottom, workArea.Bottom - 1 - cursor.Y),
+        }.MinBy(d => d.Distance);
+        return nearest.Distance <= threshold ? nearest.Edge : null;
+    }
+
+    /// <summary>Thickness of the visible strip left by a collapsed bar: about 2 DIP, kept within 3-5 pixels.</summary>
+    public static int HintThickness(double scale) => Math.Clamp((int)Math.Round(2 * scale), 3, 5);
+
+    /// <summary>Depth of the expand trigger zone: about 10 DIP, kept within 12-20 pixels.</summary>
+    public static int TriggerDepth(double scale) => Math.Clamp((int)Math.Round(10 * scale), 12, 20);
 
     /// <summary>Position (0..1) of the window's center along <paramref name="edge"/>.</summary>
     public static double PositionAlong(PixelRect window, PixelRect workArea, DockEdge edge)

@@ -33,8 +33,8 @@ public readonly record struct AutoHideInput(DateTimeOffset Now, bool CursorOverB
 /// </summary>
 public sealed class AutoHideController
 {
-    public static readonly TimeSpan DefaultCollapseDelay = TimeSpan.FromMilliseconds(600);
-    public static readonly TimeSpan DefaultExpandDwell = TimeSpan.FromMilliseconds(150);
+    public static readonly TimeSpan DefaultCollapseDelay = TimeSpan.FromMilliseconds(450);
+    public static readonly TimeSpan DefaultExpandDwell = TimeSpan.FromMilliseconds(100);
     public static readonly TimeSpan DefaultInitialIdle = TimeSpan.FromSeconds(1.5);
 
     private DateTimeOffset _since;
@@ -67,8 +67,33 @@ public sealed class AutoHideController
         Expand(now, InitialIdle);
     }
 
+    /// <summary>Collapses immediately (main window closed with a docked bar). No effect while disabled.</summary>
+    public void CollapseNow(DateTimeOffset now)
+    {
+        if (_enabled)
+        {
+            Transition(AutoHideState.Collapsed, now);
+        }
+    }
+
     /// <summary>Expands immediately (tray "show", keyboard focus, tab click) and holds briefly.</summary>
     public void ForceExpand(DateTimeOffset now) => Expand(now, InitialIdle);
+
+    /// <summary>
+    /// Time until the current state changes by itself (dwell, collapse delay or hold), or null when
+    /// nothing is pending. Lets the caller poll exactly when a transition is due instead of on a coarse timer.
+    /// </summary>
+    public TimeSpan? TimeUntilTransition(DateTimeOffset now)
+    {
+        var due = !_enabled ? (DateTimeOffset?)null : State switch
+        {
+            AutoHideState.PendingExpand => _since + ExpandDwell,
+            AutoHideState.PendingCollapse => _since + CollapseDelay,
+            AutoHideState.Expanded when _holdUntil > now => _holdUntil,
+            _ => null,
+        };
+        return due is { } d ? (d > now ? d - now : TimeSpan.Zero) : null;
+    }
 
     /// <summary>Advances the state machine and returns the new state.</summary>
     public AutoHideState Update(AutoHideInput input)

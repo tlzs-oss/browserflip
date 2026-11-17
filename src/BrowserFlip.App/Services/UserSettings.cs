@@ -53,8 +53,11 @@ public sealed class UserSettings
     /// <summary>Always on top (applies to both surfaces).</summary>
     public bool Topmost { get; set; }
 
-    /// <summary>Whether the compact bar is docked to a screen edge.</summary>
-    public bool DockEnabled { get; set; }
+    /// <summary>
+    /// Whether the compact bar is docked to a screen edge (default: right edge of the primary monitor).
+    /// Set by dragging: near an edge docks, away from the edges floats.
+    /// </summary>
+    public bool DockEnabled { get; set; } = true;
 
     public DockEdge DockEdge { get; set; } = DockEdge.Right;
 
@@ -64,19 +67,10 @@ public sealed class UserSettings
     /// <summary>Device name of the monitor the bar is docked on (e.g. \\.\DISPLAY2); empty = primary.</summary>
     public string DockMonitor { get; set; } = string.Empty;
 
-    /// <summary>Auto show / hide while docked.</summary>
-    public bool AutoHide { get; set; }
-
     public BarSize BarSize { get; set; } = BarSize.Small;
 
     /// <summary>Orientation of the compact bar while floating (not docked).</summary>
     public BarOrientation FloatingOrientation { get; set; } = BarOrientation.Horizontal;
-
-    /// <summary>Show the notification-area icon.</summary>
-    public bool TrayEnabled { get; set; } = true;
-
-    /// <summary>Closing the main window hides it to the notification area (only when the tray is enabled).</summary>
-    public bool CloseToTray { get; set; }
 
     /// <summary>
     /// Main window bounds in physical pixels, or null for the default position. Only the position is
@@ -86,6 +80,12 @@ public sealed class UserSettings
 
     /// <summary>DPI scale of the monitor the main window was on when <see cref="MainBounds"/> was saved.</summary>
     public double MainScale { get; set; } = 1.0;
+
+    /// <summary>
+    /// BF-07: true = the user resized the main window (its width is kept), false = the width was chosen by the app
+    /// (it follows the header), null = saved by a version before BF-07 (a width too small for the header is widened once).
+    /// </summary>
+    public bool? MainWidthByUser { get; set; }
 
     /// <summary>Floating compact bar position in physical pixels, or null.</summary>
     public PixelRect? CompactBounds { get; set; }
@@ -143,13 +143,11 @@ public sealed class UserSettings
         [nameof(DockEdge)] = DockEdge.ToString(),
         [nameof(DockPosition)] = DockPosition,
         [nameof(DockMonitor)] = DockMonitor,
-        [nameof(AutoHide)] = AutoHide,
         [nameof(BarSize)] = BarSize.ToString(),
         [nameof(FloatingOrientation)] = FloatingOrientation.ToString(),
-        [nameof(TrayEnabled)] = TrayEnabled,
-        [nameof(CloseToTray)] = CloseToTray,
         [nameof(MainBounds)] = RectToJson(MainBounds),
         [nameof(MainScale)] = MainScale,
+        [nameof(MainWidthByUser)] = MainWidthByUser,
         [nameof(CompactBounds)] = RectToJson(CompactBounds),
     };
 
@@ -163,14 +161,12 @@ public sealed class UserSettings
         DockEdge = EnumOr(json, nameof(DockEdge), DockEdge);
         DockPosition = Num(json, nameof(DockPosition)) is { } p && double.IsFinite(p) ? Math.Clamp(p, 0, 1) : 0.5;
         DockMonitor = Str(json, nameof(DockMonitor)) is { Length: <= 64 } m ? m : string.Empty;
-        AutoHide = BoolOr(json, nameof(AutoHide), AutoHide);
         BarSize = EnumOr(json, nameof(BarSize), BarSize);
         FloatingOrientation = EnumOr(json, nameof(FloatingOrientation), FloatingOrientation);
-        TrayEnabled = BoolOr(json, nameof(TrayEnabled), TrayEnabled);
-        CloseToTray = BoolOr(json, nameof(CloseToTray), CloseToTray);
         MainBounds = RectFromJson(json[nameof(MainBounds)]);
         MainScale = Num(json, nameof(MainScale)) is { } sc && double.IsFinite(sc) && sc is >= 0.5 and <= 5 ? sc : 1.0;
         CompactBounds = RectFromJson(json[nameof(CompactBounds)]);
+        MainWidthByUser = json[nameof(MainWidthByUser)] is JsonValue w && w.TryGetValue<bool>(out var byUser) ? byUser : null;
     }
 
     private static string? Str(JsonObject json, string name)

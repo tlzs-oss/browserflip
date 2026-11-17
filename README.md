@@ -29,11 +29,11 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 New in 0.2 (unreleased):
 
 - **App icon** — an original globe-and-arrows design (MIT), used for the EXE, windows, taskbar and notification area.
-- **Always on top** — pin button; temporarily released while a full-screen app or presentation is running.
-- **Compact bar** — a small horizontal or vertical toolbar with your browsers; the default one is highlighted.
-- **Edge docking** — dock the bar to the left, right, top or bottom edge, or drag it near an edge to snap. It never changes your work area.
-- **Auto-hide** — while docked, the bar slides away and leaves a small tab; hover or click the tab (or use the tray icon) to bring it back.
-- **Notification area icon** — left click to show, right click for a menu. Optional; everything also works without it.
+- **Always on top** — a pin toggle in the main window and on the bar: a grey tilted pin when off, a white upright pin on blue when on. It alone decides whether BrowserFlip stays above other windows (docking does not); temporarily released while a full-screen app or presentation is running.
+- **Compact bar** — a small horizontal or vertical toolbar with your browsers; the default one is highlighted. The compact button in the main window opens it floating over the center of the window; the app-icon button takes you back to the main window where it was.
+- **Edge docking** — drag the bar to any edge (left, right, top or bottom) to dock it; a translucent outline previews where it will land. Top/bottom edges make it horizontal, left/right edges vertical, automatically. Drag it away from the edges to let it float. You can also drag the main window by its title bar and release it with the cursor pushed against a screen edge: BrowserFlip turns into the bar docked (and already hidden) at that edge of that monitor; an ordinary move never switches. It never changes your work area.
+- **Auto-hide** — a docked bar fades away and leaves a thin strip along the edge; move the mouse to the edge where the bar is (or click the strip, or use the tray icon) and it fades back in.
+- **Notification area icon and closing** — the icon is always present. The main window's X hides BrowserFlip to the notification area (it keeps running; nothing else changes), and the minimize button (—) minimizes to the taskbar as usual. The compact bar has no close button (BF-06); Alt+F4 on the bar hides a floating bar to the notification area and retracts a docked bar into its edge. Left-click the icon (or start BrowserFlip again) to bring back whatever you were using, where it was; right click opens a menu (Show BrowserFlip / Show compact bar / Settings… / Always on top / Exit BrowserFlip). Exit with **Exit BrowserFlip**.
 - **Multi-monitor and per-monitor DPI** — the bar and window are re-placed after monitor, resolution, scaling, taskbar or sleep/resume changes and never get lost off-screen.
 
 ## How it works
@@ -120,7 +120,7 @@ No. It never asks for elevation.
 - **No telemetry**, no analytics, no crash reporting.
 - **No network access.** BrowserFlip does not connect to the internet.
 - It only **reads** the registry and launches `ms-settings:` URIs. It never writes registry values.
-- The only file it writes is `%LOCALAPPDATA%\BrowserFlip\settings.json`, which stores your language and display preferences (theme, mode, always on top, docking, auto-hide, tray options, window and bar positions). Delete it to reset.
+- The only file it writes is `%LOCALAPPDATA%\BrowserFlip\settings.json`, which stores your language and display preferences (theme, mode, always on top, docking, window and bar positions). Delete it to reset.
 
 ## Roadmap
 
