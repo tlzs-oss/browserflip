@@ -6,7 +6,7 @@ BrowserFlip へのコントリビューションを歓迎します。日本語�
 
 ## 開発環境
 
-- Windows 10 バージョン 1809(ビルド 17763)以降 / Windows 11
+- Windows 11(開発・テストは Windows 11 で行っています。Windows 10 は未検証)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)(バージョンは `global.json` で固定)
 - Visual Studio 2026、Visual Studio Code(C# Dev Kit)、または JetBrains Rider など
 
@@ -88,7 +88,7 @@ Project docs under `docs/` are written in Japanese; issues and pull requests in 
 
 ### Development setup
 
-- Windows 10 1809 (build 17763) or later / Windows 11
+- Windows 11 (development and testing use Windows 11; Windows 10 is not tested)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned in `global.json`)
 
 ```powershell

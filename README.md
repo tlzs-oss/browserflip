@@ -7,13 +7,13 @@
 
 > **One Click. Your Browser.**
 
-BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web browsers installed on your PC, shows which one is currently the default, and takes you straight to the right place in Windows Settings to change it — in one click.
+BrowserFlip is a small, open-source Windows 11 desktop app that lists the web browsers installed on your PC, shows which one is currently the default, and takes you straight to the right place in Windows Settings to change it — in one click.
 
 ![BrowserFlip screenshot](docs/images/screenshot.png)
 
 ![BrowserFlip compact bar](docs/images/compact-bar.png)
 
-> **Status:** pre-release (0.1.0 MVP and 0.2.0 desktop features in development). Nothing has been published as a release yet.
+> **Status:** v0.2.0 is the first public release. It is tested on Windows 11 (x64) only; see [Requirements](#requirements).
 
 ## Features
 
@@ -26,8 +26,9 @@ BrowserFlip is a small, open-source Windows 10/11 desktop app that lists the web
 - **Dark mode** (follows your Windows app theme), **Per-Monitor V2 high DPI**, and **keyboard navigation / screen reader names**.
 - **English, 日本語, 简体中文** — picked automatically from Windows, switchable at runtime.
 
-New in 0.2 (unreleased):
+New in 0.2:
 
+- **A main window that fits your language** — the default width is measured for the current language, and the header never overlaps: on a narrow window the tagline wraps first, then the buttons move to a second row (they are never hidden). A width you set by dragging the border is remembered.
 - **App icon** — an original globe-and-arrows design (MIT), used for the EXE, windows, taskbar and notification area.
 - **Always on top** — a pin toggle in the main window and on the bar: a grey tilted pin when off, a white upright pin on blue when on. It alone decides whether BrowserFlip stays above other windows (docking does not); temporarily released while a full-screen app or presentation is running.
 - **Compact bar** — a small horizontal or vertical toolbar with your browsers; the default one is highlighted. The compact button in the main window opens it floating over the center of the window; the app-icon button takes you back to the main window where it was.
@@ -54,24 +55,32 @@ See [docs/architecture.md](docs/architecture.md) for diagrams.
 
 ## Requirements
 
-- Windows 10 version 1809 (build 17763) or later, or Windows 11
-  - The per-browser Settings page needs Windows 11 with the April 2023 cumulative update (21H2 22000.1817+, 22H2 22621.1555+) or 23H2 and later. Windows 10 and older Windows 11 builds open the general *Default apps* page.
-- x64 or Arm64
+- Windows 11 (tested on x64)
+  - The per-browser Settings page needs Windows 11 with the April 2023 cumulative update (21H2 22000.1817+, 22H2 22621.1555+) or 23H2 and later. Older Windows 11 builds open the general *Default apps* page.
+  - **Windows 10 has not been tested and is not supported in v0.2.0.**
+- x64 or Arm64 (the Arm64 build has not been tested on hardware yet)
 - No administrator rights required
 - To build from source: [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
 ## Install
 
-Pre-built downloads are **planned** for the first release: self-contained single-file `.zip` archives for `win-x64` and `win-arm64`, with a `SHA256SUMS` file, on the [Releases](https://github.com/tlzs-oss/browserflip/releases) page.
+Download the latest release (**v0.2.0**) — a self-contained single-file app (each zip also contains the license and third-party notices), no .NET install needed:
 
-Verify a download in PowerShell:
+- [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip) (Windows 11, x64)
+- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip) (Windows 11, Arm64 — built but not tested on hardware)
+- [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) · [all releases](https://github.com/tlzs-oss/browserflip/releases/latest)
+
+Extract the zip and run `BrowserFlip.exe`. Verify a download in PowerShell:
 
 ```powershell
-Get-FileHash .\BrowserFlip-win-x64.zip -Algorithm SHA256
-# compare with the matching line in SHA256SUMS
+Get-FileHash .\BrowserFlip-v0.2.0-win-x64.zip -Algorithm SHA256
+# compare with the matching line in SHA256SUMS.txt
+
+# optional: check the build provenance (Sigstore) with the GitHub CLI
+gh attestation verify .\BrowserFlip-v0.2.0-win-x64.zip --repo tlzs-oss/browserflip
 ```
 
-> Release binaries are not code-signed yet, so Windows SmartScreen may show a warning.
+> The EXE is **not Authenticode code-signed**, so Windows SmartScreen may show "Windows protected your PC". Choose **More info → Run anyway** if you trust the download. The Sigstore attestation proves where the file was built; it is not a code signature.
 
 ## Build from source
 
@@ -87,7 +96,7 @@ dotnet run --project src/BrowserFlip.App
 
 1. Start BrowserFlip. Your installed browsers appear as cards; the current default has a badge.
 2. Click (or press Enter / Space on) the browser you want.
-3. Windows Settings opens. Click **Set default** (Windows 11) or pick the browser under *Web browser* (Windows 10).
+3. Windows Settings opens. Click **Set default** (Windows 11) or pick the browser under *Web browser* (Windows 10 — not tested and not supported in v0.2.0).
 4. Switch back to BrowserFlip. The badge moves to the new default. If nothing changed, BrowserFlip tells you so.
 
 For the compact bar, docking, auto-hide and the notification area icon, see the user guide (Japanese): [docs/user-guide.ja.md](docs/user-guide.ja.md).
@@ -104,7 +113,7 @@ BrowserFlip only lists browsers that register themselves with Windows under `Sta
 The registration still exists, but the browser's executable is missing — it was probably uninstalled.
 
 **Settings opened the general Default apps page instead of my browser's page.**
-That happens on Windows 10 or Windows 11 builds without the April 2023 update, or when the browser is not listed in `RegisteredApplications`. Pick the browser there manually.
+That happens on Windows 10 (not supported in v0.2.0) or Windows 11 builds without the April 2023 update, or when the browser is not listed in `RegisteredApplications`. Pick the browser there manually.
 
 **It says http and https use different apps.**
 Open the browser's page in Settings and set it as the default for both (Windows 11's **Set default** button does this).
