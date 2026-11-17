@@ -9,15 +9,20 @@
     Microsoft.WindowsDesktop.App), including their native redistributables. This script:
 
       * asks MSBuild which runtime packs (id, version, folder) the build used for the runtime
-        identifier, so the notices always match the shipped version;
+        identifier, and checks them against the runtimeconfig.json of the published build, so the
+        notices always match the shipped version;
       * copies each pack's own LICENSE / THIRD-PARTY-NOTICES files unchanged into <Output>\licenses;
-      * the Windows Desktop runtime pack ships only its LICENSE: the third-party notices of WPF are
-        taken from the dotnet/wpf repository at the tag of the same version (v<version>);
+      * the Windows Desktop runtime pack ships only its LICENSE: the third-party notices of
+        dotnet/wpf and dotnet/winforms (the pack also contains assemblies built from winforms) are
+        downloaded at the tag of the same version (v<version>) and must match the SHA-256 reviewed
+        and recorded in $knownNotices;
       * writes <Output>\THIRD-PARTY-NOTICES.txt with the components, versions, licenses (from the
         pack nuspec), the native files of each pack and the copied files.
 
-    The script fails if a pack, a LICENSE file or the WPF notices cannot be found, so a release
-    is never built without them. Works on Windows PowerShell 5.1 and PowerShell 7.
+    The script fails if a pack, a LICENSE or THIRD-PARTY-NOTICES file, or a reviewed hash is missing,
+    or if a version or hash does not match, so a release is never built without them. When the
+    runner's .NET SDK moves to a new runtime patch, add the new $knownNotices entries after reviewing
+    the notices files. Works on Windows PowerShell 5.1 and PowerShell 7.
 
 .EXAMPLE
     pwsh ./scripts/Write-ThirdPartyNotices.ps1 -Project src/BrowserFlip.App/BrowserFlip.App.csproj `
