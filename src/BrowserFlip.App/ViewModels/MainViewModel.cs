@@ -145,6 +145,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _ => Loc.Instance.Format("Current_Mismatch", NameOf(_state.HttpBrowser, _state.Http), NameOf(_state.HttpsBrowser, _state.Https)),
     };
 
+    /// <summary>
+    /// Short name of the current default browser (https, else http), or "not set". The full sentence, including a
+    /// mismatch between http and https, is <see cref="CurrentDefaultText"/>.
+    /// </summary>
+    public string CurrentDefaultName => _state.Status == DefaultStatus.None
+        ? Loc.Instance["Current_NotSet"]
+        : NameOf(_state.HttpsBrowser ?? _state.HttpBrowser, _state.Https ?? _state.Http);
+
+    /// <summary>The card of the browser that is the default for both http and https, or null (v0.3 views).</summary>
+    public BrowserCardViewModel? DefaultCard => Browsers.FirstOrDefault(c => c.IsDefault);
+
+    public bool HasDefaultCard => DefaultCard is not null;
+
     public bool HasNoBrowsers => Browsers.Count == 0;
 
     public bool IsAssociationsManaged => _policyStatus.AssociationsManaged;
@@ -357,6 +370,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(State));
         OnPropertyChanged(nameof(IsMismatch));
         OnPropertyChanged(nameof(CurrentDefaultText));
+        OnPropertyChanged(nameof(CurrentDefaultName));
+        OnPropertyChanged(nameof(DefaultCard));
+        OnPropertyChanged(nameof(HasDefaultCard));
     }
 
     private void OnLanguageChanged(object? sender, PropertyChangedEventArgs e)
@@ -372,6 +388,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(CurrentDefaultText));
+        OnPropertyChanged(nameof(CurrentDefaultName));
         OnPropertyChanged(nameof(MessageText));
         OnPropertyChanged(nameof(GuidanceText));
     }

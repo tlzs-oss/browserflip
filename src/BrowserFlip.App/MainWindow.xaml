@@ -4,6 +4,7 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
         xmlns:ctl="clr-namespace:BrowserFlip.App.Controls"
+        xmlns:svc="clr-namespace:BrowserFlip.App.Services"
         Title="BrowserFlip"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
         Width="520" SizeToContent="Height" MinWidth="460" MinHeight="260"
@@ -38,6 +39,45 @@
             <Setter Property="Margin" Value="6,0,0,0" />
         </Style>
     </Window.Resources>
+
+    <!-- v0.3: menu bar + one host per view. The Classic view below is the v0.2 window content, unchanged. -->
+    <DockPanel x:Name="RootDock">
+        <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="6,3,6,0" Padding="0" MinHeight="0" Background="Transparent"
+              DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}">
+            <MenuItem x:Name="FileMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_File], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="RefreshMenuItem" Header="{Binding [MenuBar_RefreshBrowsers], Source={x:Static loc:Loc.Instance}}" InputGestureText="F5"
+                          Command="{Binding DataContext.RefreshCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                <Separator />
+                <MenuItem x:Name="ExitMenuItem" Header="{Binding [MenuBar_Exit], Source={x:Static loc:Loc.Instance}}" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem x:Name="ViewMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_View], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="ClassicViewMenuItem" Header="{Binding [View_Classic], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsClassicView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Classic}" />
+                <MenuItem x:Name="ListViewMenuItem" Header="{Binding [View_List], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsListView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.List}" />
+                <MenuItem x:Name="CardViewMenuItem" Header="{Binding [View_Card], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCardView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Card}" />
+                <MenuItem x:Name="CompactViewMenuItem" Header="{Binding [View_Compact], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCompactView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Compact}" />
+                <MenuItem x:Name="PanelViewMenuItem" Header="{Binding [View_Panel], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsPanelView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Panel}" />
+                <Separator />
+                <MenuItem x:Name="ToolbarMenuItem" Header="{Binding [MenuBar_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Command="{Binding EnterCompactCommand}" />
+                <MenuItem x:Name="TrayModeMenuItem" Header="{Binding [MenuBar_TrayMode], Source={x:Static loc:Loc.Instance}}" Command="{Binding TrayModeCommand}" />
+            </MenuItem>
+            <MenuItem x:Name="SettingsMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_Settings], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="PreferencesMenuItem" Header="{Binding [MenuBar_Preferences], Source={x:Static loc:Loc.Instance}}"
+                          Command="{Binding OpenSettingsCommand}" CommandParameter="{x:Static vm:SettingsPage.General}" />
+                <MenuItem x:Name="ToolbarSettingsMenuItem" Header="{Binding [MenuBar_ToolbarSettings], Source={x:Static loc:Loc.Instance}}"
+                          Command="{Binding OpenSettingsCommand}" CommandParameter="{x:Static vm:SettingsPage.FloatingToolbar}" />
+            </MenuItem>
+            <MenuItem x:Name="HelpMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_Help], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="AboutMenuItem" Header="{Binding [MenuBar_About], Source={x:Static loc:Loc.Instance}}" Command="{Binding OpenAboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <!-- List / Card / Compact / Panel (created on first use, then reused). -->
+        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed" />
 
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
         <StackPanel Margin="16,12,16,12">
@@ -305,4 +345,5 @@
             </DockPanel>
         </StackPanel>
     </ScrollViewer>
+    </DockPanel>
 </Window>

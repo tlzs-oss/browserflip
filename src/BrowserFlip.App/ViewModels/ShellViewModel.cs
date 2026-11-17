@@ -6,6 +6,16 @@ using BrowserFlip.App.Services;
 
 namespace BrowserFlip.App.ViewModels;
 
+/// <summary>Pages of the Settings window.</summary>
+public enum SettingsPage
+{
+    General,
+    Appearance,
+    FloatingToolbar,
+    Startup,
+    Advanced,
+}
+
 /// <summary>A localized choice for a combo box.</summary>
 public sealed class Choice<T>(T value, string resourceKey) : ObservableObject
 {
@@ -47,6 +57,14 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
             new(BarOrientation.Horizontal, "Orientation_Horizontal"),
             new(BarOrientation.Vertical, "Orientation_Vertical"),
         ];
+        Views =
+        [
+            new(MainView.Classic, "View_Classic_Name"),
+            new(MainView.List, "View_List_Name"),
+            new(MainView.Card, "View_Card_Name"),
+            new(MainView.Compact, "View_Compact_Name"),
+            new(MainView.Panel, "View_Panel_Name"),
+        ];
 
         ToggleTopmostCommand = new RelayCommand(_ => IsTopmost = !IsTopmost);
         EnterCompactCommand = new RelayCommand(_ =>
@@ -74,6 +92,16 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
             ShowMainRequested?.Invoke(this, EventArgs.Empty);
         });
         ExitCommand = new RelayCommand(_ => ExitRequested?.Invoke(this, EventArgs.Empty));
+        SetViewCommand = new RelayCommand(p =>
+        {
+            if (ParseView(p) is { } view)
+            {
+                CurrentView = view;
+            }
+        });
+        OpenSettingsCommand = new RelayCommand(p => SettingsRequested?.Invoke(this, ParseSettingsPage(p)));
+        OpenAboutCommand = new RelayCommand(_ => AboutRequested?.Invoke(this, EventArgs.Empty));
+        TrayModeCommand = new RelayCommand(_ => TrayModeRequested?.Invoke(this, EventArgs.Empty));
 
         Loc.Instance.PropertyChanged += OnLanguageChanged;
     }
@@ -87,6 +115,15 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     /// <summary>The application should exit (explicit "Exit").</summary>
     public event EventHandler? ExitRequested;
 
+    /// <summary>The Settings window should be shown (one window shared by every view, the tray and the toolbar).</summary>
+    public event EventHandler<SettingsPage>? SettingsRequested;
+
+    /// <summary>The About window should be shown.</summary>
+    public event EventHandler? AboutRequested;
+
+    /// <summary>Tray mode: hide every window to the notification area (the same as X on the main window).</summary>
+    public event EventHandler? TrayModeRequested;
+
     public UserSettings Settings => _settings;
 
     public IReadOnlyList<Choice<ThemePreference>> Themes { get; }
@@ -94,6 +131,49 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public IReadOnlyList<Choice<BarSize>> BarSizes { get; }
 
     public IReadOnlyList<Choice<BarOrientation>> Orientations { get; }
+
+    public IReadOnlyList<Choice<MainView>> Views { get; }
+
+    /// <summary>Switches the main window view (parameter: a <see cref="MainView"/> or its name).</summary>
+    public ICommand SetViewCommand { get; }
+
+    /// <summary>Opens the Settings window (parameter: optional <see cref="SettingsPage"/> or its name).</summary>
+    public ICommand OpenSettingsCommand { get; }
+
+    public ICommand OpenAboutCommand { get; }
+
+    public ICommand TrayModeCommand { get; }
+
+    /// <summary>Main window layout; every change is saved and applied at once (no restart).</summary>
+    public MainView CurrentView
+    {
+        get => _settings.PreferredView;
+        set => Update(_settings.PreferredView, Enum.IsDefined(value) ? value : MainView.Classic, v => _settings.PreferredView = v,
+            nameof(CurrentView), nameof(SelectedView), nameof(IsClassicView), nameof(IsListView), nameof(IsCardView),
+            nameof(IsCompactView), nameof(IsPanelView));
+    }
+
+    public Choice<MainView> SelectedView
+    {
+        get => Views.First(c => c.Value == CurrentView);
+        set
+        {
+            if (value is not null)
+            {
+                CurrentView = value.Value;
+            }
+        }
+    }
+
+    public bool IsClassicView => CurrentView == MainView.Classic;
+
+    public bool IsListView => CurrentView == MainView.List;
+
+    public bool IsCardView => CurrentView == MainView.Card;
+
+    public bool IsCompactView => CurrentView == MainView.Compact;
+
+    public bool IsPanelView => CurrentView == MainView.Panel;
 
     public ICommand ToggleTopmostCommand { get; }
 
@@ -288,5 +368,24 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
         {
             c.Relocalize();
         }
+
+        foreach (var c in Views)
+        {
+            c.Relocalize();
+        }
     }
+
+    private static MainView? ParseView(object? parameter) => parameter switch
+    {
+        MainView v when Enum.IsDefined(v) => v,
+        string s when !int.TryParse(s, out _) && Enum.TryParse<MainView>(s, ignoreCase: true, out var v) && Enum.IsDefined(v) => v,
+        _ => null,
+    };
+
+    private static SettingsPage ParseSettingsPage(object? parameter) => parameter switch
+    {
+        SettingsPage p when Enum.IsDefined(p) => p,
+        string s when !int.TryParse(s, out _) && Enum.TryParse<SettingsPage>(s, ignoreCase: true, out var p) && Enum.IsDefined(p) => p,
+        _ => SettingsPage.General,
+    };
 }

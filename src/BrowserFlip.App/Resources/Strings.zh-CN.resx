@@ -110,7 +110,7 @@
     <value>取消置顶</value>
   </data>
   <data name="Compact_Tooltip" xml:space="preserve">
-    <value>切换到紧凑工具栏</value>
+    <value>切换到悬浮工具栏</value>
   </data>
   <data name="Normal_Tooltip" xml:space="preserve">
     <value>返回普通窗口</value>
@@ -176,12 +176,186 @@
     <value>点击打开“默认应用”，然后在其中选择</value>
   </data>
   <data name="Menu_ShowToolbar" xml:space="preserve">
-    <value>显示紧凑工具栏</value>
+    <value>显示悬浮工具栏</value>
   </data>
   <data name="Options_FloatingOrientationHint" xml:space="preserve">
-    <value>紧凑工具栏未停靠时使用的方向。将工具栏拖到屏幕边缘即可停靠：停靠在上下边缘时自动为横向，停靠在左右边缘时自动为纵向。</value>
+    <value>悬浮工具栏未停靠时使用的方向。将工具栏拖到屏幕边缘即可停靠：停靠在上下边缘时自动为横向，停靠在左右边缘时自动为纵向。</value>
   </data>
   <data name="Menu_Show" xml:space="preserve">
     <value>显示 BrowserFlip</value>
+  </data>
+  <data name="MenuBar_File" xml:space="preserve">
+    <value>文件(_F)</value>
+  </data>
+  <data name="MenuBar_RefreshBrowsers" xml:space="preserve">
+    <value>刷新浏览器列表(_R)</value>
+  </data>
+  <data name="MenuBar_Exit" xml:space="preserve">
+    <value>退出(_X)</value>
+  </data>
+  <data name="MenuBar_View" xml:space="preserve">
+    <value>视图(_V)</value>
+  </data>
+  <data name="View_Classic" xml:space="preserve">
+    <value>经典视图(_C)</value>
+  </data>
+  <data name="View_List" xml:space="preserve">
+    <value>列表视图(_L)</value>
+  </data>
+  <data name="View_Card" xml:space="preserve">
+    <value>卡片视图(_A)</value>
+  </data>
+  <data name="View_Compact" xml:space="preserve">
+    <value>紧凑视图(_M)</value>
+  </data>
+  <data name="View_Panel" xml:space="preserve">
+    <value>面板视图(_P)</value>
+  </data>
+  <data name="View_Classic_Name" xml:space="preserve">
+    <value>经典视图</value>
+  </data>
+  <data name="View_List_Name" xml:space="preserve">
+    <value>列表视图</value>
+  </data>
+  <data name="View_Card_Name" xml:space="preserve">
+    <value>卡片视图</value>
+  </data>
+  <data name="View_Compact_Name" xml:space="preserve">
+    <value>紧凑视图</value>
+  </data>
+  <data name="View_Panel_Name" xml:space="preserve">
+    <value>面板视图</value>
+  </data>
+  <data name="MenuBar_FloatingToolbar" xml:space="preserve">
+    <value>显示悬浮工具栏(_F)</value>
+  </data>
+  <data name="MenuBar_TrayMode" xml:space="preserve">
+    <value>托盘模式（隐藏到通知区域）(_T)</value>
+  </data>
+  <data name="MenuBar_Settings" xml:space="preserve">
+    <value>设置(_S)</value>
+  </data>
+  <data name="MenuBar_Preferences" xml:space="preserve">
+    <value>首选项(_P)…</value>
+  </data>
+  <data name="MenuBar_ToolbarSettings" xml:space="preserve">
+    <value>悬浮工具栏设置(_F)…</value>
+  </data>
+  <data name="MenuBar_Help" xml:space="preserve">
+    <value>帮助(_H)</value>
+  </data>
+  <data name="MenuBar_About" xml:space="preserve">
+    <value>关于 BrowserFlip(_A)</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>BrowserFlip 设置</value>
+  </data>
+  <data name="Settings_General" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>外观</value>
+  </data>
+  <data name="Settings_FloatingToolbar" xml:space="preserve">
+    <value>悬浮工具栏</value>
+  </data>
+  <data name="Settings_Startup" xml:space="preserve">
+    <value>启动</value>
+  </data>
+  <data name="Settings_Advanced" xml:space="preserve">
+    <value>高级</value>
+  </data>
+  <data name="Settings_View" xml:space="preserve">
+    <value>主窗口视图</value>
+  </data>
+  <data name="Settings_LiveHint" xml:space="preserve">
+    <value>更改会立即生效。点击“取消”可撤销在此窗口中所做的更改。</value>
+  </data>
+  <data name="Settings_Close" xml:space="preserve">
+    <value>关闭</value>
+  </data>
+  <data name="Settings_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Settings_ToolbarDock" xml:space="preserve">
+    <value>将悬浮工具栏拖到屏幕边缘即可停靠。停靠后工具栏会隐藏在边缘，鼠标靠近时重新出现。</value>
+  </data>
+  <data name="Action_ShowToolbar" xml:space="preserve">
+    <value>显示悬浮工具栏</value>
+  </data>
+  <data name="Settings_StartupLast" xml:space="preserve">
+    <value>BrowserFlip 启动时会恢复上次使用的窗口（主窗口或悬浮工具栏）和视图。</value>
+  </data>
+  <data name="Settings_StartupSingle" xml:space="preserve">
+    <value>同一时间只运行一个 BrowserFlip：再次启动会把正在运行的窗口显示到前面。</value>
+  </data>
+  <data name="Settings_StartupNoAutostart" xml:space="preserve">
+    <value>此版本不支持随 Windows 自动启动。</value>
+  </data>
+  <data name="Settings_SettingsFile" xml:space="preserve">
+    <value>设置文件</value>
+  </data>
+  <data name="Settings_InMemory" xml:space="preserve">
+    <value>（不保存）</value>
+  </data>
+  <data name="About_Title" xml:space="preserve">
+    <value>关于 BrowserFlip</value>
+  </data>
+  <data name="About_VersionLabel" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="About_License" xml:space="preserve">
+    <value>基于 MIT 许可证发布。</value>
+  </data>
+  <data name="About_Website" xml:space="preserve">
+    <value>GitHub 项目主页</value>
+  </data>
+  <data name="About_ThirdParty" xml:space="preserve">
+    <value>发布包包含 .NET 运行时，详见 THIRD-PARTY-NOTICES.txt。</value>
+  </data>
+  <data name="Dialog_OK" xml:space="preserve">
+    <value>确定</value>
+  </data>
+  <data name="Nav_Home" xml:space="preserve">
+    <value>主页</value>
+  </data>
+  <data name="Nav_Browsers" xml:space="preserve">
+    <value>浏览器</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="Nav_About" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="Nav_Label" xml:space="preserve">
+    <value>导航</value>
+  </data>
+  <data name="Panel_SettingsHint" xml:space="preserve">
+    <value>设置在独立窗口中打开，所有视图、通知区域图标和悬浮工具栏共用同一个窗口。</value>
+  </data>
+  <data name="Panel_OpenSettings" xml:space="preserve">
+    <value>打开设置</value>
+  </data>
+  <data name="Home_Current" xml:space="preserve">
+    <value>当前默认浏览器</value>
+  </data>
+  <data name="Home_QuickSwitch" xml:space="preserve">
+    <value>切换到</value>
+  </data>
+  <data name="Home_Actions" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="List_SetDefault" xml:space="preserve">
+    <value>设为默认</value>
+  </data>
+  <data name="Tray_Current" xml:space="preserve">
+    <value>默认：{0}</value>
+  </data>
+  <data name="Tray_Switch" xml:space="preserve">
+    <value>切换默认浏览器</value>
+  </data>
+  <data name="Tray_NoBrowsers" xml:space="preserve">
+    <value>未找到浏览器</value>
   </data>
 </root>

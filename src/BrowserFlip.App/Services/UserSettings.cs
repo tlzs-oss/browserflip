@@ -20,6 +20,22 @@ public enum WindowMode
     Compact,
 }
 
+/// <summary>
+/// Layout of the main window (v0.3 multi-view). Classic is the v0.2 window and the default for new users and for
+/// settings files written before v0.3.
+/// </summary>
+public enum MainView
+{
+    Classic,
+    List,
+    Card,
+    Compact,
+    Panel,
+}
+
+/// <summary>A main-window size in DIP, remembered per view.</summary>
+public readonly record struct ViewSize(double Width, double Height);
+
 /// <summary>Size of the compact bar.</summary>
 public enum BarSize
 {
@@ -90,6 +106,17 @@ public sealed class UserSettings
     /// <summary>Floating compact bar position in physical pixels, or null.</summary>
     public PixelRect? CompactBounds { get; set; }
 
+    /// <summary>
+    /// Main window layout (v0.3). Saved whenever the user switches; a missing or unknown value falls back to Classic.
+    /// </summary>
+    public MainView PreferredView { get; set; } = MainView.Classic;
+
+    /// <summary>
+    /// Main window size (DIP) per non-classic view. The position is shared by every view (<see cref="MainBounds"/>);
+    /// the classic view keeps its own v0.2 size rules in <see cref="MainBounds"/>.
+    /// </summary>
+    public Dictionary<MainView, ViewSize> ViewSizes { get; } = [];
+
     /// <summary>Creates in-memory settings that are never written to disk.</summary>
     public static UserSettings InMemory() => new();
 
@@ -149,6 +176,8 @@ public sealed class UserSettings
         [nameof(MainScale)] = MainScale,
         [nameof(MainWidthByUser)] = MainWidthByUser,
         [nameof(CompactBounds)] = RectToJson(CompactBounds),
+        [nameof(PreferredView)] = PreferredView.ToString(),
+        [nameof(ViewSizes)] = ViewSizesToJson(),
     };
 
     internal void Apply(JsonObject json)
@@ -167,7 +196,35 @@ public sealed class UserSettings
         MainScale = Num(json, nameof(MainScale)) is { } sc && double.IsFinite(sc) && sc is >= 0.5 and <= 5 ? sc : 1.0;
         CompactBounds = RectFromJson(json[nameof(CompactBounds)]);
         MainWidthByUser = json[nameof(MainWidthByUser)] is JsonValue w && w.TryGetValue<bool>(out var byUser) ? byUser : null;
+        PreferredView = EnumOr(json, nameof(PreferredView), MainView.Classic);
+        ViewSizes.Clear();
+        if (json[nameof(ViewSizes)] is JsonObject sizes)
+        {
+            foreach (var (name, node) in sizes)
+            {
+                if (!int.TryParse(name, out _) && Enum.TryParse<MainView>(name, ignoreCase: true, out var view) && Enum.IsDefined(view)
+                    && view != MainView.Classic && node is JsonObject size
+                    && Num(size, "Width") is { } width && Num(size, "Height") is { } height
+                    && IsSaneLength(width) && IsSaneLength(height))
+                {
+                    ViewSizes[view] = new ViewSize(width, height);
+                }
+            }
+        }
     }
+
+    private JsonObject ViewSizesToJson()
+    {
+        var json = new JsonObject();
+        foreach (var (view, size) in ViewSizes.OrderBy(p => p.Key))
+        {
+            json[view.ToString()] = new JsonObject { ["Width"] = Math.Round(size.Width, 1), ["Height"] = Math.Round(size.Height, 1) };
+        }
+
+        return json;
+    }
+
+    private static bool IsSaneLength(double dip) => double.IsFinite(dip) && dip is >= 100 and <= 20_000;
 
     private static string? Str(JsonObject json, string name)
         => json[name] is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
