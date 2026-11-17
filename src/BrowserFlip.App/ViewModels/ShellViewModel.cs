@@ -106,6 +106,10 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
             {
                 CurrentView = view;
             }
+
+            // A checkable menu item toggles its own check mark when clicked (also when its view is already shown):
+            // re-announce the view flags so every check mark shows the real view again.
+            RaiseViewFlags();
         });
         OpenSettingsCommand = new RelayCommand(p => SettingsRequested?.Invoke(this, ParseSettingsPage(p)));
         OpenAboutCommand = new RelayCommand(_ => AboutRequested?.Invoke(this, EventArgs.Empty));
@@ -182,6 +186,15 @@ public sealed class ShellViewModel : ObservableObject, IDisposable
     public bool IsCompactView => CurrentView == MainView.Compact;
 
     public bool IsPanelView => CurrentView == MainView.Panel;
+
+    private void RaiseViewFlags()
+    {
+        OnPropertyChanged(nameof(IsClassicView));
+        OnPropertyChanged(nameof(IsListView));
+        OnPropertyChanged(nameof(IsCardView));
+        OnPropertyChanged(nameof(IsCompactView));
+        OnPropertyChanged(nameof(IsPanelView));
+    }
 
     public ICommand ToggleTopmostCommand { get; }
 

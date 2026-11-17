@@ -232,11 +232,26 @@ public sealed class MultiViewTests
                     }, window.CurrentPage?.GetType());
                     AssertMenuChecks(window, view);
                     Assert.Equal(MainWindow.LayoutFor(view).HeightFollowsContent ? SizeToContent.Height : SizeToContent.Manual, window.SizeToContent);
+                    if (window.CurrentPage is { } page)
+                    {
+                        // The page fills the window width (not docked at its own desired width).
+                        var area = (FrameworkElement)window.FindName("ViewArea");
+                        Assert.True(area.ActualWidth > 100, "view area laid out");
+                        Assert.Equal(area.ActualWidth, page.ActualWidth, 1);
+                    }
                 }
             }
 
             Assert.Equal(4, window.CreatedPages); // each view created once, never again (no repeated setup)
-            Assert.Equal(15, h.Coordinator.ViewSwitches);
+
+            // Clicking the view that is already shown: the checkable item unchecks itself, the command puts it back.
+            var classic = (MenuItem)window.FindName("ClassicViewMenuItem");
+            Assert.True(classic.IsCheckable);
+            classic.SetCurrentValue(MenuItem.IsCheckedProperty, false);
+            classic.Command.Execute(classic.CommandParameter);
+            Harness.Pump();
+            AssertMenuChecks(window, MainView.Classic);
+            Assert.Equal(15, h.Coordinator.ViewSwitches); // the repeated Classic click above switched nothing
             Assert.False(h.Shell.IsCompact); // a view switch never changes the surface (main window / toolbar)
         });
     }

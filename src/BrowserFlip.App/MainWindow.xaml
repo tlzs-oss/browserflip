@@ -51,15 +51,15 @@
                 <MenuItem x:Name="ExitMenuItem" Header="{Binding [MenuBar_Exit], Source={x:Static loc:Loc.Instance}}" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem x:Name="ViewMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_View], Source={x:Static loc:Loc.Instance}}">
-                <MenuItem x:Name="ClassicViewMenuItem" Header="{Binding [View_Classic], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsClassicView, Mode=OneWay}"
+                <MenuItem x:Name="ClassicViewMenuItem" IsCheckable="True" Header="{Binding [View_Classic], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsClassicView, Mode=OneWay}"
                           Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Classic}" />
-                <MenuItem x:Name="ListViewMenuItem" Header="{Binding [View_List], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsListView, Mode=OneWay}"
+                <MenuItem x:Name="ListViewMenuItem" IsCheckable="True" Header="{Binding [View_List], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsListView, Mode=OneWay}"
                           Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.List}" />
-                <MenuItem x:Name="CardViewMenuItem" Header="{Binding [View_Card], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCardView, Mode=OneWay}"
+                <MenuItem x:Name="CardViewMenuItem" IsCheckable="True" Header="{Binding [View_Card], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCardView, Mode=OneWay}"
                           Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Card}" />
-                <MenuItem x:Name="CompactViewMenuItem" Header="{Binding [View_Compact], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCompactView, Mode=OneWay}"
+                <MenuItem x:Name="CompactViewMenuItem" IsCheckable="True" Header="{Binding [View_Compact], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCompactView, Mode=OneWay}"
                           Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Compact}" />
-                <MenuItem x:Name="PanelViewMenuItem" Header="{Binding [View_Panel], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsPanelView, Mode=OneWay}"
+                <MenuItem x:Name="PanelViewMenuItem" IsCheckable="True" Header="{Binding [View_Panel], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsPanelView, Mode=OneWay}"
                           Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Panel}" />
                 <Separator />
                 <MenuItem x:Name="ToolbarMenuItem" Header="{Binding [MenuBar_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Command="{Binding EnterCompactCommand}" />
@@ -76,8 +76,12 @@
             </MenuItem>
         </Menu>
 
+        <!-- One cell for both hosts: the DockPanel fills only its last child, so the view host must share it with the
+             Classic content (otherwise a new view would be docked at its desired width, not the window width). -->
+        <Grid x:Name="ViewArea">
         <!-- List / Card / Compact / Panel (created on first use, then reused). -->
-        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed" />
+        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
         <StackPanel Margin="16,12,16,12">
@@ -345,5 +349,6 @@
             </DockPanel>
         </StackPanel>
     </ScrollViewer>
+        </Grid>
     </DockPanel>
 </Window>
