@@ -6,16 +6,14 @@
 
 ## [Unreleased]
 
-### 追加
-
-- プロジェクトのドキュメント(README 英語 / 日本語 / 簡体字中国語、アーキテクチャ、要件、テスト方針、コントリビューション ガイド、セキュリティ ポリシー)と Issue / PR テンプレート。
-
 ## [0.2.0] - 2026-11-17
 
 デスクトップでの操作性を強化するリリースです。v0.1 のブラウザー検出・既定ブラウザーの取得・Windows 設定への遷移は変更していません。設計は [docs/desktop-design.ja.md](docs/desktop-design.ja.md)、操作方法は [docs/user-guide.ja.md](docs/user-guide.ja.md) を参照してください。
 
 ### 追加
 
+- **リリース パッケージ**: 各 zip に `BrowserFlip.exe` に加えて `LICENSE.txt`(BrowserFlip、MIT)、`THIRD-PARTY-NOTICES.txt` と `licenses/`(同梱している .NET ランタイム / Windows Desktop ランタイム(WPF)のライセンスと第三者表示)を同梱。チェックサムは `SHA256SUMS.txt`。タグのビルドには Sigstore によるビルド来歴の証明を付け、`gh attestation verify` で確認できる(コード署名ではない)。
+- プロジェクトのドキュメント(README 英語 / 日本語 / 簡体字中国語、アーキテクチャ、要件、テスト方針、コントリビューション ガイド、セキュリティ ポリシー)と Issue / PR テンプレート。
 - **専用アプリアイコン (V2-01)**: 地球と 2 本の循環矢印によるオリジナル図案(既存ブラウザーのロゴに似せない)。SVG マスター、PNG 16〜512 px、多解像度 ICO(16 / 20 / 24 / 32 / 40 / 48 / 64 / 256 px)と生成スクリプト。EXE・ウィンドウ・タスクバー・通知領域に適用。コードと同じ MIT ライセンス。
 - **常に手前に表示 (V2-02)**: 通常画面とコンパクトバーのピン ボタン(OFF = 斜めの灰色のピン、ON = 青い背景に白い直立したピン)、メニューから切り替え。通常画面にもコンパクトバー(ドッキング中を含む)にも同じように適用。全画面アプリ / プレゼンテーション実行中(`SHQueryUserNotificationState`)は一時的に解除。
 - **コンパクトバー (V2-03)**: 横(高さ 44 / 52 DIP)/ 縦(幅 48 / 56 DIP)の小型ツールバー。既定ブラウザーの強調表示、ツールチップ、通常画面に戻る・表示オプション ボタン、ブラウザーが多い場合のスクロール、右クリック メニュー。
@@ -70,7 +68,7 @@
 - **既定の取得と変更監視 (F04)**: `AssocQueryStringW` による `http` / `https` の現在のハンドラー取得、変更結果の判定(`AppliedToTarget` / `PartiallyApplied` / `ChangedToOther` / `NoChange`)、不一致警告。
 - **エラー処理 (F05)**: アンインストール済みブラウザー、不完全な登録、設定を開けない場合、グループ ポリシー(`NoControlPanel`、`SettingsPageVisibility`、`DefaultAssociationsConfiguration`)、ユーザーのキャンセル。
 - xUnit による Core の単体テスト(フェイク レジストリ / 関連付け / ランチャー)。
-- CI: Windows ビルド、単体テスト、`dotnet format` チェック、CodeQL、依存関係レビューとライセンス許可リスト、シークレット スキャン、リリース成果物(win-x64 / win-arm64 の自己完結型シングルファイル zip と `SHA256SUMS`)の生成。
+- CI: Windows ビルド、単体テスト、`dotnet format` チェック、CodeQL、依存関係レビューとライセンス許可リスト、シークレット スキャン、リリース成果物(win-x64 / win-arm64 の自己完結型シングルファイル zip と `SHA256SUMS.txt`)の生成。
 
 ### セキュリティ
 

@@ -64,10 +64,10 @@ BrowserFlip はサポートされた方法だけを使います。
 
 ## インストール
 
-最新版(**v0.2.0**)をダウンロードしてください。自己完結型のシングルファイルで、.NET のインストールは不要です。
+最新版(**v0.2.0**)をダウンロードしてください。自己完結型のシングルファイルで(zip にはライセンスと第三者表示のファイルも入っています)、.NET のインストールは不要です。
 
 - [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip)(Windows 11、x64)
-- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11、Arm64)
+- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11、Arm64。ビルドのみ確認、実機では未検証)
 - [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) ・ [すべてのリリース](https://github.com/tlzs-oss/browserflip/releases/latest)
 
 zip を展開して `BrowserFlip.exe` を実行します。PowerShell でのハッシュ確認:

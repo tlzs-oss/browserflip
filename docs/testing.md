@@ -102,7 +102,7 @@ dotnet format BrowserFlip.slnx --verify-no-changes
 | CodeQL | C# の静的解析 |
 | Dependency review / license | 依存関係レビューと `scripts/license-check.ps1` によるライセンス許可リスト確認 |
 | Secret scan | TruffleHog |
-| Release artifacts | `win-x64` / `win-arm64` の自己完結型シングルファイル zip と `SHA256SUMS.txt` の生成(GitHub Release への公開はメンテナーが手動で行う) |
+| Release artifacts | `win-x64` / `win-arm64` の自己完結型シングルファイル zip(`LICENSE.txt`、`THIRD-PARTY-NOTICES.txt`、`licenses/` を同梱)と `SHA256SUMS.txt` の生成。タグと手動実行のビルドには Sigstore のビルド来歴の証明を付ける(PR のビルドでは付けない)。GitHub Release への公開はメンテナーが手動で行い、証明を確認できるよう、タグで作られた成果物をそのままアップロードする |
 
 ## 4. 実機受け入れテスト(手動)
 

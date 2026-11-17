@@ -64,10 +64,10 @@ BrowserFlip 只使用受支持的方式:
 
 ## 安装
 
-下载最新版本(**v0.2.0**)。自包含单文件应用,无需安装 .NET:
+下载最新版本(**v0.2.0**)。自包含单文件应用(zip 内另附许可证与第三方声明文件),无需安装 .NET:
 
 - [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip)(Windows 11,x64)
-- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11,Arm64)
+- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11,Arm64,仅完成构建,未在实机验证)
 - [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) · [所有版本](https://github.com/tlzs-oss/browserflip/releases/latest)
 
 解压后运行 `BrowserFlip.exe`。在 PowerShell 中校验:

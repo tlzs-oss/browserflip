@@ -64,10 +64,10 @@ See [docs/architecture.md](docs/architecture.md) for diagrams.
 
 ## Install
 
-Download the latest release (**v0.2.0**) — a self-contained single-file app, no .NET install needed:
+Download the latest release (**v0.2.0**) — a self-contained single-file app (each zip also contains the license and third-party notices), no .NET install needed:
 
 - [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip) (Windows 11, x64)
-- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip) (Windows 11, Arm64)
+- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip) (Windows 11, Arm64 — built but not tested on hardware)
 - [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) · [all releases](https://github.com/tlzs-oss/browserflip/releases/latest)
 
 Extract the zip and run `BrowserFlip.exe`. Verify a download in PowerShell:
