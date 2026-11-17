@@ -128,27 +128,28 @@
                             </DockPanel>
                         </Border>
                         <Border Style="{StaticResource SettingCard}">
-                            <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="OrientationBox"
-                                          ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
-                                          DisplayMemberPath="DisplayName"
-                                          AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-                                <StackPanel>
+                            <StackPanel>
+                                <DockPanel>
+                                    <ComboBox DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" x:Name="OrientationBox"
+                                              ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
+                                              DisplayMemberPath="DisplayName"
+                                              AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
                                     <TextBlock Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                                    <TextBlock Margin="0,4,12,0" Style="{StaticResource Note}" Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
-                                </StackPanel>
-                            </DockPanel>
+                                </DockPanel>
+                                <!-- The explanation spans the card (not squeezed beside the control). -->
+                                <TextBlock Margin="0,8,0,0" Style="{StaticResource Note}" Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
+                            </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingCard}">
-                            <DockPanel>
-                                <Button DockPanel.Dock="Right" Style="{StaticResource ToolbarButton}" VerticalAlignment="Center" Click="OnShowToolbar">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Note}" Text="{Binding [Settings_ToolbarDock], Source={x:Static loc:Loc.Instance}}" />
+                                <Button Margin="0,8,0,0" HorizontalAlignment="Left" Style="{StaticResource ToolbarButton}" Click="OnShowToolbar">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16" Text="&#xE73F;" VerticalAlignment="Center" Margin="0,0,8,0" />
                                         <TextBlock Text="{Binding [Action_ShowToolbar], Source={x:Static loc:Loc.Instance}}" />
                                     </StackPanel>
                                 </Button>
-                                <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Style="{StaticResource Note}" Text="{Binding [Settings_ToolbarDock], Source={x:Static loc:Loc.Instance}}" />
-                            </DockPanel>
+                            </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
