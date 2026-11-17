@@ -232,7 +232,9 @@ public sealed class MultiViewTests
                     }, window.CurrentPage?.GetType());
                     AssertMenuChecks(window, view);
                     var rules = MainWindow.LayoutFor(view);
-                    Assert.Equal(rules.HeightFollowsContent || rules.ContentHeightUntilResized ? SizeToContent.Height : SizeToContent.Manual, window.SizeToContent);
+                    var expected = rules.FreezeAfterFit ? SizeToContent.Manual // Panel: fitted once, then kept (no jumping pages)
+                        : rules.HeightFollowsContent || rules.ContentHeightUntilResized ? SizeToContent.Height : SizeToContent.Manual;
+                    Assert.Equal(expected, window.SizeToContent);
                     if (window.CurrentPage is { } page)
                     {
                         // The page fills the window width (not docked at its own desired width).
@@ -315,7 +317,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(680, window.Width, 1);
+            Assert.Equal(704, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
             Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
@@ -326,7 +328,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.List;
             Harness.Pump();
             Assert.Equal(new ViewSize(800, 0), h.Settings.ViewSizes[MainView.Card]);
-            Assert.Equal(440, window.Width, 1);
+            Assert.Equal(520, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent);
 
             // Card resized in height by the user (what WM_EXITSIZEMOVE records), then List: Card's size is kept.
@@ -372,8 +374,8 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(740 * 2.25), b.Left);
-                Assert.Equal(2292 - (int)Math.Round(500 * 2.25), b.Top);
+                Assert.Equal(3840 - (int)Math.Round(760 * 2.25), b.Left);
+                Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
             // Saved on a monitor that is gone: started in the Card view on the remaining monitor, fully inside.
@@ -762,8 +764,18 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(740, window.Width, 1);
-            Assert.Equal(500, window.Height, 1);
+            Assert.Equal(760, window.Width, 1);
+            // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
+            Assert.Equal(SizeToContent.Manual, window.SizeToContent);
+            Assert.False(window.ViewHeightByUser);
+            Assert.InRange(window.Height, MainWindow.LayoutFor(MainView.Panel).MinHeight, 620);
+            var fitted = window.Height;
+            foreach (var nav in new[] { "NavBrowsers", "NavSettings", "NavAbout", "NavHome" })
+            {
+                ((ListBoxItem)window.CurrentPage!.FindName(nav)).IsSelected = true;
+                Harness.Pump();
+                Assert.Equal(fitted, window.Height, 1); // the window does not jump between pages
+            }
             var page = window.CurrentPage!;
             var tiles = Descendants<Button>((DependencyObject)page.FindName("HomeTiles")).Where(b => b.CommandParameter is BrowserCardViewModel).ToList();
             Assert.Equal(3, tiles.Count);
@@ -926,6 +938,186 @@ public sealed class MultiViewTests
         var link = Descendants<Button>(page).First(b => b.Content is string s && s == L("OpenDefaultApps"));
         var bottom = link.TranslatePoint(new Point(0, link.ActualHeight), page).Y;
         Assert.True(bottom <= page.ActualHeight + 0.5, $"footer cut off ({bottom:N1} > {page.ActualHeight:N1})");
+    }
+
+    // ------------------------------------------------------------------ Phase 4 (Windows UI standards, drag handles)
+
+    [Fact]
+    public void Compact_view_has_a_visible_drag_handle_that_moves_the_window_and_never_switches_a_browser()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Compact), Primary);
+            Harness.Pump();
+            var page = h.Coordinator.MainWindow.CurrentPage!;
+            var grip = (DragGrip)page.FindName("MoveGrip");
+            Assert.True(grip.MovesWindow);
+            Assert.True(IsShown(grip));
+            Assert.True(grip.ActualWidth >= 32 - 0.5 && grip.ActualHeight >= 32 - 0.5, $"hit area {grip.ActualWidth:N1} x {grip.ActualHeight:N1}");
+            Assert.Equal(System.Windows.Input.Cursors.SizeAll, grip.Cursor);
+            Assert.Equal(L("Drag_Tooltip"), grip.ToolTip);
+
+            // The grip is beside the browser buttons, never on top of one.
+            var gripRight = grip.TranslatePoint(new Point(grip.ActualWidth, 0), page).X;
+            foreach (var b in Descendants<Button>(page).Where(b => b.CommandParameter is BrowserCardViewModel))
+            {
+                Assert.True(b.TranslatePoint(new Point(), page).X >= gripRight + 4, "browser button overlaps the grip");
+            }
+
+            // Pressing it starts the window move (native DragMove; replaced here) and nothing else.
+            Window? moved = null;
+            grip.DragMoveOverride = w => moved = w;
+            var press = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonDownEvent,
+            };
+            grip.RaiseEvent(press);
+            Assert.Same(h.Coordinator.MainWindow, moved);
+            Assert.True(press.Handled);
+            Assert.Equal(1, grip.MovesStarted);
+            Assert.False(h.Main.IsWaitingForChange); // no browser switch
+            Assert.Null(h.Main.Message);
+        });
+    }
+
+    [Fact]
+    public void Floating_toolbar_has_a_drag_handle_in_both_orientations_using_the_existing_bar_drag()
+    {
+        Run(() =>
+        {
+            foreach (var vertical in new[] { false, true })
+            {
+                var settings = Normal();
+                settings.Mode = WindowMode.Compact;
+                settings.DockEnabled = false;
+                settings.FloatingOrientation = vertical ? BarOrientation.Vertical : BarOrientation.Horizontal;
+                using var h = new Harness(settings, Primary);
+                Harness.Pump();
+                var bar = h.Coordinator.Bar;
+                var grip = (DragGrip)bar.FindName("BarGrip");
+                Assert.False(grip.MovesWindow); // the press bubbles to the bar's own DragMove (docking unchanged)
+                // (DragGrip is a UserControl, never a ButtonBase: the bar treats a press on it as a drag, not a click.)
+                Assert.Equal(vertical ? Dock.Top : Dock.Left, DockPanel.GetDock(grip));
+                Assert.Equal(vertical ? Orientation.Horizontal : Orientation.Vertical, grip.Orientation);
+                Assert.True(grip.ActualWidth >= 32 - 0.5 && grip.ActualHeight >= 32 - 0.5, $"hit area {grip.ActualWidth:N1} x {grip.ActualHeight:N1}");
+
+                // First in the bar, before the app button (separate from it).
+                var home = (FrameworkElement)bar.FindName("HomeButton");
+                var g = grip.TranslatePoint(new Point(), bar.BarPanel);
+                var b = home.TranslatePoint(new Point(), bar.BarPanel);
+                Assert.True(vertical ? g.Y + grip.ActualHeight <= b.Y + 0.5 : g.X + grip.ActualWidth <= b.X + 0.5);
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData("Light")]
+    [InlineData("Dark")]
+    public void Text_colours_meet_the_4_5_to_1_contrast_ratio(string theme)
+    {
+        var colors = new Dictionary<string, Color>();
+        Run(() =>
+        {
+            var dictionary = new ResourceDictionary { Source = new Uri($"pack://application:,,,/BrowserFlip;component/Themes/{theme}.xaml", UriKind.Absolute) };
+            foreach (var key in dictionary.Keys.OfType<string>())
+            {
+                if (dictionary[key] is SolidColorBrush brush)
+                {
+                    colors[key] = brush.Color;
+                }
+            }
+        });
+        Color C(string key) => colors[key];
+        static double Lum(Color c)
+        {
+            static double Ch(byte v)
+            {
+                var x = v / 255.0;
+                return x <= 0.03928 ? x / 12.92 : Math.Pow((x + 0.055) / 1.055, 2.4);
+            }
+
+            return (0.2126 * Ch(c.R)) + (0.7152 * Ch(c.G)) + (0.0722 * Ch(c.B));
+        }
+
+        double Ratio(string fg, string bg)
+        {
+            var (a, b) = (Lum(C(fg)), Lum(C(bg)));
+            return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+        }
+
+        var pairs = new (string Fg, string Bg)[]
+        {
+            ("BfPrimaryTextBrush", "BfWindowBackgroundBrush"), ("BfPrimaryTextBrush", "BfCardBackgroundBrush"),
+            ("BfSecondaryTextBrush", "BfWindowBackgroundBrush"), ("BfSecondaryTextBrush", "BfCardBackgroundBrush"),
+            ("BfSecondaryTextBrush", "BfCardHoverBrush"), ("BfSecondaryTextBrush", "BfInfoBackgroundBrush"),
+            ("BfAccentBrush", "BfCardBackgroundBrush"), ("BfAccentBrush", "BfWindowBackgroundBrush"), ("BfAccentBrush", "BfInfoBackgroundBrush"),
+            ("BfAccentForegroundBrush", "BfAccentBrush"), ("BfPrimaryTextBrush", "BfInfoBackgroundBrush"),
+            ("BfPrimaryTextBrush", "BfWarningBackgroundBrush"), ("BfPrimaryTextBrush", "BfErrorBackgroundBrush"),
+            ("BfPrimaryTextBrush", "BfSuccessBackgroundBrush"), ("BfWarningForegroundBrush", "BfWindowBackgroundBrush"),
+        };
+        Assert.All(pairs, p => Assert.True(Ratio(p.Fg, p.Bg) >= 4.5, $"{theme}: {p.Fg} on {p.Bg} = {Ratio(p.Fg, p.Bg):N2}"));
+    }
+
+    [Fact]
+    public void Settings_window_is_as_tall_as_its_tallest_page_and_every_page_fits()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(), Primary);
+            h.Coordinator.OpenSettings(SettingsPage.General);
+            Harness.Pump();
+            var w = h.Coordinator.SettingsWindow!;
+            Assert.Equal(640, w.Width, 1);
+            Assert.True(w.PagesMinHeight > 100);
+            Assert.InRange(w.ActualHeight, 300, 520); // compact: no oversized empty page, no 600 x 420 fixed box
+            var pages = (TabControl)w.FindName("Pages");
+            for (var i = 0; i < pages.Items.Count; i++)
+            {
+                pages.SelectedIndex = i;
+                Harness.Pump();
+                var viewer = (ScrollViewer)pages.SelectedContent;
+                Assert.True(viewer.ScrollableHeight < 1, $"page {i} scrolls at the default size ({viewer.ScrollableHeight:N1})");
+                Assert.Equal(w.ActualHeight, w.ActualHeight, 1);
+            }
+
+            var close = (Button)w.FindName("CloseButton");
+            Assert.True(IsShown(close) && close.ActualHeight >= 32 - 0.5, "footer buttons visible, 32 epx");
+            Assert.True(((TextBlock)w.FindName("FooterHint")).ActualHeight <= 40, "footer explanation is short (at most two lines)");
+            w.Close();
+        });
+    }
+
+    [Theory]
+    [InlineData(1366, 728, 1.0)]  // 100 %, small laptop
+    [InlineData(1920, 1032, 1.25)] // 125 %
+    [InlineData(2560, 1392, 1.5)]  // 150 %
+    [InlineData(3840, 2112, 2.0)]  // 200 %
+    [InlineData(3840, 2292, 2.25)] // 225 %
+    public void Simulated_dpi_every_view_starts_inside_the_work_area(int workWidth, int workHeight, double scale)
+    {
+        // SIMULATED: a fake monitor with this work area and scale drives the placement logic (sizes in DIP, positions in
+        // physical pixels). The WPF rendering itself runs at the test machine's real DPI. Not a real-display test.
+        Run(() =>
+        {
+            var monitor = new MonitorInfo(@"\\.\SIM", new PixelRect(0, 0, workWidth, workHeight + 48), new PixelRect(0, 0, workWidth, workHeight), scale, true);
+            foreach (var view in AllViews)
+            {
+                var settings = Normal(view);
+                settings.MainBounds = PixelRect.FromSize(workWidth - 50, workHeight - 50, 1000, 600); // saved near the corner
+                settings.MainScale = scale;
+                using var h = new Harness(settings, monitor);
+                Harness.Pump();
+                var window = h.Coordinator.MainWindow;
+                var b = h.Placement.GetBounds(h.MainHandle);
+                var widthPx = (int)Math.Round(window.Width * scale);
+                Assert.True(window.Width <= (workWidth / scale) + 0.5, $"{view} @ {scale:P0}: {window.Width:N0} DIP wider than the work area");
+                if (view != MainView.Classic)
+                {
+                    Assert.True(b.Left >= 0 && b.Left + widthPx <= workWidth + 1, $"{view} @ {scale:P0}: left {b.Left}, width {widthPx}px");
+                    Assert.True(b.Top >= 0 && b.Top < workHeight, $"{view} @ {scale:P0}: top {b.Top}");
+                }
+            }
+        });
     }
 
     // ------------------------------------------------------------------ helpers

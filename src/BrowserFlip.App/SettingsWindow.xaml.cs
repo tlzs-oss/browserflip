@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
         SettingsPathBox.Text = shell.Settings.FilePath ?? Loc.Instance["Settings_InMemory"];
         _start = Take();
         WindowSetup.Prepare(this);
+        Loaded += (_, _) => FitToTallestPage();
         PreviewKeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape)
@@ -61,6 +62,38 @@ public partial class SettingsWindow : Window
             _ = tab.Focus(); // keyboard users continue on the page they asked for
         }
     }
+
+    /// <summary>
+    /// The window is as tall as its tallest page (measured in the current language and font, before the first frame),
+    /// so switching pages never resizes it and no page leaves a large empty area. Never taller than the work area;
+    /// beyond that the pages scroll.
+    /// </summary>
+    internal void FitToTallestPage()
+    {
+        var selected = Pages.SelectedIndex;
+        double tallest = 0;
+        for (var i = 0; i < Pages.Items.Count; i++)
+        {
+            Pages.SelectedIndex = i;
+            Pages.UpdateLayout();
+            if (Pages.SelectedContent is ScrollViewer { Content: FrameworkElement page } viewer)
+            {
+                page.Measure(new Size(Math.Max(1, viewer.ActualWidth), double.PositiveInfinity));
+                tallest = Math.Max(tallest, page.DesiredSize.Height);
+            }
+        }
+
+        Pages.SelectedIndex = selected;
+        if (tallest > 0)
+        {
+            PagesMinHeight = tallest + Pages.Margin.Top + Pages.Margin.Bottom;
+            Pages.MinHeight = PagesMinHeight;
+            MaxHeight = Math.Max(MinHeight, SystemParameters.WorkArea.Height);
+        }
+    }
+
+    /// <summary>Height reserved for the pages after <see cref="FitToTallestPage"/> (tests).</summary>
+    internal double PagesMinHeight { get; private set; }
 
     /// <summary>The page shown (tests).</summary>
     internal int PageIndex => Pages.SelectedIndex;

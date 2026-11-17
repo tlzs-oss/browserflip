@@ -80,11 +80,11 @@
              Classic content (otherwise a new view would be docked at its desired width, not the window width). -->
         <Grid x:Name="ViewArea">
         <!-- List / Card / Compact / Panel (created on first use, then reused). -->
-        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed"
+        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed" TextElement.FontSize="{StaticResource BfFontBody}"
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-        <StackPanel Margin="16,12,16,12">
+        <StackPanel Margin="16,6,16,12">
 
             <!-- Header (BF-07): brand (icon, name, tagline) | tools (language, always on top, compact bar, refresh).
                  HeaderPanel never overlaps or pushes out the tools: one line, then the tagline wraps, then two rows. -->
@@ -128,7 +128,7 @@
             </ctl:HeaderPanel>
 
             <!-- Current default (F04) -->
-            <Border AutomationProperties.LiveSetting="Polite" Margin="0,12,0,0">
+            <Border AutomationProperties.LiveSetting="Polite" Margin="0,10,0,0">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource Strip}">
                         <Style.Triggers>

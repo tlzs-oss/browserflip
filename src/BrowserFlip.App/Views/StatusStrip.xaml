@@ -42,7 +42,7 @@
                     <Setter Property="Background" Value="{DynamicResource BfWarningBackgroundBrush}" />
                 </Style>
             </Border.Style>
-            <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="12.5" />
+            <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="{StaticResource BfFontBody}" />
         </Border>
 
         <Border AutomationProperties.LiveSetting="Assertive">
@@ -65,8 +65,8 @@
                 </Style>
             </Border.Style>
             <StackPanel>
-                <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="12.5" />
-                <TextBlock Text="{Binding GuidanceText}" TextWrapping="Wrap" Margin="0,3,0,0" FontSize="12.5"
+                <TextBlock Text="{Binding MessageText}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="{StaticResource BfFontBody}" />
+                <TextBlock Text="{Binding GuidanceText}" TextWrapping="Wrap" Margin="0,3,0,0" FontSize="{StaticResource BfFontBody}"
                            Visibility="{Binding IsWaitingForChange, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
         </Border>

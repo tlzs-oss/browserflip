@@ -269,7 +269,7 @@
     <value>メイン ウィンドウの表示</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>変更はすぐに反映されます。［閉じる］と × は変更を保持し、［キャンセル］はこのウィンドウで行った変更を元に戻します。</value>
+    <value>［閉じる］/ ×：変更を保持　［キャンセル］：元に戻す</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>閉じる</value>
@@ -366,5 +366,8 @@
   </data>
   <data name="State_Off" xml:space="preserve">
     <value>オフ</value>
+  </data>
+  <data name="Drag_Tooltip" xml:space="preserve">
+    <value>ドラッグして移動</value>
   </data>
 </root>

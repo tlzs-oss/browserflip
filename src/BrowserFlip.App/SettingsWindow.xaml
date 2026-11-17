@@ -4,83 +4,97 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         Title="{Binding [Settings_Title], Source={x:Static loc:Loc.Instance}}"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
-        Width="600" Height="420" MinWidth="480" MinHeight="320"
+        Width="640" SizeToContent="Height" MinWidth="520" MinHeight="300"
         WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource BfWindowBackgroundBrush}"
         Foreground="{DynamicResource BfPrimaryTextBrush}"
-        FontSize="13">
-    <!-- One Settings window for every view, the tray menu and the floating toolbar. It edits the same view models
-         as the Classic view's display options: changes apply and are saved at once (v0.2 semantics). -->
+        FontSize="{StaticResource BfFontBody}">
+    <!-- One Settings window for every view, the tray menu and the floating toolbar, laid out like the Windows 11 Settings
+         app: navigation on the left, a page title (Subtitle) and one card per setting (label left, control right).
+         It edits the same view models as the Classic view's display options: changes apply and are saved at once
+         (v0.2 semantics). The height follows the tallest page (measured), so no page leaves a large empty area. -->
     <Window.Resources>
+        <Style x:Key="PageTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource BfFontSubtitle}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <!-- A setting card (in-page element: 4 epx radius). -->
+        <Style x:Key="SettingCard" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BfCardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BfCardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
         <Style x:Key="Label" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,0,16,0" />
+            <Setter Property="Margin" Value="0,0,12,0" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="Note" TargetType="TextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{StaticResource BfFontCaption}" />
             <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
         </Style>
-        <Style x:Key="PageTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,10" />
+        <Style x:Key="Choice" TargetType="ComboBox">
+            <Setter Property="Width" Value="200" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Resources>
 
     <DockPanel>
+        <!-- Footer: a short rule on the left, the buttons on the right (8 epx between buttons). -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}"
-                BorderThickness="0,1,0,0" Padding="16,10">
+                BorderThickness="0,1,0,0" Padding="16,12">
             <DockPanel>
-                <!-- The explanation gets the full width (no word broken next to the buttons), the buttons stay below it. -->
-                <TextBlock DockPanel.Dock="Top" Text="{Binding [Settings_LiveHint], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Note}"
-                           Margin="0,0,0,8" />
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="CloseButton" Style="{StaticResource ToolbarButton}" MinWidth="88" IsDefault="True" Click="OnClose"
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="CloseButton" Style="{StaticResource ToolbarButton}" MinWidth="96" IsDefault="True" Click="OnClose"
                             Content="{Binding [Settings_Close], Source={x:Static loc:Loc.Instance}}" />
-                    <Button x:Name="CancelButton" Style="{StaticResource ToolbarButton}" MinWidth="88" Margin="8,0,0,0" Click="OnCancel"
+                    <Button x:Name="CancelButton" Style="{StaticResource ToolbarButton}" MinWidth="96" Margin="8,0,0,0" Click="OnCancel"
                             Content="{Binding [Settings_Cancel], Source={x:Static loc:Loc.Instance}}" />
                 </StackPanel>
+                <TextBlock x:Name="FooterHint" Text="{Binding [Settings_LiveHint], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Note}"
+                           VerticalAlignment="Center" Margin="0,0,16,0" />
             </DockPanel>
         </Border>
 
-        <TabControl x:Name="Pages" TabStripPlacement="Left" Margin="8,8,8,4" BorderThickness="0" Background="Transparent">
+        <TabControl x:Name="Pages" TabStripPlacement="Left" Margin="8,12,8,4" BorderThickness="0" Background="Transparent">
             <TabControl.Resources>
-                <!-- Same navigation look as the Panel view (UI-12). -->
+                <!-- Same navigation look as the Panel view. -->
                 <Style TargetType="TabItem" BasedOn="{StaticResource BfNavTab}" />
             </TabControl.Resources>
+
             <!-- General -->
             <TabItem x:Name="GeneralTab" Header="{Binding [Settings_General], Source={x:Static loc:Loc.Instance}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                    <StackPanel Margin="20,8,16,8">
+                    <StackPanel Margin="16,0,16,12">
                         <TextBlock Text="{Binding [Settings_General], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="{Binding [Language], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                            <ComboBox Grid.Column="1" Width="168" x:Name="LanguageBox"
-                                      ItemsSource="{Binding Main.Languages}" SelectedItem="{Binding Main.SelectedLanguage}"
-                                      DisplayMemberPath="DisplayName"
-                                      AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
-                            <TextBlock Grid.Row="1" Margin="0,10,16,0" Text="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                            <ComboBox Grid.Row="1" Grid.Column="1" Width="168" Margin="0,10,0,0" x:Name="ViewBox"
-                                      ItemsSource="{Binding Shell.Views}" SelectedItem="{Binding Shell.SelectedView, Mode=TwoWay}"
-                                      DisplayMemberPath="DisplayName"
-                                      AutomationProperties.Name="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" />
-                            <CheckBox Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" x:Name="TopmostBox"
-                                      IsChecked="{Binding Shell.IsTopmost, Mode=TwoWay}"
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="LanguageBox"
+                                          ItemsSource="{Binding Main.Languages}" SelectedItem="{Binding Main.SelectedLanguage}"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
+                                <TextBlock Text="{Binding [Language], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="ViewBox"
+                                          ItemsSource="{Binding Shell.Views}" SelectedItem="{Binding Shell.SelectedView, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" />
+                                <TextBlock Text="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <CheckBox x:Name="TopmostBox" IsChecked="{Binding Shell.IsTopmost, Mode=TwoWay}"
                                       Content="{Binding [Menu_Topmost], Source={x:Static loc:Loc.Instance}}" />
-                        </Grid>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -88,52 +102,58 @@
             <!-- Appearance -->
             <TabItem x:Name="AppearanceTab" Header="{Binding [Settings_Appearance], Source={x:Static loc:Loc.Instance}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                <StackPanel Margin="20,8,16,8">
-                    <TextBlock Text="{Binding [Settings_Appearance], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
-                    <DockPanel>
-                        <ComboBox DockPanel.Dock="Right" Width="168" x:Name="ThemeBox"
-                                  ItemsSource="{Binding Shell.Themes}" SelectedItem="{Binding Shell.SelectedTheme, Mode=TwoWay}"
-                                  DisplayMemberPath="DisplayName"
-                                  AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
-                        <TextBlock Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                    </DockPanel>
-                </StackPanel>
+                    <StackPanel Margin="16,0,16,12">
+                        <TextBlock Text="{Binding [Settings_Appearance], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="ThemeBox"
+                                          ItemsSource="{Binding Shell.Themes}" SelectedItem="{Binding Shell.SelectedTheme, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                                <TextBlock Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
             <!-- Floating toolbar (the v0.2 compact bar options, same view-model properties) -->
             <TabItem x:Name="ToolbarTab" Header="{Binding [Settings_FloatingToolbar], Source={x:Static loc:Loc.Instance}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                    <StackPanel Margin="20,8,16,8">
+                    <StackPanel Margin="16,0,16,12">
                         <TextBlock Text="{Binding [Settings_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                            <ComboBox Grid.Column="1" Width="168" x:Name="BarSizeBox"
-                                      ItemsSource="{Binding Shell.BarSizes}" SelectedItem="{Binding Shell.SelectedBarSize, Mode=TwoWay}"
-                                      DisplayMemberPath="DisplayName"
-                                      AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
-                            <TextBlock Grid.Row="1" Margin="0,10,16,0" Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
-                            <ComboBox Grid.Row="1" Grid.Column="1" Width="168" Margin="0,10,0,0" x:Name="OrientationBox"
-                                      ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
-                                      DisplayMemberPath="DisplayName"
-                                      AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
-                        </Grid>
-                        <TextBlock Margin="0,8,0,0" Style="{StaticResource Note}" Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
-                        <TextBlock Margin="0,8,0,0" Style="{StaticResource Note}" Text="{Binding [Settings_ToolbarDock], Source={x:Static loc:Loc.Instance}}" />
-                        <Button Style="{StaticResource ToolbarButton}" Margin="0,14,0,0" HorizontalAlignment="Left" Click="OnShowToolbar">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE73F;" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                <TextBlock Text="{Binding [Action_ShowToolbar], Source={x:Static loc:Loc.Instance}}" />
-                            </StackPanel>
-                        </Button>
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="BarSizeBox"
+                                          ItemsSource="{Binding Shell.BarSizes}" SelectedItem="{Binding Shell.SelectedBarSize, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                                <TextBlock Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <ComboBox DockPanel.Dock="Right" Style="{StaticResource Choice}" x:Name="OrientationBox"
+                                          ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
+                                    <TextBlock Margin="0,4,12,0" Style="{StaticResource Note}" Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource ToolbarButton}" VerticalAlignment="Center" Click="OnShowToolbar">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16" Text="&#xE73F;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding [Action_ShowToolbar], Source={x:Static loc:Loc.Instance}}" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" Style="{StaticResource Note}" Text="{Binding [Settings_ToolbarDock], Source={x:Static loc:Loc.Instance}}" />
+                            </DockPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -141,42 +161,52 @@
             <!-- Startup: how BrowserFlip starts today (information only: no option that does not exist). -->
             <TabItem x:Name="StartupTab" Header="{Binding [Settings_Startup], Source={x:Static loc:Loc.Instance}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                <StackPanel Margin="20,8,16,8">
-                    <TextBlock Text="{Binding [Settings_Startup], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
-                    <TextBlock TextWrapping="Wrap" Text="{Binding [Settings_StartupLast], Source={x:Static loc:Loc.Instance}}" />
-                    <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding [Settings_StartupSingle], Source={x:Static loc:Loc.Instance}}" />
-                    <TextBlock Style="{StaticResource Note}" Margin="0,8,0,0" Text="{Binding [Settings_StartupNoAutostart], Source={x:Static loc:Loc.Instance}}" />
-                </StackPanel>
+                    <StackPanel Margin="16,0,16,12">
+                        <TextBlock Text="{Binding [Settings_Startup], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
+                        <Border Style="{StaticResource SettingCard}">
+                            <TextBlock TextWrapping="Wrap" Text="{Binding [Settings_StartupLast], Source={x:Static loc:Loc.Instance}}" />
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <TextBlock TextWrapping="Wrap" Text="{Binding [Settings_StartupSingle], Source={x:Static loc:Loc.Instance}}" />
+                        </Border>
+                        <TextBlock Margin="4,8,0,0" Style="{StaticResource Note}" Text="{Binding [Settings_StartupNoAutostart], Source={x:Static loc:Loc.Instance}}" />
+                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
             <!-- Advanced: existing tools only -->
             <TabItem x:Name="AdvancedTab" Header="{Binding [Settings_Advanced], Source={x:Static loc:Loc.Instance}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                    <StackPanel Margin="20,8,16,8">
+                    <StackPanel Margin="16,0,16,12">
                         <TextBlock Text="{Binding [Settings_Advanced], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
-                        <WrapPanel>
-                            <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8" Command="{Binding Main.RefreshCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE72C;" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}" />
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8" Command="{Binding Main.OpenDefaultAppsCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE8A7;" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" />
-                                </StackPanel>
-                            </Button>
-                        </WrapPanel>
-                        <Border Margin="0,6,0,0" Padding="10,7" CornerRadius="8" Background="{DynamicResource BfWarningBackgroundBrush}"
-                                Visibility="{Binding Main.IsAssociationsManaged, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" FontSize="12.5" />
+                        <Border Style="{StaticResource SettingCard}">
+                            <WrapPanel>
+                                <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,0" Command="{Binding Main.RefreshCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16" Text="&#xE72C;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ToolbarButton}" Command="{Binding Main.OpenDefaultAppsCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="{StaticResource IconFont}" FontSize="16" Text="&#xE8A7;" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock Text="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" />
+                                    </StackPanel>
+                                </Button>
+                            </WrapPanel>
                         </Border>
-                        <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="{Binding [Settings_SettingsFile], Source={x:Static loc:Loc.Instance}}" />
-                        <TextBox x:Name="SettingsPathBox" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
-                                 Padding="0" FontSize="12" Foreground="{DynamicResource BfSecondaryTextBrush}"
-                                 AutomationProperties.Name="{Binding [Settings_SettingsFile], Source={x:Static loc:Loc.Instance}}" />
+                        <Border Margin="0,0,0,4" Padding="16,12" CornerRadius="4" Background="{DynamicResource BfWarningBackgroundBrush}"
+                                Visibility="{Binding Main.IsAssociationsManaged, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding [Warning_Managed], Source={x:Static loc:Loc.Instance}}" TextWrapping="Wrap" />
+                        </Border>
+                        <Border Style="{StaticResource SettingCard}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="{Binding [Settings_SettingsFile], Source={x:Static loc:Loc.Instance}}" />
+                                <TextBox x:Name="SettingsPathBox" Margin="0,4,0,0" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="Transparent"
+                                         Padding="0" FontSize="{StaticResource BfFontCaption}" Foreground="{DynamicResource BfSecondaryTextBrush}"
+                                         AutomationProperties.Name="{Binding [Settings_SettingsFile], Source={x:Static loc:Loc.Instance}}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

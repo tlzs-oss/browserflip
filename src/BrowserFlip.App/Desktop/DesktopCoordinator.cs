@@ -1273,6 +1273,11 @@ public sealed class DesktopCoordinator : IDisposable
             _mainWindow.Height = Math.Max(Math.Min(_mainWindow.MinHeight, maxHeight), Math.Min(size.Height, maxHeight));
         }
 
+        if (!manualHeight)
+        {
+            _mainWindow.FreezeContentHeightSoon(); // Panel: fit once, then keep the height across its pages
+        }
+
         if (at is not { } pos || hwnd == IntPtr.Zero)
         {
             return; // first start in this view: WindowStartupLocation centers it

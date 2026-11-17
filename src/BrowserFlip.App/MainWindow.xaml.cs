@@ -124,7 +124,7 @@ public partial class MainWindow : Window
     /// whether it follows the content until the user sets a height (<see cref="ViewHeightByUser"/>).
     /// </summary>
     internal readonly record struct ViewLayout(double Width, double Height, double MinWidth, double MinHeight, bool HeightFollowsContent,
-        bool ContentHeightUntilResized = false);
+        bool ContentHeightUntilResized = false, bool FreezeAfterFit = false);
 
     /// <summary>
     /// Size rules per view (UI-07). Classic keeps its v0.2 rules (width from the header, height from the content).
@@ -134,10 +134,12 @@ public partial class MainWindow : Window
     /// </summary>
     internal static ViewLayout LayoutFor(MainView view) => view switch
     {
-        MainView.List => new(440, 0, 360, 240, false, ContentHeightUntilResized: true),
-        MainView.Card => new(680, 0, 420, 260, false, ContentHeightUntilResized: true),
-        MainView.Compact => new(340, 0, 300, 150, true),
-        MainView.Panel => new(740, 500, 600, 420, false),
+        MainView.List => new(520, 0, 400, 240, false, ContentHeightUntilResized: true),
+        MainView.Card => new(704, 0, 440, 260, false, ContentHeightUntilResized: true),
+        MainView.Compact => new(400, 0, 340, 150, true),
+        // Phase 4: the Panel opens as tall as its Home page, then keeps that height while the user moves between
+        // pages (no jumping window); a height the user sets is kept as for List / Card.
+        MainView.Panel => new(760, 0, 620, 380, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
         _ => new(DefaultWidth, 0, 460, 260, true),
     };
 
@@ -146,6 +148,29 @@ public partial class MainWindow : Window
     /// Otherwise the height follows the content.
     /// </summary>
     internal bool ViewHeightByUser { get; set; }
+
+    /// <summary>
+    /// Panel: once the window has taken its content height, keep it (Manual) so moving between pages of different
+    /// heights does not resize the window. Still "from content" for saving (it is not the user's height).
+    /// </summary>
+    internal void FreezeContentHeightSoon()
+    {
+        if (!LayoutFor(View).FreezeAfterFit || ViewHeightByUser)
+        {
+            return;
+        }
+
+        var view = View;
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (View == view && !ViewHeightByUser && SizeToContent == SizeToContent.Height && ActualHeight > 0)
+            {
+                var height = ActualHeight;
+                SizeToContent = SizeToContent.Manual;
+                Height = height;
+            }
+        });
+    }
 
     /// <summary>Whether the current view's height is taken from its content now.</summary>
     internal bool HeightFromContent => LayoutFor(View) is var l && (l.HeightFollowsContent || (l.ContentHeightUntilResized && !ViewHeightByUser));
@@ -482,7 +507,7 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
         }
 
-        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual && HeightFromContent)
+        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual && HeightFromContent && !LayoutFor(View).FreezeAfterFit)
         {
             SizeToContent = SizeToContent.Height;
         }

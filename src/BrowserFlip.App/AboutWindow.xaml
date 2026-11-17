@@ -11,7 +11,7 @@
         TextOptions.TextFormattingMode="Display"
         Background="{DynamicResource BfWindowBackgroundBrush}"
         Foreground="{DynamicResource BfPrimaryTextBrush}"
-        FontSize="13">
+        FontSize="{StaticResource BfFontBody}">
     <StackPanel Margin="24,20,24,16" Width="420">
         <views:AboutContent />
         <Button Style="{StaticResource ToolbarButton}" HorizontalAlignment="Right" MinWidth="88" Margin="0,16,0,0"

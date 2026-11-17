@@ -269,7 +269,7 @@
     <value>Main window view</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>Changes apply immediately. Close (or ×) keeps them; Cancel undoes the changes made in this window.</value>
+    <value>Close / ×: keep changes · Cancel: undo them</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>Close</value>
@@ -366,5 +366,8 @@
   </data>
   <data name="State_Off" xml:space="preserve">
     <value>Off</value>
+  </data>
+  <data name="Drag_Tooltip" xml:space="preserve">
+    <value>Drag to move</value>
   </data>
 </root>

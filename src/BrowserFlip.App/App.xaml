@@ -29,7 +29,8 @@
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BfControlBackgroundBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BfCardBorderBrush}" />
-                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Padding" Value="12,5" />
+                <Setter Property="MinHeight" Value="32" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
                 <Setter Property="Template">
@@ -218,8 +219,9 @@
             <Style x:Key="BfMenuBarItem" TargetType="MenuItem">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Padding" Value="8,2" />
+                <Setter Property="Padding" Value="10,6" />
                 <Setter Property="Margin" Value="0" />
+                <Setter Property="FontSize" Value="{StaticResource BfFontBody}" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -263,10 +265,23 @@
                 </Setter>
             </Style>
 
+            <!-- ============================================================ design tokens (v0.3 Phase 4)
+                 Type ramp = the Windows 11 type ramp (Caption 12, Body / Body Strong 14, Body Large 18, Subtitle 20);
+                 spacing on the 4 epx grid (4 / 8 / 12 / 16 / 24); corner radius 4 (in-page controls, list rows,
+                 setting cards), 8 (cards / tiles, flyouts, menus, windows). See docs: UI_DESIGN_SPEC.ja.md.
+                 The Classic view keeps its v0.2 sizes (compatibility). -->
+            <sys:Double x:Key="BfFontCaption">12</sys:Double>
+            <sys:Double x:Key="BfFontBody">14</sys:Double>
+            <sys:Double x:Key="BfFontBodyLarge">18</sys:Double>
+            <sys:Double x:Key="BfFontSubtitle">20</sys:Double>
+            <sys:Double x:Key="BfIconRow">32</sys:Double>
+            <sys:Double x:Key="BfIconGlyph">16</sys:Double>
+            <sys:Double x:Key="BfControlHeight">32</sys:Double>
+
             <!-- Tile size (Card view; the Panel view overrides it with smaller tiles). -->
             <sys:Double x:Key="BfTileWidth">148</sys:Double>
-            <sys:Double x:Key="BfTileHeight">132</sys:Double>
-            <sys:Double x:Key="BfTileIcon">44</sys:Double>
+            <sys:Double x:Key="BfTileHeight">128</sys:Double>
+            <sys:Double x:Key="BfTileIcon">40</sys:Double>
 
             <!-- Navigation entries (Panel view list, Settings window tabs): one look (UI-12). Hover = light tint;
                  selected = blue tint + accent pill (not colour alone: the pill marks it too); keyboard focus = ring. -->
@@ -347,10 +362,10 @@
             </Style>
 
             <Style x:Key="BfSectionHeader" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="{StaticResource BfFontBody}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
-                <Setter Property="Margin" Value="2,14,0,6" />
+                <Setter Property="Margin" Value="0,16,0,8" />
             </Style>
 
             <Style x:Key="BfCardPanel" TargetType="Border">
@@ -421,7 +436,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}"
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}"
                                     SnapsToDevicePixels="True">
                                 <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
                             </Border>
@@ -463,17 +478,17 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <ContentControl Width="24" Height="24" Margin="0,0,12,0" Focusable="False" IsTabStop="False"
+                        <ContentControl Width="{StaticResource BfIconRow}" Height="{StaticResource BfIconRow}" Margin="0,0,12,0" Focusable="False" IsTabStop="False"
                                         Content="{Binding}" ContentTemplate="{StaticResource BrowserIconTemplate}" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding HintText}" FontSize="11.5" TextTrimming="CharacterEllipsis"
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="{StaticResource BfFontBody}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding HintText}" FontSize="{StaticResource BfFontCaption}" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource BfSecondaryTextBrush}" />
                         </StackPanel>
                         <Border Grid.Column="2" Margin="10,0,0,0" Style="{StaticResource BfBadge}">
                             <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BfBadgeText}" />
                         </Border>
-                        <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12.5"
+                        <TextBlock Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="{StaticResource BfFontBody}"
                                    Text="{Binding [List_SetDefault], Source={x:Static loc:Loc.Instance}}"
                                    Foreground="{DynamicResource BfAccentBrush}">
                             <TextBlock.Style>
@@ -506,13 +521,13 @@
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <ContentControl Width="{DynamicResource BfTileIcon}" Height="{DynamicResource BfTileIcon}" HorizontalAlignment="Center" Focusable="False" IsTabStop="False"
                                         Content="{Binding}" ContentTemplate="{StaticResource BrowserIconTemplate}" />
-                        <TextBlock Text="{Binding DisplayName}" Margin="0,8,0,0" FontWeight="SemiBold" FontSize="13" TextAlignment="Center"
+                        <TextBlock Text="{Binding DisplayName}" Margin="0,8,0,0" FontWeight="SemiBold" FontSize="{StaticResource BfFontBody}" TextAlignment="Center"
                                    TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
                         <Grid Margin="0,4,0,0" HorizontalAlignment="Center">
                             <Border Style="{StaticResource BfBadge}" HorizontalAlignment="Center">
                                 <TextBlock Text="{Binding BadgeText}" Style="{StaticResource BfBadgeText}" />
                             </Border>
-                            <TextBlock Text="{Binding HintText}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"
+                            <TextBlock Text="{Binding HintText}" FontSize="{StaticResource BfFontCaption}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center"
                                TextWrapping="Wrap" TextAlignment="Center" MaxHeight="34" LineStackingStrategy="BlockLineHeight" LineHeight="15"
                                        Foreground="{DynamicResource BfSecondaryTextBrush}">
                                 <TextBlock.Style>

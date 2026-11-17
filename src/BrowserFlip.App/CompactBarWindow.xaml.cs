@@ -302,6 +302,8 @@ public partial class CompactBarWindow : Window
     {
         var start = vertical ? Dock.Top : Dock.Left;
         var end = vertical ? Dock.Bottom : Dock.Right;
+        DockPanel.SetDock(BarGrip, start);
+        BarGrip.Orientation = vertical ? Orientation.Horizontal : Orientation.Vertical; // dots across the bar
         DockPanel.SetDock(HomeButton, start);
         DockPanel.SetDock(PinButton, start);
         DockPanel.SetDock(OptionsButton, end);
