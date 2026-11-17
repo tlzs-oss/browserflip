@@ -1069,10 +1069,11 @@ public sealed class DesktopCoordinator : IDisposable
         _mainWindow.SetRestoredWidth(widthDip, work.Width / finalMonitor.Scale);
         _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
 
-        // BF-07: the width may differ from the saved one (widened for the header, capped): keep the right side
-        // (language box and buttons) inside the work area.
+        // BF-07: widened for the header: keep the right side (language box and buttons) inside the work area. An
+        // unchanged width keeps its saved place (e.g. spanning two monitors).
         var widthPx = Px(_mainWindow.Width, finalMonitor.Scale);
-        var left = fixedRect.Left + widthPx > work.Right ? Math.Max(work.Left, work.Right - widthPx) : fixedRect.Left;
+        var widened = _mainWindow.Width > (saved.Width / savedScale) + 0.5;
+        var left = widened && fixedRect.Left + widthPx > work.Right ? Math.Max(work.Left, work.Right - widthPx) : fixedRect.Left;
         _placement.Move(new WindowInteropHelper(_mainWindow).Handle, left, fixedRect.Top);
     }
 
