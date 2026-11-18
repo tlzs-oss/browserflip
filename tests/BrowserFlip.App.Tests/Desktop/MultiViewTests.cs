@@ -374,7 +374,7 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(724 * 2.25), b.Left);
+                Assert.Equal(3840 - (int)Math.Round(752 * 2.25), b.Left);
                 Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
@@ -774,7 +774,7 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(724, window.Width, 1);
+            Assert.Equal(752, window.Width, 1);
             // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
             Assert.Equal(SizeToContent.Manual, window.SizeToContent);
             Assert.False(window.ViewHeightByUser);
@@ -790,6 +790,9 @@ public sealed class MultiViewTests
             var tiles = Descendants<Button>((DependencyObject)page.FindName("HomeTiles")).Where(b => b.CommandParameter is BrowserCardViewModel).ToList();
             Assert.Equal(3, tiles.Count);
             Assert.Single(tiles.Select(t => Math.Round(t.TranslatePoint(new Point(), page).Y)).Distinct()); // one row
+            var actions = ((Panel)page.FindName("HomeActions")).Children.OfType<Button>().ToList();
+            Assert.Equal(3, actions.Count);
+            Assert.Single(actions.Select(b => Math.Round(b.TranslatePoint(new Point(), page).Y)).Distinct()); // actions in one row too
 
             // Every line of every tile's text lies inside the tile (a two-line hint must not be cut, found on the real desktop).
             foreach (var tile in tiles)

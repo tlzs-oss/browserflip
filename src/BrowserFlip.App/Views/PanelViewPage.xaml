@@ -124,7 +124,7 @@
                            Foreground="{DynamicResource BfSecondaryTextBrush}"
                            Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
 
-                <WrapPanel Margin="0,8,0,0">
+                <WrapPanel x:Name="HomeActions" Margin="0,8,0,0">
                     <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8" Command="{Binding RefreshCommand}"
                             ToolTip="{Binding [Refresh_Tooltip], Source={x:Static loc:Loc.Instance}}">
                         <StackPanel Orientation="Horizontal">

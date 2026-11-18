@@ -139,7 +139,7 @@ public partial class MainWindow : Window
         MainView.Compact => new(440, 0, 360, 170, true),
         // Phase 4: the Panel opens as tall as its Home page, then keeps that height while the user moves between
         // pages (no jumping window); a height the user sets is kept as for List / Card.
-        MainView.Panel => new(724, 0, 600, 340, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
+        MainView.Panel => new(752, 0, 600, 340, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
         _ => new(DefaultWidth, 0, 460, 260, true),
     };
 
