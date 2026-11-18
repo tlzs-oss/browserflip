@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         Title="{Binding [Settings_Title], Source={x:Static loc:Loc.Instance}}"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
-        Width="600" SizeToContent="Height" MinWidth="480" MinHeight="260"
+        Width="560" SizeToContent="Height" MinWidth="480" MinHeight="260"
         WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
@@ -27,7 +27,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BfCardBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Padding" Value="12,6" />
             <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
         <Style x:Key="Label" TargetType="TextBlock">

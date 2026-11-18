@@ -7,7 +7,7 @@
              Focusable="False">
     <!-- Compact view: current default + one icon button per browser (one click to switch). Messages and
          warnings are still shown (never hidden to save space). -->
-    <DockPanel Margin="4,12,16,16">
+    <DockPanel Margin="4,8,16,12">
     <!-- Phase 4: a visible six-dot handle to move the window (native move loop). -->
     <views:DragGrip x:Name="MoveGrip" DockPanel.Dock="Left" MovesWindow="True" Width="32" Margin="0,0,8,0" VerticalAlignment="Stretch" />
     <StackPanel>
@@ -52,7 +52,7 @@
                    Foreground="{DynamicResource BfWarningForegroundBrush}"
                    Visibility="{Binding IsMismatch, Converter={StaticResource BoolToVisibility}}" />
 
-        <ItemsControl x:Name="BrowserButtons" ItemsSource="{Binding Browsers}" Margin="-4,12,-4,0" Focusable="False"
+        <ItemsControl x:Name="BrowserButtons" ItemsSource="{Binding Browsers}" Margin="-4,8,-4,0" Focusable="False"
                       KeyboardNavigation.TabNavigation="Continue"
                       KeyboardNavigation.DirectionalNavigation="Contained"
                       AutomationProperties.Name="{Binding [Section_Browsers], Source={x:Static loc:Loc.Instance}}">

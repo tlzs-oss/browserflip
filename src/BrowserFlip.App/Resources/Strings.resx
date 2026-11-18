@@ -278,7 +278,7 @@
     <value>Cancel</value>
   </data>
   <data name="Settings_ToolbarDock" xml:space="preserve">
-    <value>Drag the floating toolbar to a screen edge to dock it. A docked toolbar hides at the edge and comes back when the pointer approaches.</value>
+    <value>Drag it to a screen edge to dock it; it then hides until the pointer comes near.</value>
   </data>
   <data name="Action_ShowToolbar" xml:space="preserve">
     <value>Show floating toolbar</value>

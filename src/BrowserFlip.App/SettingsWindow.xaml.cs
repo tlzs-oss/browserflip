@@ -84,9 +84,19 @@ public partial class SettingsWindow : Window
         }
 
         Pages.SelectedIndex = selected;
+        Pages.UpdateLayout();
         if (tallest > 0)
         {
-            PagesMinHeight = tallest + Pages.Margin.Top + Pages.Margin.Bottom;
+            // MinHeight is the TabControl's own height (its Margin lies outside it): the page plus the template's chrome
+            // above and below the page (adding the Margin left an empty band under every page).
+            var chrome = 0.0;
+            if (Pages.SelectedContent is FrameworkElement shown && shown.IsVisible && Pages.ActualHeight > 0)
+            {
+                var top = shown.TranslatePoint(new Point(0, 0), Pages).Y;
+                chrome = Math.Max(0, top) + Math.Max(0, Pages.ActualHeight - top - shown.ActualHeight);
+            }
+
+            PagesMinHeight = tallest + chrome;
             Pages.MinHeight = PagesMinHeight;
             MaxHeight = Math.Max(MinHeight, SystemParameters.WorkArea.Height);
         }

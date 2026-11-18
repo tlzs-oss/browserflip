@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
              xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
+             xmlns:ctl="clr-namespace:BrowserFlip.App.Controls"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
@@ -253,14 +254,14 @@
                                     SnapsToDevicePixels="True">
                                 <Grid>
                                     <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
-                                    <Popup x:Name="PART_Popup" Placement="Bottom" VerticalOffset="2" Focusable="False" AllowsTransparency="True"
-                                           PopupAnimation="{DynamicResource {x:Static SystemParameters.MenuPopupAnimationKey}}"
+                                    <!-- Final round (UI-01): left-aligned under the item whatever the Windows handedness setting, and
+                                         an opaque window with no transparent shadow margin (see ctl:MenuPopup). -->
+                                    <Popup x:Name="PART_Popup" Placement="Custom" CustomPopupPlacementCallback="{x:Static ctl:MenuPopup.LeftAligned}"
+                                           Focusable="False" AllowsTransparency="False" PopupAnimation="None"
+                                           Opened="OnMenuPopupOpened"
                                            IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
-                                        <Border Margin="0,0,10,10" Padding="4" CornerRadius="8" BorderThickness="1"
+                                        <Border Padding="4" BorderThickness="1" MinWidth="160"
                                                 Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}">
-                                            <Border.Effect>
-                                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.18" />
-                                            </Border.Effect>
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                                                 <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle"
                                                                 Grid.IsSharedSizeScope="True" />
@@ -302,9 +303,9 @@
             <sys:Double x:Key="BfControlHeight">32</sys:Double>
 
             <!-- Tile size (Card view; the Panel view overrides it with smaller tiles). -->
-            <sys:Double x:Key="BfTileWidth">144</sys:Double>
-            <sys:Double x:Key="BfTileHeight">116</sys:Double>
-            <sys:Double x:Key="BfTileIcon">36</sys:Double>
+            <sys:Double x:Key="BfTileWidth">136</sys:Double>
+            <sys:Double x:Key="BfTileHeight">108</sys:Double>
+            <sys:Double x:Key="BfTileIcon">32</sys:Double>
 
             <!-- Navigation entries (Panel view list, Settings window tabs): one look (UI-12). Hover = light tint;
                  selected = blue tint + accent pill (not colour alone: the pill marks it too); keyboard focus = ring. -->
@@ -503,7 +504,7 @@
             <Style x:Key="BfListRow" TargetType="Button">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Padding" Value="12,6" />
+                <Setter Property="Padding" Value="12,4" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="FocusVisualStyle" Value="{StaticResource BfFocusRing}" />
@@ -585,7 +586,7 @@
             <!-- One browser as a tile (Card view, Panel view "Home"). -->
             <DataTemplate x:Key="BrowserTileTemplate" DataType="{x:Type vm:BrowserCardViewModel}">
                 <Button Style="{StaticResource BrowserCard}" Width="{DynamicResource BfTileWidth}" Height="{DynamicResource BfTileHeight}"
-                        Margin="4" Padding="10,8"
+                        Margin="4" Padding="6,6"
                         Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
                         IsEnabled="{Binding IsAvailable}"
@@ -595,7 +596,7 @@
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <ContentControl Width="{DynamicResource BfTileIcon}" Height="{DynamicResource BfTileIcon}" HorizontalAlignment="Center" Focusable="False" IsTabStop="False"
                                         Content="{Binding}" ContentTemplate="{StaticResource BrowserIconTemplate}" />
-                        <TextBlock Text="{Binding DisplayName}" Margin="0,8,0,0" FontWeight="SemiBold" FontSize="{StaticResource BfFontBody}" TextAlignment="Center"
+                        <TextBlock Text="{Binding DisplayName}" Margin="0,6,0,0" FontWeight="SemiBold" FontSize="{StaticResource BfFontBody}" TextAlignment="Center"
                                    TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
                         <Grid Margin="0,4,0,0" HorizontalAlignment="Center">
                             <Border Style="{StaticResource BfBadge}" HorizontalAlignment="Center">

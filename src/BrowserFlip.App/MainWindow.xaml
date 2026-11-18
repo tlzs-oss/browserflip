@@ -89,7 +89,7 @@
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
 
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-        <StackPanel Margin="16,6,16,12">
+        <StackPanel Margin="16,4,16,8">
 
             <!-- Header (BF-07): brand (icon, name, tagline) | tools (language, always on top, compact bar, refresh).
                  HeaderPanel never overlaps or pushes out the tools: one line, then the tagline wraps, then two rows. -->

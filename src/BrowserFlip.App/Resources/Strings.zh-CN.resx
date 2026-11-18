@@ -278,7 +278,7 @@
     <value>取消</value>
   </data>
   <data name="Settings_ToolbarDock" xml:space="preserve">
-    <value>将悬浮工具栏拖到屏幕边缘即可停靠。停靠后工具栏会隐藏在边缘，鼠标靠近时重新出现。</value>
+    <value>拖到屏幕边缘即可停靠，鼠标靠近前自动隐藏。</value>
   </data>
   <data name="Action_ShowToolbar" xml:space="preserve">
     <value>显示悬浮工具栏</value>

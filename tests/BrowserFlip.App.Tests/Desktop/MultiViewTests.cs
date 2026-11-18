@@ -317,7 +317,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(648, window.Width, 1);
+            Assert.Equal(616, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
             Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
@@ -1093,7 +1093,7 @@ public sealed class MultiViewTests
             h.Coordinator.OpenSettings(SettingsPage.General);
             Harness.Pump();
             var w = h.Coordinator.SettingsWindow!;
-            Assert.Equal(600, w.Width, 1);
+            Assert.Equal(560, w.Width, 1);
             Assert.True(w.PagesMinHeight > 100);
             Assert.InRange(w.ActualHeight, 300, 520); // compact: no oversized empty page, no 600 x 420 fixed box
             var pages = (TabControl)w.FindName("Pages");
@@ -1260,6 +1260,39 @@ public sealed class MultiViewTests
     }
 
     [Fact]
+    public void Menu_bar_drop_downs_open_left_aligned_and_opaque_in_every_view()
+    {
+        Run(() =>
+        {
+            // Final round UI-01: with the Windows "right-handed" setting, Placement=Bottom right-aligned the drop-down,
+            // so in the narrow Compact window the View menu grew out to the left of the window. The drop-downs are also
+            // opaque windows without a transparent shadow margin (no black band in any capture).
+            using var h = new Harness(Normal(MainView.Compact), Primary);
+            Harness.Pump();
+            foreach (var view in new[] { MainView.Compact, MainView.Classic, MainView.List, MainView.Card, MainView.Panel })
+            {
+                h.Shell.CurrentView = view;
+                Harness.Pump();
+                foreach (var name in new[] { "FileMenu", "ViewMenu", "SettingsMenu", "HelpMenu" })
+                {
+                    var item = (MenuItem)h.Coordinator.MainWindow.FindName(name);
+                    item.ApplyTemplate();
+                    var popup = (System.Windows.Controls.Primitives.Popup)item.Template.FindName("PART_Popup", item);
+                    Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, popup.Placement);
+                    Assert.False(popup.AllowsTransparency, $"{view} {name}: opaque drop-down");
+                    Assert.Equal(new Thickness(0), ((FrameworkElement)popup.Child).Margin);
+                    Assert.Null(((UIElement)popup.Child).Effect);
+                }
+            }
+
+            // Left edge of the menu = left edge of the menu item; right-aligned only as the fallback near the screen edge.
+            var placements = BrowserFlip.App.Controls.MenuPopup.LeftAligned(new Size(300, 200), new Size(60, 28), default);
+            Assert.Equal(new Point(0, 30), placements[0].Point);
+            Assert.Equal(new Point(-240, 30), placements[1].Point);
+        });
+    }
+
+    [Fact]
     public void Compact_view_shows_every_browser_in_one_row_inside_the_window()
     {
         Run(() =>
@@ -1271,7 +1304,7 @@ public sealed class MultiViewTests
             Assert.Equal(h.Main.Browsers.Count, buttons.Count);
             Assert.Single(buttons.Select(b => Math.Round(b.TranslatePoint(new Point(), page).Y)).Distinct());
             Assert.All(buttons, b => Assert.True(b.TranslatePoint(new Point(b.ActualWidth, b.ActualHeight), page).X <= page.ActualWidth + 0.5));
-            Assert.Equal(440, h.Coordinator.MainWindow.Width, 1);
+            Assert.Equal(400, h.Coordinator.MainWindow.Width, 1);
         });
     }
 
