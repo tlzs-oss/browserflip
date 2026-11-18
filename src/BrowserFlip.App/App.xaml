@@ -219,7 +219,7 @@
             <Style x:Key="BfMenuBarItem" TargetType="MenuItem">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Padding" Value="10,6" />
+                <Setter Property="Padding" Value="8,4" />
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="FontSize" Value="{StaticResource BfFontBody}" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -279,9 +279,9 @@
             <sys:Double x:Key="BfControlHeight">32</sys:Double>
 
             <!-- Tile size (Card view; the Panel view overrides it with smaller tiles). -->
-            <sys:Double x:Key="BfTileWidth">148</sys:Double>
-            <sys:Double x:Key="BfTileHeight">128</sys:Double>
-            <sys:Double x:Key="BfTileIcon">40</sys:Double>
+            <sys:Double x:Key="BfTileWidth">136</sys:Double>
+            <sys:Double x:Key="BfTileHeight">120</sys:Double>
+            <sys:Double x:Key="BfTileIcon">36</sys:Double>
 
             <!-- Navigation entries (Panel view list, Settings window tabs): one look (UI-12). Hover = light tint;
                  selected = blue tint + accent pill (not colour alone: the pill marks it too); keyboard focus = ring. -->
@@ -317,13 +317,13 @@
             <Style x:Key="BfNavTab" TargetType="TabItem">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Margin" Value="0,1" />
-                <Setter Property="MinWidth" Value="120" />
+                <Setter Property="MinWidth" Value="104" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TabItem">
-                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="12,6" SnapsToDevicePixels="True">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Padding="12,5" SnapsToDevicePixels="True">
                                 <Grid>
                                     <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5" Margin="-12,0,0,0"
                                             HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -342,6 +342,57 @@
                                     <Setter TargetName="HeaderText" Property="TextElement.FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Drop-down menu items (Phase 5): Body text, 28 epx rows, a 22 epx check column, the shortcut on the right.
+                 Replaces the roomier Fluent item template for the main window's menu bar only (keyboard and access
+                 keys are MenuItem behaviour and unchanged). -->
+            <Style x:Key="BfMenuDropItem" TargetType="MenuItem">
+                <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
+                <Setter Property="FontSize" Value="{StaticResource BfFontBody}" />
+                <Setter Property="Padding" Value="8,4,12,4" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="MenuItem">
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="4" Margin="0,1" Padding="{TemplateBinding Padding}"
+                                    SnapsToDevicePixels="True">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="22" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="Check" FontFamily="{StaticResource IconFont}" Text="&#xE73E;" FontSize="12"
+                                               VerticalAlignment="Center" Visibility="Collapsed" />
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="24,0,0,0" VerticalAlignment="Center"
+                                               FontSize="{StaticResource BfFontCaption}" Foreground="{DynamicResource BfSecondaryTextBrush}" />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BfCardHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="BfMenuSeparator" TargetType="Separator">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Separator">
+                            <Border Height="1" Margin="4,3" Background="{DynamicResource BfCardBorderBrush}" SnapsToDevicePixels="True" />
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>

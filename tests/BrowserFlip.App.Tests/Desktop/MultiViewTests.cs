@@ -317,7 +317,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(704, window.Width, 1);
+            Assert.Equal(640, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
             Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
@@ -374,7 +374,7 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(800 * 2.25), b.Left);
+                Assert.Equal(3840 - (int)Math.Round(720 * 2.25), b.Left);
                 Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
@@ -764,7 +764,7 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(800, window.Width, 1);
+            Assert.Equal(720, window.Width, 1);
             // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
             Assert.Equal(SizeToContent.Manual, window.SizeToContent);
             Assert.False(window.ViewHeightByUser);
@@ -1067,7 +1067,7 @@ public sealed class MultiViewTests
             h.Coordinator.OpenSettings(SettingsPage.General);
             Harness.Pump();
             var w = h.Coordinator.SettingsWindow!;
-            Assert.Equal(640, w.Width, 1);
+            Assert.Equal(600, w.Width, 1);
             Assert.True(w.PagesMinHeight > 100);
             Assert.InRange(w.ActualHeight, 300, 520); // compact: no oversized empty page, no 600 x 420 fixed box
             var pages = (TabControl)w.FindName("Pages");

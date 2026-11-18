@@ -269,7 +269,7 @@
     <value>メイン ウィンドウの表示</value>
   </data>
   <data name="Settings_LiveHint" xml:space="preserve">
-    <value>［閉じる］/ ×：変更を保持　［キャンセル］：元に戻す</value>
+    <value>変更はすぐ反映。［キャンセル］で元に戻せます。</value>
   </data>
   <data name="Settings_Close" xml:space="preserve">
     <value>閉じる</value>

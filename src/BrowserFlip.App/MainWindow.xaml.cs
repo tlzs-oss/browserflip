@@ -135,11 +135,11 @@ public partial class MainWindow : Window
     internal static ViewLayout LayoutFor(MainView view) => view switch
     {
         MainView.List => new(520, 0, 400, 240, false, ContentHeightUntilResized: true),
-        MainView.Card => new(704, 0, 440, 260, false, ContentHeightUntilResized: true),
+        MainView.Card => new(640, 0, 440, 260, false, ContentHeightUntilResized: true),
         MainView.Compact => new(400, 0, 340, 150, true),
         // Phase 4: the Panel opens as tall as its Home page, then keeps that height while the user moves between
         // pages (no jumping window); a height the user sets is kept as for List / Card.
-        MainView.Panel => new(800, 0, 640, 380, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
+        MainView.Panel => new(720, 0, 600, 340, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
         _ => new(DefaultWidth, 0, 460, 260, true),
     };
 
