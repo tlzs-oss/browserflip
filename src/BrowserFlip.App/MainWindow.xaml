@@ -210,7 +210,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:BrowserCardViewModel}">
-                            <Button Style="{StaticResource BrowserCard}" Margin="4" Padding="10,8"
+                            <Button Style="{StaticResource BrowserCard}" Margin="4" Padding="10,6"
                                     Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
                                     IsEnabled="{Binding IsAvailable}"
@@ -302,7 +302,7 @@
             </Grid>
 
             <!-- Display options (collapsible). The window grows to fit; beyond the work area it scrolls. -->
-            <Expander Margin="0,8,0,0"
+            <Expander Margin="0,6,0,0"
                       DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
                       IsExpanded="{Binding IsOptionsOpen, Mode=TwoWay}"
                       Header="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">

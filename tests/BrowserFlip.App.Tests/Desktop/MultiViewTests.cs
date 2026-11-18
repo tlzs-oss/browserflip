@@ -317,7 +317,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(664, window.Width, 1);
+            Assert.Equal(648, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
             Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
@@ -374,7 +374,7 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(760 * 2.25), b.Left);
+                Assert.Equal(3840 - (int)Math.Round(724 * 2.25), b.Left);
                 Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
@@ -764,7 +764,7 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(760, window.Width, 1);
+            Assert.Equal(724, window.Width, 1);
             // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
             Assert.Equal(SizeToContent.Manual, window.SizeToContent);
             Assert.False(window.ViewHeightByUser);
@@ -1080,7 +1080,7 @@ public sealed class MultiViewTests
             h.Coordinator.OpenSettings(SettingsPage.General);
             Harness.Pump();
             var w = h.Coordinator.SettingsWindow!;
-            Assert.Equal(600, w.Width, 1);
+            Assert.Equal(580, w.Width, 1);
             Assert.True(w.PagesMinHeight > 100);
             Assert.InRange(w.ActualHeight, 300, 520); // compact: no oversized empty page, no 600 x 420 fixed box
             var pages = (TabControl)w.FindName("Pages");
@@ -1131,6 +1131,160 @@ public sealed class MultiViewTests
                 }
             }
         });
+    }
+
+    // ------------------------------------------------------------------ final refinement
+
+    [Fact]
+    public void Settings_cancel_undoes_language_theme_view_and_bar_size_and_close_keeps_them_after_a_restart()
+    {
+        // UI-05. A Settings window on its own (no coordinator: changing the theme here would touch the shared
+        // Application, which lives on another test thread). Saved to a real file, read back as a restart would.
+        var dir = Path.Combine(Path.GetTempPath(), "bf-cancel-" + Guid.NewGuid().ToString("N"));
+        var file = Path.Combine(dir, "settings.json");
+        Run(() =>
+        {
+            var before = BrowserFlip.App.Localization.Loc.Instance.Culture.Name;
+            try
+            {
+                var settings = UserSettings.Load(file);
+                settings.Language = "en";
+                settings.Save();
+                using var main = StandaloneMain(settings);
+                using var shell = new ShellViewModel(settings);
+
+                // Cancel: everything changed in the window goes back (UI state and file).
+                var window = new SettingsWindow(main, shell);
+                main.SelectedLanguage = main.Languages.Single(l => l.Code == "ja");
+                shell.Theme = ThemePreference.Dark;
+                shell.CurrentView = MainView.Panel;
+                shell.BarSize = BarSize.Medium;
+                window.Revert();
+                window.Close();
+                Assert.Equal("en", main.SelectedLanguage.Code);
+                Assert.Equal(ThemePreference.System, shell.Theme);
+                Assert.Equal(MainView.Classic, shell.CurrentView);
+                Assert.Equal(BarSize.Small, shell.BarSize);
+                var reverted = UserSettings.Load(file);
+                Assert.Equal(("en", ThemePreference.System, MainView.Classic, BarSize.Small),
+                    (reverted.Language, reverted.Theme, reverted.PreferredView, reverted.BarSize));
+
+                // Close (or x): the changes stay, also after a restart.
+                var second = new SettingsWindow(main, shell);
+                main.SelectedLanguage = main.Languages.Single(l => l.Code == "zh-CN");
+                shell.Theme = ThemePreference.Light;
+                shell.CurrentView = MainView.Card;
+                shell.BarSize = BarSize.Medium;
+                second.Close();
+                var restarted = UserSettings.Load(file);
+                Assert.Equal(("zh-CN", ThemePreference.Light, MainView.Card, BarSize.Medium),
+                    (restarted.Language, restarted.Theme, restarted.PreferredView, restarted.BarSize));
+            }
+            finally
+            {
+                BrowserFlip.App.Localization.Loc.Instance.SetLanguage(before);
+            }
+        });
+
+        if (Directory.Exists(dir))
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Main_window_tray_and_toolbar_show_the_same_default_from_windows()
+    {
+        // UI-12: one detection result for every entry point, read back from Windows (never assumed).
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Card), Primary);
+            Harness.Pump();
+            AssertSameDefault(h, "Microsoft Edge");
+
+            // Changed outside BrowserFlip (Windows Settings): a refresh picks it up everywhere.
+            h.Associations.With("http", "FirefoxURL").With("https", "FirefoxURL");
+            h.Main.RefreshState();
+            Harness.Pump();
+            AssertSameDefault(h, "Mozilla Firefox");
+
+            // A switch the user does not confirm in Windows: nothing claims it happened.
+            var chrome = h.Main.Browsers.Single(b => b.DisplayName == "Google Chrome");
+            h.Main.Select(chrome);
+            Assert.True(h.Main.IsWaitingForChange);
+            AssertSameDefault(h, "Mozilla Firefox");
+            h.Main.OnDeactivated(); // Windows Settings came forward ...
+            h.Main.OnActivated();   // ... and the user came back without changing anything
+            Harness.Pump();
+            Assert.False(h.Main.IsWaitingForChange);
+            Assert.Equal("Status_NoChange", h.Main.Message?.Key);
+            AssertSameDefault(h, "Mozilla Firefox");
+
+            // Confirmed in Windows: every entry point follows.
+            h.Main.Select(chrome);
+            h.Associations.With("http", "ChromeHTML").With("https", "ChromeHTML");
+            h.Main.Poll();
+            Harness.Pump();
+            Assert.Equal("Status_Applied", h.Main.Message?.Key);
+            AssertSameDefault(h, "Google Chrome");
+        });
+    }
+
+    [Fact]
+    public void Focus_selection_and_hover_are_distinct_on_navigation_rows_and_cards()
+    {
+        // UI-07: keyboard focus = thin accent outline; selected = tint + pill; hover = light background.
+        Run(() =>
+        {
+            var app = Application.Current;
+            Style S(string key) => (Style)app.FindResource(key);
+            object? Focus(string key) => S(key).Setters.OfType<Setter>().Single(x => x.Property == FrameworkElement.FocusVisualStyleProperty).Value;
+            Assert.Same(app.FindResource("BfFocusRing"), Focus("BfNavItem"));
+            Assert.Same(app.FindResource("BfFocusRing"), Focus("BfNavTab"));
+            Assert.Same(app.FindResource("BfFocusRing"), Focus("BfListRow"));
+            Assert.Same(app.FindResource("BfFocusRingCard"), Focus("BrowserCard"));
+        });
+    }
+
+    [Fact]
+    public void Compact_view_shows_every_browser_in_one_row_inside_the_window()
+    {
+        Run(() =>
+        {
+            using var h = new Harness(Normal(MainView.Compact), Primary);
+            Harness.Pump();
+            var page = h.Coordinator.MainWindow.CurrentPage!;
+            var buttons = Descendants<Button>(page).Where(b => b.CommandParameter is BrowserCardViewModel).ToList();
+            Assert.Equal(h.Main.Browsers.Count, buttons.Count);
+            Assert.Single(buttons.Select(b => Math.Round(b.TranslatePoint(new Point(), page).Y)).Distinct());
+            Assert.All(buttons, b => Assert.True(b.TranslatePoint(new Point(b.ActualWidth, b.ActualHeight), page).X <= page.ActualWidth + 0.5));
+            Assert.Equal(440, h.Coordinator.MainWindow.Width, 1);
+        });
+    }
+
+    private static void AssertSameDefault(Harness h, string expected)
+    {
+        Assert.Equal(expected, h.Main.CurrentDefaultName); // main window (all views)
+        var tray = h.Coordinator.BuildMenuModel();
+        Assert.Contains(tray, i => i.Text == BrowserFlip.App.Localization.Loc.Instance.Format("Tray_Current", expected));
+        Assert.Equal([expected], tray.Single(i => i.Text == L("Tray_Switch")).Children!.Where(c => c.IsChecked).Select(c => c.Text));
+        var bar = h.Coordinator.Bar; // the floating toolbar binds the same cards
+        var barDefaults = ((ItemsControl)bar.FindName("BrowserList")).Items.Cast<BrowserCardViewModel>().Where(c => c.IsDefault).Select(c => c.DisplayName);
+        Assert.Equal([expected], barDefaults);
+    }
+
+    private static MainViewModel StandaloneMain(UserSettings settings)
+    {
+        var reg = new FakeRegistry();
+        var fs = new FakeFileSystem();
+        reg.AddBrowser(Core.Platform.RegistryRoot.LocalMachine, Core.Platform.RegistryViewKind.Registry64, "Microsoft Edge", "Microsoft Edge", "\"C:\\E\\msedge.exe\"", "MSEdgeHTM", "MSEdgeHTM", "Microsoft Edge");
+        fs.Files.Add(@"C:\E\msedge.exe");
+        var policy = new Core.Settings.PolicyInspector(reg);
+        var main = new MainViewModel(new Core.Detection.BrowserDetector(reg, fs, new FakeStrings()),
+            new Core.Defaults.DefaultBrowserService(new FakeAssociations().With("http", "MSEdgeHTM").With("https", "MSEdgeHTM")),
+            new Core.Settings.SettingsLauncher(new FakeLauncher(), new FakeOs(26100), policy), policy, _ => null, settings, startTimer: false);
+        main.Refresh();
+        return main;
     }
 
     // ------------------------------------------------------------------ helpers

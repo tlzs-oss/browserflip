@@ -55,7 +55,7 @@
 
     <Grid>
         <!-- Expanded toolbar -->
-        <Border x:Name="BarRoot" CornerRadius="12" BorderThickness="1" Padding="3"
+        <Border x:Name="BarRoot" CornerRadius="8" BorderThickness="1" Padding="3"
                 Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}"
                 MouseLeftButtonDown="OnBarMouseLeftButtonDown">
             <Border.Style>
@@ -160,7 +160,7 @@
                                             </TextBlock.Style>
                                         </TextBlock>
                                         <!-- Default mark: a check badge (the state is not shown by colour alone; same as the Compact view). -->
-                                        <Border Width="12" Height="12" CornerRadius="6" Margin="0,0,-6,-6" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        <Border Width="12" Height="12" CornerRadius="6" Margin="0,0,-4,-4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                                 Background="{DynamicResource BfAccentBrush}" BorderBrush="{DynamicResource BfCardBackgroundBrush}" BorderThickness="1.5"
                                                 Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibility}}">
                                             <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE73E;" FontSize="6.5"

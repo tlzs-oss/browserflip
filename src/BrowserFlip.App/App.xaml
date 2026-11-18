@@ -25,6 +25,29 @@
                 </Setter>
             </Style>
 
+            <!-- UI-07: keyboard focus = a thin accent outline (1.5 epx), kept separate from Selected (tinted background
+                 + accent pill) and Hover (light background). Radius 4 for rows / navigation, 8 for cards. -->
+            <Style x:Key="BfFocusRing">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Rectangle Margin="1" RadiusX="4" RadiusY="4" StrokeThickness="1.5"
+                                       Stroke="{DynamicResource BfAccentBrush}" SnapsToDevicePixels="True" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="BfFocusRingCard">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Rectangle Margin="-2" RadiusX="9" RadiusY="9" StrokeThickness="1.5"
+                                       Stroke="{DynamicResource BfAccentBrush}" SnapsToDevicePixels="True" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="ToolbarButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="{DynamicResource BfControlBackgroundBrush}" />
@@ -178,7 +201,7 @@
                 <Setter Property="Padding" Value="14,12" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource BfFocusRingCard}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
@@ -280,7 +303,7 @@
 
             <!-- Tile size (Card view; the Panel view overrides it with smaller tiles). -->
             <sys:Double x:Key="BfTileWidth">144</sys:Double>
-            <sys:Double x:Key="BfTileHeight">120</sys:Double>
+            <sys:Double x:Key="BfTileHeight">116</sys:Double>
             <sys:Double x:Key="BfTileIcon">36</sys:Double>
 
             <!-- Navigation entries (Panel view list, Settings window tabs): one look (UI-12). Hover = light tint;
@@ -289,7 +312,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Margin" Value="0,1" />
                 <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource BfFocusRing}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ListBoxItem">
@@ -317,9 +340,9 @@
             <Style x:Key="BfNavTab" TargetType="TabItem">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Margin" Value="0,1" />
-                <Setter Property="MinWidth" Value="104" />
+                <Setter Property="MinWidth" Value="96" />
                 <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource BfFocusRing}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TabItem">
@@ -353,7 +376,7 @@
             <Style x:Key="BfMenuDropItem" TargetType="MenuItem">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="FontSize" Value="{StaticResource BfFontBody}" />
-                <Setter Property="Padding" Value="8,4,12,4" />
+                <Setter Property="Padding" Value="8,3,12,3" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -480,10 +503,10 @@
             <Style x:Key="BfListRow" TargetType="Button">
                 <Setter Property="Foreground" Value="{DynamicResource BfPrimaryTextBrush}" />
                 <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Padding" Value="12,8" />
+                <Setter Property="Padding" Value="12,6" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource BfFocusRing}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
@@ -562,7 +585,7 @@
             <!-- One browser as a tile (Card view, Panel view "Home"). -->
             <DataTemplate x:Key="BrowserTileTemplate" DataType="{x:Type vm:BrowserCardViewModel}">
                 <Button Style="{StaticResource BrowserCard}" Width="{DynamicResource BfTileWidth}" Height="{DynamicResource BfTileHeight}"
-                        Margin="6" Padding="10,10"
+                        Margin="4" Padding="10,8"
                         Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
                         IsEnabled="{Binding IsAvailable}"

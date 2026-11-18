@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         Title="{Binding [Settings_Title], Source={x:Static loc:Loc.Instance}}"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
-        Width="600" SizeToContent="Height" MinWidth="500" MinHeight="280"
+        Width="580" SizeToContent="Height" MinWidth="480" MinHeight="260"
         WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
@@ -19,7 +19,7 @@
         <Style x:Key="PageTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="{StaticResource BfFontSubtitle}" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Margin" Value="0,0,0,4" />
         </Style>
         <!-- A setting card (in-page element: 4 epx radius). -->
         <Style x:Key="SettingCard" TargetType="Border">
@@ -45,12 +45,12 @@
     <DockPanel>
         <!-- Footer: a short rule on the left, the buttons on the right (8 epx between buttons). -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}"
-                BorderThickness="0,1,0,0" Padding="16,8">
+                BorderThickness="0,1,0,0" Padding="12,6">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="CloseButton" Style="{StaticResource ToolbarButton}" MinWidth="96" IsDefault="True" Click="OnClose"
+                    <Button x:Name="CloseButton" Style="{StaticResource ToolbarButton}" MinWidth="88" Height="32" IsDefault="True" Click="OnClose"
                             Content="{Binding [Settings_Close], Source={x:Static loc:Loc.Instance}}" />
-                    <Button x:Name="CancelButton" Style="{StaticResource ToolbarButton}" MinWidth="96" Margin="8,0,0,0" Click="OnCancel"
+                    <Button x:Name="CancelButton" Style="{StaticResource ToolbarButton}" MinWidth="88" Height="32" Margin="8,0,0,0" Click="OnCancel"
                             Content="{Binding [Settings_Cancel], Source={x:Static loc:Loc.Instance}}" />
                 </StackPanel>
                 <TextBlock x:Name="FooterHint" Text="{Binding [Settings_LiveHint], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Note}"

@@ -16,7 +16,7 @@
                        Foreground="{DynamicResource BfSecondaryTextBrush}" Margin="0,0,8,0" />
         </DockPanel>
 
-        <Grid Margin="-6,4,-6,0">
+        <Grid Margin="-4,4,-4,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                 <ItemsControl x:Name="BrowserTiles" ItemsSource="{Binding Browsers}" Focusable="False"
                               KeyboardNavigation.TabNavigation="Continue"

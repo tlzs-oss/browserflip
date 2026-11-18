@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <!-- Smaller tiles than the Card view: four fit in one row at the default window width (UI-03). -->
         <sys:Double x:Key="BfTileWidth">128</sys:Double>
-        <sys:Double x:Key="BfTileHeight">116</sys:Double>
+        <sys:Double x:Key="BfTileHeight">112</sys:Double>
         <sys:Double x:Key="BfTileIcon">32</sys:Double>
         <Style x:Key="SummaryLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
@@ -23,7 +23,7 @@
     </UserControl.Resources>
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="148" />
+            <ColumnDefinition Width="140" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -109,7 +109,7 @@
                 <views:StatusStrip ShowCurrent="False" />
 
                 <TextBlock Text="{Binding [Home_QuickSwitch], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="0,12,0,0" />
-                <ItemsControl x:Name="HomeTiles" ItemsSource="{Binding Browsers}" Margin="-6,0,-6,0" Focusable="False"
+                <ItemsControl x:Name="HomeTiles" ItemsSource="{Binding Browsers}" Margin="-4,0,-4,0" Focusable="False"
                               KeyboardNavigation.TabNavigation="Continue"
                               KeyboardNavigation.DirectionalNavigation="Contained"
                               ItemTemplate="{StaticResource BrowserTileTemplate}"
@@ -155,7 +155,7 @@
         <DockPanel Grid.Column="1" x:Name="BrowsersPage" Margin="16,2,16,12"
                    Visibility="{Binding IsSelected, ElementName=NavBrowsers, Converter={StaticResource BoolToVisibility}}">
             <views:StatusStrip DockPanel.Dock="Top" />
-            <Border Style="{StaticResource BfCardPanel}" Margin="0,10,0,0" Padding="4">
+            <Border Style="{StaticResource BfCardPanel}" Margin="0,8,0,0" Padding="4" VerticalAlignment="Top">
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                         <ItemsControl ItemsSource="{Binding Browsers}" Focusable="False"
