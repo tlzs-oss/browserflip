@@ -126,11 +126,6 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, IntPtr lprcMonitor, IntPtr dwData);
 
-    // ---- dwmapi ---------------------------------------------------------------------------
-    [DllImport("dwmapi.dll", ExactSpelling = true)]
-    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
-    internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
-
     // ---- user32 ---------------------------------------------------------------------------
     [DllImport("user32.dll", ExactSpelling = true)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]

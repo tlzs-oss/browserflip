@@ -20,9 +20,6 @@ public partial class App : Application
     private Win32MonitorService? _monitors;
     private SingleInstance? _instance;
 
-    /// <summary>Menu bar drop-down opened (template in App.xaml): small rounded corners on Windows 11.</summary>
-    private void OnMenuPopupOpened(object? sender, EventArgs e) => Controls.MenuPopup.RoundCorners(sender, e);
-
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);

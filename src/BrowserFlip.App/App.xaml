@@ -255,12 +255,12 @@
                                 <Grid>
                                     <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" />
                                     <!-- Final round (UI-01): left-aligned under the item whatever the Windows handedness setting, and
-                                         an opaque window with no transparent shadow margin (see ctl:MenuPopup). -->
+                                         no transparent shadow margin around the menu (see ctl:MenuPopup). -->
                                     <Popup x:Name="PART_Popup" Placement="Custom" CustomPopupPlacementCallback="{x:Static ctl:MenuPopup.LeftAligned}"
-                                           Focusable="False" AllowsTransparency="False" PopupAnimation="None"
-                                           Opened="OnMenuPopupOpened"
+                                           Focusable="False" AllowsTransparency="True"
+                                           PopupAnimation="{DynamicResource {x:Static SystemParameters.MenuPopupAnimationKey}}"
                                            IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
-                                        <Border Padding="4" BorderThickness="1" MinWidth="160"
+                                        <Border Padding="4" BorderThickness="1" MinWidth="160" CornerRadius="4"
                                                 Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                                                 <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" KeyboardNavigation.TabNavigation="Cycle"

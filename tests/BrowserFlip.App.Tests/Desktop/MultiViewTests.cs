@@ -1265,8 +1265,8 @@ public sealed class MultiViewTests
         Run(() =>
         {
             // Final round UI-01: with the Windows "right-handed" setting, Placement=Bottom right-aligned the drop-down,
-            // so in the narrow Compact window the View menu grew out to the left of the window. The drop-downs are also
-            // opaque windows without a transparent shadow margin (no black band in any capture).
+            // so in the narrow Compact window the View menu grew out to the left of the window. The drop-downs also have
+            // no transparent shadow margin (PrintWindow captures showed it as a black band).
             using var h = new Harness(Normal(MainView.Compact), Primary);
             Harness.Pump();
             foreach (var view in new[] { MainView.Compact, MainView.Classic, MainView.List, MainView.Card, MainView.Panel })
@@ -1279,7 +1279,6 @@ public sealed class MultiViewTests
                     item.ApplyTemplate();
                     var popup = (System.Windows.Controls.Primitives.Popup)item.Template.FindName("PART_Popup", item);
                     Assert.Equal(System.Windows.Controls.Primitives.PlacementMode.Custom, popup.Placement);
-                    Assert.False(popup.AllowsTransparency, $"{view} {name}: opaque drop-down");
                     Assert.Equal(new Thickness(0), ((FrameworkElement)popup.Child).Margin);
                     Assert.Null(((UIElement)popup.Child).Effect);
                 }
