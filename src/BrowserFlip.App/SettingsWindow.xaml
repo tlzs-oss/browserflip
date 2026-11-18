@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         Title="{Binding [Settings_Title], Source={x:Static loc:Loc.Instance}}"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
-        Width="580" SizeToContent="Height" MinWidth="480" MinHeight="260"
+        Width="600" SizeToContent="Height" MinWidth="480" MinHeight="260"
         WindowStartupLocation="CenterOwner"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display"
@@ -120,7 +120,7 @@
                         <TextBlock Text="{Binding [Settings_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}" />
                         <Border Style="{StaticResource SettingCard}">
                             <DockPanel>
-                                <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center" x:Name="BarSizeBox"
+                                <ComboBox DockPanel.Dock="Right" Width="120" VerticalAlignment="Center" x:Name="BarSizeBox"
                                           ItemsSource="{Binding Shell.BarSizes}" SelectedItem="{Binding Shell.SelectedBarSize, Mode=TwoWay}"
                                           DisplayMemberPath="DisplayName"
                                           AutomationProperties.Name="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
@@ -130,7 +130,7 @@
                         <Border Style="{StaticResource SettingCard}">
                             <StackPanel>
                                 <DockPanel>
-                                    <ComboBox DockPanel.Dock="Right" Width="180" VerticalAlignment="Center" x:Name="OrientationBox"
+                                    <ComboBox DockPanel.Dock="Right" Width="120" VerticalAlignment="Center" x:Name="OrientationBox"
                                               ItemsSource="{Binding Shell.Orientations}" SelectedItem="{Binding Shell.SelectedOrientation, Mode=TwoWay}"
                                               DisplayMemberPath="DisplayName"
                                               AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />

@@ -640,6 +640,16 @@ public sealed class MultiViewTests
                         pages.SelectedIndex = i;
                         Harness.Pump();
                         problems.AddRange(Clipped(settings).Select(t => $"{language}/Settings[{i}]: '{t}'"));
+
+                        // Setting labels stay on one line at the default size (no single character left on a line).
+                        var label = (Style)settings.FindResource("Label");
+                        foreach (var t in Descendants<TextBlock>(settings).Where(t => ReferenceEquals(t.Style, label) && IsShown(t)))
+                        {
+                            if (t.ActualHeight > t.FontSize * 1.8)
+                            {
+                                problems.Add($"{language}/Settings[{i}]: label '{t.Text}' wraps ({t.ActualHeight:N1})");
+                            }
+                        }
                     }
 
                     settings.Close();
@@ -1080,7 +1090,7 @@ public sealed class MultiViewTests
             h.Coordinator.OpenSettings(SettingsPage.General);
             Harness.Pump();
             var w = h.Coordinator.SettingsWindow!;
-            Assert.Equal(580, w.Width, 1);
+            Assert.Equal(600, w.Width, 1);
             Assert.True(w.PagesMinHeight > 100);
             Assert.InRange(w.ActualHeight, 300, 520); // compact: no oversized empty page, no 600 x 420 fixed box
             var pages = (TabControl)w.FindName("Pages");
