@@ -13,7 +13,7 @@ BrowserFlip 是一款小巧的开源 Windows 11 桌面应用:列出电脑上已�
 
 ![BrowserFlip 紧凑工具栏](docs/images/compact-bar.png)
 
-> **状态:** v0.2.0 是首个公开发布版本。仅在 Windows 11(x64)上验证过(参见[系统要求](#系统要求))。
+> **状态:** 当前版本为 v0.3.0。仅在 Windows 11(x64)上验证过(参见[系统要求](#系统要求))。
 
 ## 功能
 
@@ -25,6 +25,14 @@ BrowserFlip 是一款小巧的开源 Windows 11 桌面应用:列出电脑上已�
 - **友好的提示** — 对已卸载的浏览器（卡片显示为不可用）、注册不完整的浏览器（打开“默认应用”首页并给出提示）、组策略限制以及取消更改等情况分别说明。
 - **深色模式**(跟随 Windows 应用主题)、**Per-Monitor V2 高 DPI**、**键盘导航 / 屏幕阅读器名称**。
 - **English、日本語、简体中文** — 根据 Windows 语言自动选择,可在运行时切换。
+
+0.3 新功能:
+
+- **五种主窗口视图** — 经典视图(0.2 的界面,默认)、列表、卡片、紧凑和面板(主页/浏览器/设置/关于)。可从“视图”菜单切换,无需重启;会记住上次使用的视图和每个视图中调整过的尺寸。
+- **菜单栏与独立设置窗口** — 文件、视图、设置、帮助菜单。设置窗口(常规、外观、悬浮工具栏、启动、高级)中的更改立即生效,“取消”可撤销在该窗口中所做的更改。
+- **悬浮工具栏** — 即 0.2 的紧凑栏(已更名),新增六点拖动手柄(紧凑视图中也有),默认浏览器带勾选标记。
+- **通知区域菜单** — 显示当前默认浏览器,并提供“切换默认浏览器”子菜单;切换仍需您在 Windows 设置中确认。
+- **布局** — 统一为 Windows 11 的字体、间距与圆角;已在 225% 和 125% 的双显示器上验证。即使 Windows 设置为“右手习惯”菜单,菜单也会在标题正下方展开。
 
 0.2 新功能:
 
@@ -57,27 +65,27 @@ BrowserFlip 只使用受支持的方式:
 
 - Windows 11(已在 x64 上验证)
   - 浏览器专属设置页需要已安装 2023 年 4 月累积更新的 Windows 11(21H2 为 22000.1817 及以上,22H2 为 22621.1555 及以上)或 23H2 及更高版本;较旧的 Windows 11 打开通用的"默认应用"页面。
-  - **Windows 10 尚未验证,不在 v0.2.0 的支持范围内。**
+  - **Windows 10 尚未验证,不在 v0.3.0 的支持范围内。**
 - x64 或 Arm64(Arm64 版尚未在实机上测试)
 - 无需管理员权限
 - 从源码构建需要 [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
 ## 安装
 
-下载最新版本(**v0.2.0**)。自包含单文件应用(zip 内另附许可证与第三方声明文件),无需安装 .NET:
+下载最新版本(**v0.3.0**)。自包含单文件应用(zip 内另附许可证与第三方声明文件),无需安装 .NET:
 
-- [BrowserFlip-v0.2.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-x64.zip)(Windows 11,x64)
-- [BrowserFlip-v0.2.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/BrowserFlip-v0.2.0-win-arm64.zip)(Windows 11,Arm64,仅完成构建,未在实机验证)
-- [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.2.0/SHA256SUMS.txt) · [所有版本](https://github.com/tlzs-oss/browserflip/releases/latest)
+- [BrowserFlip-v0.3.0-win-x64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.3.0/BrowserFlip-v0.3.0-win-x64.zip)(Windows 11,x64)
+- [BrowserFlip-v0.3.0-win-arm64.zip](https://github.com/tlzs-oss/browserflip/releases/download/v0.3.0/BrowserFlip-v0.3.0-win-arm64.zip)(Windows 11,Arm64,仅完成构建,未在实机验证)
+- [SHA256SUMS.txt](https://github.com/tlzs-oss/browserflip/releases/download/v0.3.0/SHA256SUMS.txt) · [所有版本](https://github.com/tlzs-oss/browserflip/releases/latest)
 
 解压后运行 `BrowserFlip.exe`。在 PowerShell 中校验:
 
 ```powershell
-Get-FileHash .\BrowserFlip-v0.2.0-win-x64.zip -Algorithm SHA256
+Get-FileHash .\BrowserFlip-v0.3.0-win-x64.zip -Algorithm SHA256
 # 与 SHA256SUMS.txt 中对应的行比较
 
 # 可选:使用 GitHub CLI 验证构建来源(Sigstore)
-gh attestation verify .\BrowserFlip-v0.2.0-win-x64.zip --repo tlzs-oss/browserflip
+gh attestation verify .\BrowserFlip-v0.3.0-win-x64.zip --repo tlzs-oss/browserflip
 ```
 
 > EXE **未进行 Authenticode 代码签名**,Windows SmartScreen 可能会显示"Windows 已保护你的电脑"。如果你信任下载来源,请选择"更多信息"→"仍要运行"。Sigstore 证明用于说明文件的构建来源,并不是代码签名。
@@ -96,7 +104,7 @@ dotnet run --project src/BrowserFlip.App
 
 1. 启动 BrowserFlip。已安装的浏览器以卡片形式显示,当前默认浏览器带有标记。
 2. 点击(或按 Enter / Space)想要使用的浏览器。
-3. Windows 设置随即打开。点击"设为默认值"(Windows 11),或在"Web 浏览器"下选择该浏览器(Windows 10,v0.2.0 未验证、不在支持范围内)。
+3. Windows 设置随即打开。点击"设为默认值"(Windows 11),或在"Web 浏览器"下选择该浏览器(Windows 10,v0.3.0 未验证、不在支持范围内)。
 4. 切回 BrowserFlip,标记会移动到新的默认浏览器。如果没有更改,BrowserFlip 会给出提示。
 
 紧凑工具栏、停靠、自动隐藏和通知区域图标的用法请参阅使用说明(日文):[docs/user-guide.ja.md](docs/user-guide.ja.md)。
@@ -113,7 +121,7 @@ BrowserFlip 只列出在 `StartMenuInternet` 下注册并声明了 `http`/`https
 注册信息仍然存在,但找不到浏览器的可执行文件,可能已被卸载。
 
 **设置打开的是通用"默认应用"页面,而不是浏览器专属页面。**
-这会发生在 Windows 10(v0.2.0 不在支持范围内)或未安装 2023 年 4 月更新的 Windows 11 上,或者浏览器未在 `RegisteredApplications` 中注册时。请在该页面中手动选择浏览器。
+这会发生在 Windows 10(v0.3.0 不在支持范围内)或未安装 2023 年 4 月更新的 Windows 11 上,或者浏览器未在 `RegisteredApplications` 中注册时。请在该页面中手动选择浏览器。
 
 **提示 http 与 https 使用了不同的应用。**
 在设置中打开该浏览器的页面,并将其设为两者的默认值(Windows 11 的"设为默认值"按钮会同时设置)。

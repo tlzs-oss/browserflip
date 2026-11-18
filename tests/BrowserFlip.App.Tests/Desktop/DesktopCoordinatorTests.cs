@@ -1497,6 +1497,9 @@ public sealed class DesktopCoordinatorTests
 
         public FakeFileSystem Files { get; private set; } = null!;
 
+        /// <summary>The http / https defaults "Windows" reports (tests may change them, as Windows Settings would).</summary>
+        public FakeAssociations Associations { get; private set; } = null!;
+
         private MainViewModel CreateMain(UserSettings settings)
         {
             var reg = Registry = new FakeRegistry();
@@ -1512,7 +1515,7 @@ public sealed class DesktopCoordinatorTests
                 fs.Files.Add(exe);
             }
 
-            var assoc = new FakeAssociations().With("http", "MSEdgeHTM").With("https", "MSEdgeHTM");
+            var assoc = Associations = new FakeAssociations().With("http", "MSEdgeHTM").With("https", "MSEdgeHTM");
             var policy = new PolicyInspector(reg);
             var main = new MainViewModel(new BrowserDetector(reg, fs, new FakeStrings()), new Defaults.DefaultBrowserService(assoc),
                 new SettingsLauncher(new FakeLauncher(), new FakeOs(26100), policy), policy, _ => null, settings, startTimer: false);

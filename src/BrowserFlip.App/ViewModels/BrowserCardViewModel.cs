@@ -71,6 +71,20 @@ public sealed class BrowserCardViewModel : ObservableObject
         _ => Loc.Instance["Card_Hint"],
     };
 
+    /// <summary>
+    /// First tooltip line: the name, and the state when it is (partly) the default, e.g.
+    /// "Microsoft Edge — Current default browser" (v0.3). The state comes from Windows (shared core), never assumed.
+    /// </summary>
+    public string ToolTipTitle => !IsAvailable ? DisplayName : Role switch
+    {
+        BrowserDefaultRole.Both => $"{DisplayName} — {Loc.Instance["Home_Current"]}",
+        BrowserDefaultRole.HttpOnly or BrowserDefaultRole.HttpsOnly => $"{DisplayName} — {BadgeText}",
+        _ => DisplayName,
+    };
+
+    /// <summary>Full tooltip as one text: title line, then the explanation.</summary>
+    public string ToolTipText => $"{ToolTipTitle}{Environment.NewLine}{DetailText}";
+
     /// <summary>Name announced by screen readers (uses the full explanation).</summary>
     public string AutomationName => HasBadge ? $"{DisplayName}, {BadgeText}. {DetailText}" : $"{DisplayName}. {DetailText}";
 
@@ -83,5 +97,7 @@ public sealed class BrowserCardViewModel : ObservableObject
         OnPropertyChanged(nameof(HintText));
         OnPropertyChanged(nameof(DetailText));
         OnPropertyChanged(nameof(AutomationName));
+        OnPropertyChanged(nameof(ToolTipTitle));
+        OnPropertyChanged(nameof(ToolTipText));
     }
 }

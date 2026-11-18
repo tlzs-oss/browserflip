@@ -41,6 +41,8 @@ public partial class MainWindow : Window
         DpiChanged += (_, _) => LimitHeightToWorkArea();
         LocationChanged += (_, _) => LimitHeightToWorkArea();
         BaseMinWidth = MinWidth;
+        ClassicMinWidth = MinWidth;
+        _classicMinHeight = MinHeight;
         Loaded += (_, _) =>
         {
             LimitHeightToWorkArea();
@@ -75,6 +77,7 @@ public partial class MainWindow : Window
     private bool _inSizeMove;
     private bool _resizedInSizeMove;
     private int _sizeMoveStartWidth;     // physical pixels, at WM_ENTERSIZEMOVE
+    private int _sizeMoveStartHeight;    // physical pixels, at WM_ENTERSIZEMOVE
     private double? _widthBeforeCap;     // width wanted before a narrower work area capped it (BF-07)
     private bool _languageWidthStale;    // the language changed while the window was hidden / minimized
 
@@ -105,8 +108,132 @@ public partial class MainWindow : Window
     /// </summary>
     internal Func<double?>? WorkAreaWidthProvider { get; set; }
 
-    /// <summary>MinWidth from XAML; lowered only when a work area is narrower (BF-07).</summary>
-    internal double BaseMinWidth { get; }
+    /// <summary>MinWidth of the current view (Classic: from XAML); lowered only when a work area is narrower (BF-07).</summary>
+    internal double BaseMinWidth { get; private set; }
+
+    /// <summary>MinHeight from XAML (Classic view).</summary>
+    private readonly double _classicMinHeight;
+
+    private readonly Dictionary<MainView, FrameworkElement> _pages = [];
+
+    /// <summary>The layout shown in the window (v0.3). Classic is the v0.2 content.</summary>
+    internal MainView View { get; private set; } = MainView.Classic;
+
+    /// <summary>
+    /// Size rules of a view in DIP: default size, minimum size, whether the height always follows the content, and
+    /// whether it follows the content until the user sets a height (<see cref="ViewHeightByUser"/>).
+    /// </summary>
+    internal readonly record struct ViewLayout(double Width, double Height, double MinWidth, double MinHeight, bool HeightFollowsContent,
+        bool ContentHeightUntilResized = false, bool FreezeAfterFit = false);
+
+    /// <summary>
+    /// Size rules per view (UI-07). Classic keeps its v0.2 rules (width from the header, height from the content).
+    /// Compact is the smallest window (height from the content). List and Card start as tall as their content (no
+    /// empty half window with four browsers, scrolling beyond the work area) until the user resizes the height.
+    /// Panel has a fixed default size (its pages differ in height; the window must not jump between pages).
+    /// </summary>
+    internal static ViewLayout LayoutFor(MainView view) => view switch
+    {
+        MainView.List => new(520, 0, 400, 240, false, ContentHeightUntilResized: true),
+        MainView.Card => new(616, 0, 440, 240, false, ContentHeightUntilResized: true),
+        MainView.Compact => new(400, 0, 340, 160, true),
+        // Phase 4: the Panel opens as tall as its Home page, then keeps that height while the user moves between
+        // pages (no jumping window); a height the user sets is kept as for List / Card.
+        MainView.Panel => new(752, 0, 600, 340, false, ContentHeightUntilResized: true, FreezeAfterFit: true),
+        _ => new(DefaultWidth, 0, 460, 260, true),
+    };
+
+    /// <summary>
+    /// List / Card: the user has set this view's height (a resize that changed the height); it is saved and kept.
+    /// Otherwise the height follows the content.
+    /// </summary>
+    internal bool ViewHeightByUser { get; set; }
+
+    /// <summary>
+    /// Panel: once the window has taken its content height, keep it (Manual) so moving between pages of different
+    /// heights does not resize the window. Still "from content" for saving (it is not the user's height).
+    /// </summary>
+    internal void FreezeContentHeightSoon()
+    {
+        if (!LayoutFor(View).FreezeAfterFit || ViewHeightByUser)
+        {
+            return;
+        }
+
+        var view = View;
+        _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+        {
+            if (View == view && !ViewHeightByUser && SizeToContent == SizeToContent.Height && ActualHeight > 0)
+            {
+                var height = ActualHeight;
+                SizeToContent = SizeToContent.Manual;
+                Height = height;
+            }
+        });
+    }
+
+    /// <summary>Whether the current view's height is taken from its content now.</summary>
+    internal bool HeightFromContent => LayoutFor(View) is var l && (l.HeightFollowsContent || (l.ContentHeightUntilResized && !ViewHeightByUser));
+
+    /// <summary>
+    /// Shows <paramref name="view"/> (immediately, no restart). The view-model state, the timers and the bindings are
+    /// shared: switching never creates services or subscriptions; each page is created once and then reused.
+    /// The window size is applied by the coordinator (it knows the monitors and the saved sizes).
+    /// </summary>
+    internal void SetView(MainView view)
+    {
+        if (!Enum.IsDefined(view))
+        {
+            view = MainView.Classic;
+        }
+
+        View = view;
+        if (view == MainView.Classic)
+        {
+            ViewHost.Content = null;
+            ViewHost.Visibility = Visibility.Collapsed;
+            RootScroller.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            if (!_pages.TryGetValue(view, out var page))
+            {
+                page = view switch
+                {
+                    MainView.List => new Views.ListViewPage(),
+                    MainView.Card => new Views.CardViewPage(),
+                    MainView.Compact => new Views.CompactViewPage(),
+                    _ => new Views.PanelViewPage(),
+                };
+                _pages[view] = page;
+            }
+
+            ViewHost.Content = page;
+            ViewHost.Visibility = Visibility.Visible;
+            RootScroller.Visibility = Visibility.Collapsed;
+        }
+
+        var layout = LayoutFor(view);
+        _widthBeforeCap = null;
+        BaseMinWidth = view == MainView.Classic ? ClassicMinWidth : layout.MinWidth;
+        MinWidth = BaseMinWidth;
+        MinHeight = view == MainView.Classic ? _classicMinHeight : layout.MinHeight;
+        ViewHeightByUser = false; // the coordinator applies the saved size (and with it the user's height)
+        SizeToContent = layout.HeightFollowsContent || layout.ContentHeightUntilResized ? SizeToContent.Height : SizeToContent.Manual;
+        if (view == MainView.Classic)
+        {
+            FollowLanguageWidthIfStale(); // the language may have changed while another view was shown
+        }
+    }
+
+    /// <summary>Number of view pages created so far: each view is created once, then reused (tests).</summary>
+    internal int CreatedPages => _pages.Count;
+
+    /// <summary>The page shown for a non-classic view (tests), or null.</summary>
+    internal FrameworkElement? CurrentPage => View == MainView.Classic ? null : ViewHost.Content as FrameworkElement;
+
+    /// <summary>MinWidth from MainWindow.xaml (Classic view).</summary>
+    private double ClassicMinWidth { get; }
 
     /// <summary>
     /// True while the width is chosen by the app (first run, upgraded old setting): it follows the header when the
@@ -335,6 +462,7 @@ public partial class MainWindow : Window
             _resizedInSizeMove = false;
             var hasStart = NativeMethods.GetWindowRect(hwnd, out var start);
             _sizeMoveStartWidth = hasStart ? start.Right - start.Left : 0;
+            _sizeMoveStartHeight = hasStart ? start.Bottom - start.Top : 0;
             _moveTracker.Enter(hasStart ? start.ToPixelRect() : default);
         }
         else if (msg == WmMoving)
@@ -352,11 +480,17 @@ public partial class MainWindow : Window
         else if (msg == WmExitSizeMove)
         {
             _inSizeMove = false;
+            if (_resizedInSizeMove && NativeMethods.GetWindowRect(hwnd, out var endRect) && endRect.Bottom - endRect.Top != _sizeMoveStartHeight
+                && LayoutFor(View).ContentHeightUntilResized)
+            {
+                ViewHeightByUser = true; // List / Card: the user chose a height; it is kept (and saved) from now on
+            }
+
             if (_resizedInSizeMove && NativeMethods.GetWindowRect(hwnd, out var end) && end.Right - end.Left != _sizeMoveStartWidth)
             {
                 // The user chose a width (not just dragged the top / bottom border, whose height is not kept):
-                // keep it from now on (BF-07).
-                WidthIsAutomatic = false;
+                // keep it from now on (BF-07). Other views keep their own size (saved per view by the coordinator).
+                WidthIsAutomatic = WidthIsAutomatic && View != MainView.Classic;
                 _widthBeforeCap = null;
             }
 
@@ -373,7 +507,7 @@ public partial class MainWindow : Window
             _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, KeepBottomInWorkArea);
         }
 
-        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual)
+        if (msg == WmExitSizeMove && SizeToContent == SizeToContent.Manual && HeightFromContent && !LayoutFor(View).FreezeAfterFit)
         {
             SizeToContent = SizeToContent.Height;
         }
@@ -396,7 +530,7 @@ public partial class MainWindow : Window
         // Not while snapped (Win+arrow: SizeToContent is Manual with the snapped size): changing only the width would
         // leave an odd shape. Applied once the window is back to its normal content-sized state.
         if (!_languageWidthStale || !WidthIsAutomatic || !IsVisible || WindowState != WindowState.Normal
-            || SizeToContent == SizeToContent.Manual)
+            || SizeToContent == SizeToContent.Manual || View != MainView.Classic)
         {
             return;
         }
@@ -406,7 +540,7 @@ public partial class MainWindow : Window
         // After the bindings have picked up the new language.
         _ = Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
         {
-            if (WidthIsAutomatic && WindowState == WindowState.Normal && TryGetWorkAreaWidth(out var max))
+            if (WidthIsAutomatic && WindowState == WindowState.Normal && View == MainView.Classic && TryGetWorkAreaWidth(out var max))
             {
                 ApplyPreferredWidth(max);
                 AutomaticWidthChanged?.Invoke(this, EventArgs.Empty);

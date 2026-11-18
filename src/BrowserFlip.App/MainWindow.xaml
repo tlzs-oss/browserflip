@@ -4,6 +4,7 @@
         xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
         xmlns:vm="clr-namespace:BrowserFlip.App.ViewModels"
         xmlns:ctl="clr-namespace:BrowserFlip.App.Controls"
+        xmlns:svc="clr-namespace:BrowserFlip.App.Services"
         Title="BrowserFlip"
         Icon="pack://application:,,,/BrowserFlip;component/Assets/browserflip.ico"
         Width="520" SizeToContent="Height" MinWidth="460" MinHeight="260"
@@ -39,8 +40,56 @@
         </Style>
     </Window.Resources>
 
+    <!-- v0.3: menu bar + one host per view. The Classic view below is the v0.2 window content, unchanged. -->
+    <DockPanel x:Name="RootDock">
+        <Menu x:Name="MainMenu" DockPanel.Dock="Top" Margin="4,2,4,0" Padding="0" MinHeight="0" Background="Transparent"
+              DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}">
+            <Menu.Resources>
+                <!-- Compact drop-down items and separators (the top-level items have their own explicit style). -->
+                <Style TargetType="MenuItem" BasedOn="{StaticResource BfMenuDropItem}" />
+                <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator" BasedOn="{StaticResource BfMenuSeparator}" />
+            </Menu.Resources>
+            <MenuItem x:Name="FileMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_File], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="RefreshMenuItem" Header="{Binding [MenuBar_RefreshBrowsers], Source={x:Static loc:Loc.Instance}}" InputGestureText="F5"
+                          Command="{Binding DataContext.RefreshCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                <Separator />
+                <MenuItem x:Name="ExitMenuItem" Header="{Binding [MenuBar_Exit], Source={x:Static loc:Loc.Instance}}" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem x:Name="ViewMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_View], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="ClassicViewMenuItem" IsCheckable="True" Header="{Binding [View_Classic], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsClassicView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Classic}" />
+                <MenuItem x:Name="ListViewMenuItem" IsCheckable="True" Header="{Binding [View_List], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsListView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.List}" />
+                <MenuItem x:Name="CardViewMenuItem" IsCheckable="True" Header="{Binding [View_Card], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCardView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Card}" />
+                <MenuItem x:Name="CompactViewMenuItem" IsCheckable="True" Header="{Binding [View_Compact], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsCompactView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Compact}" />
+                <MenuItem x:Name="PanelViewMenuItem" IsCheckable="True" Header="{Binding [View_Panel], Source={x:Static loc:Loc.Instance}}" IsChecked="{Binding IsPanelView, Mode=OneWay}"
+                          Command="{Binding SetViewCommand}" CommandParameter="{x:Static svc:MainView.Panel}" />
+                <Separator />
+                <MenuItem x:Name="ToolbarMenuItem" Header="{Binding [MenuBar_FloatingToolbar], Source={x:Static loc:Loc.Instance}}" Command="{Binding EnterCompactCommand}" />
+                <MenuItem x:Name="TrayModeMenuItem" Header="{Binding [MenuBar_TrayMode], Source={x:Static loc:Loc.Instance}}" Command="{Binding TrayModeCommand}" />
+            </MenuItem>
+            <MenuItem x:Name="SettingsMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_Settings], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="PreferencesMenuItem" Header="{Binding [MenuBar_Preferences], Source={x:Static loc:Loc.Instance}}"
+                          Command="{Binding OpenSettingsCommand}" CommandParameter="{x:Static vm:SettingsPage.General}" />
+                <MenuItem x:Name="ToolbarSettingsMenuItem" Header="{Binding [MenuBar_ToolbarSettings], Source={x:Static loc:Loc.Instance}}"
+                          Command="{Binding OpenSettingsCommand}" CommandParameter="{x:Static vm:SettingsPage.FloatingToolbar}" />
+            </MenuItem>
+            <MenuItem x:Name="HelpMenu" Style="{StaticResource BfMenuBarItem}" Header="{Binding [MenuBar_Help], Source={x:Static loc:Loc.Instance}}">
+                <MenuItem x:Name="AboutMenuItem" Header="{Binding [MenuBar_About], Source={x:Static loc:Loc.Instance}}" Command="{Binding OpenAboutCommand}" />
+            </MenuItem>
+        </Menu>
+
+        <!-- One cell for both hosts: the DockPanel fills only its last child, so the view host must share it with the
+             Classic content (otherwise a new view would be docked at its desired width, not the window width). -->
+        <Grid x:Name="ViewArea">
+        <!-- List / Card / Compact / Panel (created on first use, then reused). -->
+        <ContentControl x:Name="ViewHost" Focusable="False" IsTabStop="False" Visibility="Collapsed" TextElement.FontSize="{StaticResource BfFontBody}"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
     <ScrollViewer x:Name="RootScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-        <StackPanel Margin="16,12,16,12">
+        <StackPanel Margin="16,4,16,8">
 
             <!-- Header (BF-07): brand (icon, name, tagline) | tools (language, always on top, compact bar, refresh).
                  HeaderPanel never overlaps or pushes out the tools: one line, then the tagline wraps, then two rows. -->
@@ -84,7 +133,7 @@
             </ctl:HeaderPanel>
 
             <!-- Current default (F04) -->
-            <Border AutomationProperties.LiveSetting="Polite" Margin="0,12,0,0">
+            <Border AutomationProperties.LiveSetting="Polite" Margin="0,10,0,0">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource Strip}">
                         <Style.Triggers>
@@ -161,7 +210,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:BrowserCardViewModel}">
-                            <Button Style="{StaticResource BrowserCard}" Margin="4" Padding="10,8"
+                            <Button Style="{StaticResource BrowserCard}" Margin="4" Padding="10,6"
                                     Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                     CommandParameter="{Binding}"
                                     IsEnabled="{Binding IsAvailable}"
@@ -253,7 +302,7 @@
             </Grid>
 
             <!-- Display options (collapsible). The window grows to fit; beyond the work area it scrolls. -->
-            <Expander Margin="0,8,0,0"
+            <Expander Margin="0,6,0,0"
                       DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}"
                       IsExpanded="{Binding IsOptionsOpen, Mode=TwoWay}"
                       Header="{Binding [Options_Header], Source={x:Static loc:Loc.Instance}}">
@@ -305,4 +354,6 @@
             </DockPanel>
         </StackPanel>
     </ScrollViewer>
+        </Grid>
+    </DockPanel>
 </Window>

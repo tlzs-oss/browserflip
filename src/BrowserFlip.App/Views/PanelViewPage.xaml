@@ -1,0 +1,236 @@
+<UserControl x:Class="BrowserFlip.App.Views.PanelViewPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:BrowserFlip.App.Localization"
+             xmlns:views="clr-namespace:BrowserFlip.App.Views"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             Focusable="False">
+    <!-- Panel view: navigation on the left (Home / Browsers / Settings / About), content on the right. -->
+    <UserControl.Resources>
+        <!-- Smaller tiles than the Card view: four fit in one row at the default window width (UI-03). -->
+        <sys:Double x:Key="BfTileWidth">132</sys:Double>
+        <sys:Double x:Key="BfTileHeight">112</sys:Double>
+        <sys:Double x:Key="BfTileIcon">32</sys:Double>
+        <!-- Inner width 126: the short Japanese / Chinese hint stays on one line instead of leaving one character. -->
+        <Thickness x:Key="BfTilePadding">2,6</Thickness>
+        <Style x:Key="SummaryLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
+            <Setter Property="Margin" Value="0,3,16,3" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="SummaryValue" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,3,0,3" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Background="{DynamicResource BfCardBackgroundBrush}" BorderBrush="{DynamicResource BfCardBorderBrush}" BorderThickness="0,0,1,0">
+            <ListBox x:Name="Nav" Margin="6" SelectedIndex="0" BorderThickness="0" Background="Transparent"
+                     ItemContainerStyle="{StaticResource BfNavItem}"
+                     AutomationProperties.Name="{Binding [Nav_Label], Source={x:Static loc:Loc.Instance}}">
+                <ListBoxItem x:Name="NavHome" AutomationProperties.Name="{Binding [Nav_Home], Source={x:Static loc:Loc.Instance}}">
+                    <StackPanel Orientation="Horizontal" Margin="2,3">
+                        <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE80F;" Width="20" />
+                        <TextBlock Text="{Binding [Nav_Home], Source={x:Static loc:Loc.Instance}}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem x:Name="NavBrowsers" AutomationProperties.Name="{Binding [Nav_Browsers], Source={x:Static loc:Loc.Instance}}">
+                    <StackPanel Orientation="Horizontal" Margin="2,3">
+                        <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE774;" Width="20" />
+                        <TextBlock Text="{Binding [Nav_Browsers], Source={x:Static loc:Loc.Instance}}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem x:Name="NavSettings" AutomationProperties.Name="{Binding [Nav_Settings], Source={x:Static loc:Loc.Instance}}">
+                    <StackPanel Orientation="Horizontal" Margin="2,3">
+                        <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE713;" Width="20" />
+                        <TextBlock Text="{Binding [Nav_Settings], Source={x:Static loc:Loc.Instance}}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+                <ListBoxItem x:Name="NavAbout" AutomationProperties.Name="{Binding [Nav_About], Source={x:Static loc:Loc.Instance}}">
+                    <StackPanel Orientation="Horizontal" Margin="2,3">
+                        <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE946;" Width="20" />
+                        <TextBlock Text="{Binding [Nav_About], Source={x:Static loc:Loc.Instance}}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ListBoxItem>
+            </ListBox>
+        </Border>
+
+        <!-- Home: one status block (icon, name, default badge), the switch tiles and the actions (UI-05). -->
+        <ScrollViewer Grid.Column="1" x:Name="HomePage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      Visibility="{Binding IsSelected, ElementName=NavHome, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Margin="16,8,16,12">
+                <TextBlock Text="{Binding [Home_Current], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="0,0,0,4" />
+                <Border Style="{StaticResource BfCardPanel}" Padding="12,8" AutomationProperties.LiveSetting="Polite"
+                        AutomationProperties.Name="{Binding CurrentDefaultText}">
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Left" Width="40" Height="40" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <ContentControl Content="{Binding DefaultCard}" ContentTemplate="{StaticResource BrowserIconTemplate}"
+                                            Focusable="False" IsTabStop="False"
+                                            Visibility="{Binding HasDefaultCard, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock FontSize="30">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BfGlyph}">
+                                        <Setter Property="Text" Value="&#xE774;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasDefaultCard}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsMismatch}" Value="True">
+                                                <Setter Property="Text" Value="&#xE7BA;" />
+                                                <Setter Property="Foreground" Value="{DynamicResource BfWarningForegroundBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="HomeCurrentName" Text="{Binding CurrentDefaultName}" FontSize="{StaticResource BfFontSubtitle}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <Border Margin="10,0,0,0" Padding="6,0,6,1" CornerRadius="4" VerticalAlignment="Center"
+                                        Background="{DynamicResource BfAccentBrush}"
+                                        Visibility="{Binding HasDefaultCard, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="{Binding [Badge_Default], Source={x:Static loc:Loc.Instance}}" FontSize="{StaticResource BfFontCaption}"
+                                               Foreground="{DynamicResource BfAccentForegroundBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <!-- Only when there is more to say than the name (http and https differ). -->
+                            <TextBlock Text="{Binding CurrentDefaultText}" Margin="0,2,0,0" TextWrapping="Wrap" FontSize="{StaticResource BfFontCaption}"
+                                       Foreground="{DynamicResource BfWarningForegroundBrush}"
+                                       Visibility="{Binding IsMismatch, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <views:StatusStrip ShowCurrent="False" />
+
+                <TextBlock Text="{Binding [Home_QuickSwitch], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="0,12,0,0" />
+                <ItemsControl x:Name="HomeTiles" ItemsSource="{Binding Browsers}" Margin="-4,0,-4,0" Focusable="False"
+                              KeyboardNavigation.TabNavigation="Continue"
+                              KeyboardNavigation.DirectionalNavigation="Contained"
+                              ItemTemplate="{StaticResource BrowserTileTemplate}"
+                              AutomationProperties.Name="{Binding [Section_Browsers], Source={x:Static loc:Loc.Instance}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBlock Text="{Binding [Empty_NoBrowsers], Source={x:Static loc:Loc.Instance}}"
+                           Foreground="{DynamicResource BfSecondaryTextBrush}"
+                           Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
+
+                <WrapPanel x:Name="HomeActions" Margin="0,8,0,0">
+                    <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8" Command="{Binding RefreshCommand}"
+                            ToolTip="{Binding [Refresh_Tooltip], Source={x:Static loc:Loc.Instance}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE72C;" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding [Refresh], Source={x:Static loc:Loc.Instance}}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8"
+                            Command="{Binding Shell.EnterCompactCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE73F;" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding [Action_ShowToolbar], Source={x:Static loc:Loc.Instance}}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolbarButton}" Margin="0,0,8,8" Command="{Binding OpenDefaultAppsCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE8A7;" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding [OpenDefaultApps], Source={x:Static loc:Loc.Instance}}" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Browsers -->
+        <DockPanel Grid.Column="1" x:Name="BrowsersPage" Margin="16,8,16,12"
+                   Visibility="{Binding IsSelected, ElementName=NavBrowsers, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Text="{Binding [Nav_Browsers], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="0,0,0,0" />
+            <views:StatusStrip DockPanel.Dock="Top" />
+            <Border Style="{StaticResource BfCardPanel}" Margin="0,8,0,0" Padding="4" VerticalAlignment="Top">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                        <ItemsControl ItemsSource="{Binding Browsers}" Focusable="False"
+                                      KeyboardNavigation.TabNavigation="Continue"
+                                      KeyboardNavigation.DirectionalNavigation="Contained"
+                                      ItemTemplate="{StaticResource BrowserRowTemplate}"
+                                      AutomationProperties.Name="{Binding [Section_Browsers], Source={x:Static loc:Loc.Instance}}" />
+                    </ScrollViewer>
+                    <TextBlock Text="{Binding [Empty_NoBrowsers], Source={x:Static loc:Loc.Instance}}" Margin="4,12"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource BfSecondaryTextBrush}"
+                               Visibility="{Binding HasNoBrowsers, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+            </Border>
+        </DockPanel>
+
+        <!-- Settings: a read-only summary of the current values and the way into the Settings window, which stays the
+             only place that edits them (no second settings logic, no second state) (UI-06). -->
+        <ScrollViewer Grid.Column="1" x:Name="SettingsPage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      Visibility="{Binding IsSelected, ElementName=NavSettings, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Margin="16,8,16,12">
+                <TextBlock Text="{Binding [Panel_CurrentSettings], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="2,0,0,6" />
+                <Border Style="{StaticResource BfCardPanel}" Padding="14,8">
+                    <Grid DataContext="{Binding Shell, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Style="{StaticResource SummaryLabel}" Text="{Binding [Language], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Style="{StaticResource SummaryValue}" x:Name="SummaryLanguage"
+                                   Text="{Binding DataContext.SelectedLanguage.DisplayName, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        <TextBlock Grid.Row="1" Style="{StaticResource SummaryLabel}" Text="{Binding [Settings_View], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource SummaryValue}" x:Name="SummaryView" Text="{Binding SelectedView.DisplayName}" />
+                        <TextBlock Grid.Row="2" Style="{StaticResource SummaryLabel}" Text="{Binding [Options_Theme], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource SummaryValue}" Text="{Binding SelectedTheme.DisplayName}" />
+                        <TextBlock Grid.Row="3" Style="{StaticResource SummaryLabel}" Text="{Binding [Menu_Topmost], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SummaryTopmost">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource SummaryValue}">
+                                    <Setter Property="Text" Value="{Binding [State_Off], Source={x:Static loc:Loc.Instance}}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsTopmost}" Value="True">
+                                            <Setter Property="Text" Value="{Binding [State_On], Source={x:Static loc:Loc.Instance}}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Grid.Row="4" Style="{StaticResource SummaryLabel}" Text="{Binding [Options_BarSize], Source={x:Static loc:Loc.Instance}}" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource SummaryValue}" Text="{Binding SelectedBarSize.DisplayName}" />
+                    </Grid>
+                </Border>
+                <TextBlock Text="{Binding [Panel_SettingsHint], Source={x:Static loc:Loc.Instance}}" Margin="2,10,0,0" TextWrapping="Wrap" FontSize="{StaticResource BfFontCaption}"
+                           Foreground="{DynamicResource BfSecondaryTextBrush}" />
+                <Button x:Name="OpenSettingsButton" Style="{StaticResource ToolbarButton}" Margin="0,10,0,0" HorizontalAlignment="Left"
+                        Command="{Binding Shell.OpenSettingsCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource BfGlyph}" Text="&#xE713;" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding [Panel_OpenSettings], Source={x:Static loc:Loc.Instance}}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- About -->
+        <ScrollViewer Grid.Column="1" x:Name="AboutPage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      Visibility="{Binding IsSelected, ElementName=NavAbout, Converter={StaticResource BoolToVisibility}}">
+            <views:AboutContent Margin="16,8,16,12" HorizontalAlignment="Left" />
+        </ScrollViewer>
+    </Grid>
+</UserControl>

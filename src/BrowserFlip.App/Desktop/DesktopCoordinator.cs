@@ -65,6 +65,8 @@ public sealed class DesktopCoordinator : IDisposable
     private PixelRect _tabRect;
     private PixelRect _triggerZone;
     private DockPreviewWindow? _preview;
+    private SettingsWindow? _settingsWindow;
+    private AboutWindow? _aboutWindow;
     private PixelRect _lastTarget;
     private PixelRect _dragStartRect;
     private int _verifyAttempts;
@@ -174,6 +176,9 @@ public sealed class DesktopCoordinator : IDisposable
         _shell.PropertyChanged += OnShellChanged;
         _shell.ShowMainRequested += (_, _) => ShowMain();
         _shell.ExitRequested += (_, _) => Exit();
+        _shell.SettingsRequested += (_, page) => OpenSettings(page);
+        _shell.AboutRequested += (_, _) => OpenAbout();
+        _shell.TrayModeRequested += (_, _) => HideToTray();
         _monitors.DisplayChanged += (_, _) => OnDisplayChanged();
         _main.PropertyChanged += OnMainChanged;
         Loc.Instance.PropertyChanged += OnLanguageChanged;
@@ -222,6 +227,7 @@ public sealed class DesktopCoordinator : IDisposable
     {
         _ = new WindowInteropHelper(_mainWindow).EnsureHandle();
         _ = new WindowInteropHelper(_bar).EnsureHandle();
+        _mainWindow.SetView(_shell.CurrentView); // v0.3: the view used last (Classic for new users and v0.2 settings)
         RestoreMainBounds();
         UpdateTray();
         ApplyMode();
@@ -238,6 +244,8 @@ public sealed class DesktopCoordinator : IDisposable
 
         _exiting = true;
         SaveMainBounds();
+        _settingsWindow?.Close();
+        _aboutWindow?.Close();
         _autoHideTimer.Stop();
         _fullScreenTimer.Stop();
         _tray?.Dispose();
@@ -372,6 +380,8 @@ public sealed class DesktopCoordinator : IDisposable
 
         SaveMainBounds();
         _trayOnly = true;
+        _settingsWindow?.Close(); // changes are already applied; nothing is left on screen but the tray icon
+        _aboutWindow?.Close();
         _mainWindow.Hide();
         _bar.Hide();
         HideDragPreview();
@@ -501,9 +511,17 @@ public sealed class DesktopCoordinator : IDisposable
         _shell.IsCompact = true;
 
         // ApplyMode saved the (possibly snapped) current rectangle: keep the one from before the drag.
-        _shell.Settings.MainBounds = before;
-        _shell.Settings.MainScale = _monitors.FromPoint(before.Left + (before.Width / 2), before.Top + (before.Height / 2)).Scale;
-        _shell.Settings.Save();
+        var beforeScale = _monitors.FromPoint(before.Left + (before.Width / 2), before.Top + (before.Height / 2)).Scale;
+        if (_mainWindow.View == MainView.Classic)
+        {
+            _shell.Settings.MainBounds = before;
+            _shell.Settings.MainScale = beforeScale;
+            _shell.Settings.Save();
+        }
+        else
+        {
+            SaveViewBounds(before, beforeScale);
+        }
     }
 
     /// <summary>Edge the main window docks to: the cursor pushed against an outer edge (no monitor beyond it).</summary>
@@ -527,8 +545,12 @@ public sealed class DesktopCoordinator : IDisposable
 
         var target = _monitors.FromPoint(r.Left + (r.Width / 2), r.Top + (r.Height / 2));
         _mainWindow.WindowState = WindowState.Normal;
-        _mainWindow.SizeToContent = SizeToContent.Height; // a snap turned it to Manual with the snapped height
+        _mainWindow.SizeToContent = _mainWindow.HeightFromContent ? SizeToContent.Height : SizeToContent.Manual; // a snap turned it to Manual
         _mainWindow.SetRestoredWidth(Math.Max(_mainWindow.MinWidth, r.Width / target.Scale), target.WorkArea.Width / target.Scale);
+        if (!_mainWindow.HeightFromContent)
+        {
+            _mainWindow.Height = Math.Max(_mainWindow.MinHeight, r.Height / target.Scale);
+        }
         var fixedRect = DockLayout.EnsureVisible(r, _monitors.GetMonitors(), 48);
         _placement.Move(hwnd, fixedRect.Left, fixedRect.Top);
         return (fixedRect.Left, fixedRect.Top);
@@ -661,6 +683,9 @@ public sealed class DesktopCoordinator : IDisposable
             case nameof(ShellViewModel.Theme):
                 ThemeManager.SetPreference(_shell.Theme);
                 ScheduleLayout();
+                break;
+            case nameof(ShellViewModel.CurrentView):
+                SwitchView();
                 break;
         }
     }
@@ -1018,6 +1043,12 @@ public sealed class DesktopCoordinator : IDisposable
 
     private void RestoreMainBounds()
     {
+        if (_mainWindow.View != MainView.Classic)
+        {
+            RestoreViewBounds();
+            return;
+        }
+
         if (_shell.Settings.MainBounds is not { } saved)
         {
             // First run (BF-07): a width measured from the header in the current language, within the work area.
@@ -1131,6 +1162,12 @@ public sealed class DesktopCoordinator : IDisposable
 
         var bounds = _placement.GetBounds(hwnd);
         var scale = _monitors.FromWindow(hwnd).Scale;
+        if (_mainWindow.View != MainView.Classic)
+        {
+            SaveViewBounds(bounds, scale);
+            return;
+        }
+
         if (!_mainWindow.WidthIsAutomatic && _mainWindow.WantedWidth > _mainWindow.Width + 0.5)
         {
             // Capped by a narrow work area: keep the user's width (restore caps it again where needed).
@@ -1141,6 +1178,248 @@ public sealed class DesktopCoordinator : IDisposable
         _shell.Settings.MainScale = scale;
         _shell.Settings.MainWidthByUser = !_mainWindow.WidthIsAutomatic;
         _shell.Settings.Save();
+    }
+
+    // ---------------------------------------------------------------- views (v0.3)
+
+    /// <summary>
+    /// View menu / Settings: shows the chosen view at once. The old view's size and the window position are saved
+    /// first; the new view gets its own saved (or default) size at the same position, kept inside the work area of
+    /// the monitor it is on (multi-monitor, DPI, a disconnected monitor).
+    /// </summary>
+    private void SwitchView()
+    {
+        if (_exiting || _mainWindow.View == _shell.CurrentView)
+        {
+            return;
+        }
+
+        SaveMainBounds(); // old view (only while it is shown normally)
+        var shown = _mainWindow.IsVisible && _mainWindow.WindowState == WindowState.Normal;
+        _mainWindow.SetView(_shell.CurrentView);
+        ViewSwitches++;
+        if (_mainWindow.WindowState != WindowState.Normal)
+        {
+            return; // minimized: shown in the new view when restored (sizes are per view, the position is shared)
+        }
+
+        RestoreMainBounds();
+        if (shown)
+        {
+            // Once the new content has been laid out (a content-sized height is known only then).
+            _ = _mainWindow.Dispatcher.BeginInvoke(DispatcherPriority.Background, KeepMainInsideWorkArea);
+        }
+    }
+
+    /// <summary>Number of view switches applied (tests).</summary>
+    internal int ViewSwitches { get; private set; }
+
+    /// <summary>
+    /// Saves a non-classic view: its size (DIP) under its own name, and the position shared by every view. The
+    /// classic size rules (<see cref="UserSettings.MainBounds"/> width, BF-07) are kept as they are.
+    /// </summary>
+    private void SaveViewBounds(PixelRect bounds, double scale)
+    {
+        if (bounds.IsEmpty || scale <= 0)
+        {
+            return;
+        }
+
+        var settings = _shell.Settings;
+        // A height taken from the content is not a preference (0 = follow the content, e.g. when browsers are added).
+        var height = _mainWindow.HeightFromContent ? 0 : Math.Max(100, bounds.Height / scale);
+        settings.ViewSizes[_mainWindow.View] = new ViewSize(Math.Max(100, bounds.Width / scale), height);
+        if (settings.MainBounds is { } classic)
+        {
+            settings.MainBounds = PixelRect.FromSize(bounds.Left, bounds.Top, classic.Width, classic.Height);
+        }
+        else
+        {
+            // Never shown in the classic view yet: its width will be the app-chosen one (BF-07), at this position.
+            settings.MainBounds = PixelRect.FromSize(bounds.Left, bounds.Top, Px(MainWindow.DefaultWidth, scale), bounds.Height);
+            settings.MainScale = scale;
+            settings.MainWidthByUser = false;
+        }
+
+        settings.Save();
+    }
+
+    /// <summary>Applies a non-classic view's saved (or default) size at the shared position, inside a work area.</summary>
+    private void RestoreViewBounds()
+    {
+        var layout = MainWindow.LayoutFor(_mainWindow.View);
+        var size = _shell.Settings.ViewSizes.TryGetValue(_mainWindow.View, out var s) ? s : new ViewSize(layout.Width, layout.Height);
+        _mainWindow.ViewHeightByUser = layout.ContentHeightUntilResized && size.Height > 0;
+        var manualHeight = !layout.HeightFollowsContent && (!layout.ContentHeightUntilResized || size.Height > 0);
+        _mainWindow.SizeToContent = manualHeight ? SizeToContent.Manual : SizeToContent.Height;
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        (int Left, int Top)? at = null;
+        if (_shell.Settings.MainBounds is { } saved)
+        {
+            at = (saved.Left, saved.Top);
+        }
+        else if (hwnd != IntPtr.Zero && _mainWindow.IsVisible)
+        {
+            var current = _placement.GetBounds(hwnd);
+            at = (current.Left, current.Top);
+        }
+
+        var monitor = at is { } p ? _monitors.FromPoint(p.Left + 8, p.Top + 8) : _monitors.FromWindow(hwnd);
+        var maxWidth = monitor.WorkArea.Width / monitor.Scale;
+        var maxHeight = Math.Max(100, (monitor.WorkArea.Height / monitor.Scale) - 16);
+        _mainWindow.SetRestoredWidth(size.Width, maxWidth);
+        if (manualHeight)
+        {
+            _mainWindow.Height = Math.Max(Math.Min(_mainWindow.MinHeight, maxHeight), Math.Min(size.Height, maxHeight));
+        }
+
+        if (!manualHeight)
+        {
+            _mainWindow.FreezeContentHeightSoon(); // Panel: fit once, then keep the height across its pages
+        }
+
+        if (at is not { } pos || hwnd == IntPtr.Zero)
+        {
+            return; // first start in this view: WindowStartupLocation centers it
+        }
+
+        // A content-sized height is not known yet: the bottom is kept above the taskbar once laid out (window).
+        var height = manualHeight ? _mainWindow.Height : Math.Min(maxHeight, 200);
+        var rect = FitInside(PixelRect.FromSize(pos.Left, pos.Top, Px(_mainWindow.Width, monitor.Scale), Px(height, monitor.Scale)), monitor.WorkArea);
+        _mainWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+        _placement.Move(hwnd, rect.Left, rect.Top);
+    }
+
+    /// <summary>After a view switch: the whole window inside the work area of its monitor.</summary>
+    private void KeepMainInsideWorkArea()
+    {
+        var hwnd = new WindowInteropHelper(_mainWindow).Handle;
+        if (_exiting || hwnd == IntPtr.Zero || !_mainWindow.IsVisible || _mainWindow.WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        var b = _placement.GetBounds(hwnd);
+        var fit = FitInside(b, MainWindowMonitor(hwnd).WorkArea);
+        if (fit.Left != b.Left || fit.Top != b.Top)
+        {
+            _placement.Move(hwnd, fit.Left, fit.Top);
+        }
+    }
+
+    /// <summary>Moves <paramref name="r"/> (same size) so it lies inside <paramref name="work"/>; a larger one starts at its top-left.</summary>
+    internal static PixelRect FitInside(PixelRect r, PixelRect work)
+    {
+        var left = Math.Max(work.Left, Math.Min(r.Left, work.Right - r.Width));
+        var top = Math.Max(work.Top, Math.Min(r.Top, work.Bottom - r.Height));
+        return PixelRect.FromSize(left, top, r.Width, r.Height);
+    }
+
+    // ---------------------------------------------------------------- Settings / About windows (v0.3)
+
+    /// <summary>The open Settings window, if any (tests).</summary>
+    internal SettingsWindow? SettingsWindow => _settingsWindow;
+
+    /// <summary>The open About window, if any (tests).</summary>
+    internal AboutWindow? AboutWindow => _aboutWindow;
+
+    /// <summary>
+    /// Shows the one Settings window (menu bar, Panel view, tray, toolbar menu). Asked again while open: the same
+    /// window comes forward on the requested page (never a second, conflicting window).
+    /// </summary>
+    internal void OpenSettings(SettingsPage page)
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        if (_settingsWindow is null)
+        {
+            var window = new SettingsWindow(_main, _shell) { ShowActivated = AllowActivation };
+            window.ShowToolbarRequested += (_, _) => ShowToolbar();
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_settingsWindow, window))
+                {
+                    _settingsWindow = null;
+                }
+            };
+            PlaceDialog(window);
+            _settingsWindow = window;
+            window.ShowPage(page);
+            window.Show();
+        }
+        else
+        {
+            _settingsWindow.ShowPage(page);
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+        }
+
+        if (AllowActivation)
+        {
+            _ = _settingsWindow.Activate();
+        }
+
+        // A TabItem selects itself when it gets the keyboard focus, and activating the window gives the focus back
+        // to the header of the page the user clicked last, which selects that page again (found on the real
+        // desktop). Apply the requested page once more after that has happened.
+        var settingsWindow = _settingsWindow;
+        _ = settingsWindow.Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            if (ReferenceEquals(_settingsWindow, settingsWindow))
+            {
+                settingsWindow.ShowPage(page);
+            }
+        });
+    }
+
+    /// <summary>Help &gt; About (one window).</summary>
+    internal void OpenAbout()
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        if (_aboutWindow is null)
+        {
+            var window = new AboutWindow { ShowActivated = AllowActivation };
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_aboutWindow, window))
+                {
+                    _aboutWindow = null;
+                }
+            };
+            PlaceDialog(window);
+            _aboutWindow = window;
+            window.Show();
+        }
+
+        if (AllowActivation)
+        {
+            _ = _aboutWindow.Activate();
+        }
+    }
+
+    /// <summary>Centered on the main window when it is shown; otherwise on the screen (tray, toolbar).</summary>
+    private void PlaceDialog(Window dialog)
+    {
+        if (_mainWindow.IsVisible && _mainWindow.WindowState == WindowState.Normal)
+        {
+            dialog.Owner = _mainWindow;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+        else
+        {
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        }
+
+        dialog.Topmost = _shell.EffectiveTopmost;
     }
 
     // ---------------------------------------------------------------- auto-hide
@@ -1424,12 +1703,44 @@ public sealed class DesktopCoordinator : IDisposable
     [
         new(Loc.Instance["Menu_Show"], RestoreFromTray) { IsDefault = true },
         new(Loc.Instance["Menu_ShowToolbar"], ShowToolbar),
-        new(Loc.Instance["Menu_Settings"], () => _shell.OpenOptionsCommand.Execute(null)),
         TrayMenuItem.Separator,
+        // v0.3 tray quick access: the current default (read from Windows) and one entry per browser.
+        new(Loc.Instance.Format("Tray_Current", _main.CurrentDefaultName)) { IsEnabled = false },
+        new(Loc.Instance["Tray_Switch"]) { Children = BrowserMenuItems(), IsEnabled = !_main.IsBlockedByPolicy },
+        TrayMenuItem.Separator,
+        new(Loc.Instance["Menu_Settings"], () => OpenSettings(SettingsPage.General)),
         new(Loc.Instance["Menu_Topmost"], () => _shell.ToggleTopmostCommand.Execute(null)) { IsChecked = _shell.IsTopmost },
         TrayMenuItem.Separator,
         new(Loc.Instance["Menu_Exit"], Exit),
     ];
+
+    /// <summary>One entry per detected browser; the default (http and https) is checked.</summary>
+    private List<TrayMenuItem> BrowserMenuItems()
+    {
+        var items = _main.Browsers
+            .Select(card => new TrayMenuItem(card.DisplayName, () => SelectFromMenu(card)) { IsChecked = card.IsDefault, IsEnabled = card.IsAvailable })
+            .ToList();
+        return items.Count > 0 ? items : [new TrayMenuItem(Loc.Instance["Tray_NoBrowsers"]) { IsEnabled = false }];
+    }
+
+    /// <summary>
+    /// Tray / toolbar menu: the same switch as clicking a card (Windows Settings opens on the browser's page; the
+    /// result is read back from Windows, never assumed). A failure that the hidden main window would explain brings
+    /// the main window back (in toolbar mode the error handler already does).
+    /// </summary>
+    private void SelectFromMenu(BrowserCardViewModel card)
+    {
+        if (_exiting)
+        {
+            return;
+        }
+
+        _main.Select(card);
+        if (_main.MessageKind == MessageKind.Error && !_shell.IsCompact && (_trayOnly || !_mainWindow.IsVisible))
+        {
+            RestoreFromTray();
+        }
+    }
 
     private static ContextMenu ToContextMenu(IReadOnlyList<TrayMenuItem> model)
     {

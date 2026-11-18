@@ -11,7 +11,7 @@
     <value>One Click. Your Browser.</value>
   </data>
   <data name="Refresh" xml:space="preserve">
-    <value>Refresh</value>
+    <value>Refresh status</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>Language</value>
@@ -20,7 +20,7 @@
     <value>System default</value>
   </data>
   <data name="OpenDefaultApps" xml:space="preserve">
-    <value>Open Default apps</value>
+    <value>Open Default apps settings</value>
   </data>
   <data name="Section_Browsers" xml:space="preserve">
     <value>Installed browsers</value>
@@ -50,7 +50,7 @@
     <value>Default for HTTPS only</value>
   </data>
   <data name="Card_Hint" xml:space="preserve">
-    <value>Click to make default</value>
+    <value>Set in Windows Settings</value>
   </data>
   <data name="Card_HintDefault" xml:space="preserve">
     <value>Click to review in Windows Settings</value>
@@ -71,7 +71,7 @@
     <value>Windows Settings is open. Choose {0} under Default apps ("Web browser" on Windows 10) to finish.</value>
   </data>
   <data name="Guide_Waiting" xml:space="preserve">
-    <value>Waiting for your change in Windows Settings…</value>
+    <value>Waiting for Windows to confirm…</value>
   </data>
   <data name="Status_Applied" xml:space="preserve">
     <value>{0} is now your default browser.</value>
@@ -110,7 +110,7 @@
     <value>Stop keeping on top</value>
   </data>
   <data name="Compact_Tooltip" xml:space="preserve">
-    <value>Switch to the compact bar</value>
+    <value>Switch to the floating toolbar</value>
   </data>
   <data name="Normal_Tooltip" xml:space="preserve">
     <value>Back to the normal window</value>
@@ -167,7 +167,7 @@
     <value>BrowserFlip — default: {0}</value>
   </data>
   <data name="Refresh_Tooltip" xml:space="preserve">
-    <value>Refresh (F5)</value>
+    <value>Refresh status (F5)</value>
   </data>
   <data name="Card_MissingDetail" xml:space="preserve">
     <value>Not found — it may have been uninstalled</value>
@@ -176,12 +176,198 @@
     <value>Click to open Default apps, then choose it there</value>
   </data>
   <data name="Menu_ShowToolbar" xml:space="preserve">
-    <value>Show compact bar</value>
+    <value>Show floating toolbar</value>
   </data>
   <data name="Options_FloatingOrientationHint" xml:space="preserve">
-    <value>Used while the compact bar is not docked. Drag the bar to a screen edge to dock it: horizontal at the top or bottom, vertical at the left or right.</value>
+    <value>Used while the floating toolbar is not docked. Drag the toolbar to a screen edge to dock it: horizontal at the top or bottom, vertical at the left or right.</value>
   </data>
   <data name="Menu_Show" xml:space="preserve">
     <value>Show BrowserFlip</value>
+  </data>
+  <data name="MenuBar_File" xml:space="preserve">
+    <value>_File</value>
+  </data>
+  <data name="MenuBar_RefreshBrowsers" xml:space="preserve">
+    <value>_Refresh Status</value>
+  </data>
+  <data name="MenuBar_Exit" xml:space="preserve">
+    <value>E_xit</value>
+  </data>
+  <data name="MenuBar_View" xml:space="preserve">
+    <value>_View</value>
+  </data>
+  <data name="View_Classic" xml:space="preserve">
+    <value>_Classic View</value>
+  </data>
+  <data name="View_List" xml:space="preserve">
+    <value>_List View</value>
+  </data>
+  <data name="View_Card" xml:space="preserve">
+    <value>C_ard View</value>
+  </data>
+  <data name="View_Compact" xml:space="preserve">
+    <value>Co_mpact View</value>
+  </data>
+  <data name="View_Panel" xml:space="preserve">
+    <value>_Panel View</value>
+  </data>
+  <data name="View_Classic_Name" xml:space="preserve">
+    <value>Classic View</value>
+  </data>
+  <data name="View_List_Name" xml:space="preserve">
+    <value>List View</value>
+  </data>
+  <data name="View_Card_Name" xml:space="preserve">
+    <value>Card View</value>
+  </data>
+  <data name="View_Compact_Name" xml:space="preserve">
+    <value>Compact View</value>
+  </data>
+  <data name="View_Panel_Name" xml:space="preserve">
+    <value>Panel View</value>
+  </data>
+  <data name="MenuBar_FloatingToolbar" xml:space="preserve">
+    <value>Show _Floating Toolbar</value>
+  </data>
+  <data name="MenuBar_TrayMode" xml:space="preserve">
+    <value>_Tray Mode (hide to the notification area)</value>
+  </data>
+  <data name="MenuBar_Settings" xml:space="preserve">
+    <value>_Settings</value>
+  </data>
+  <data name="MenuBar_Preferences" xml:space="preserve">
+    <value>_Preferences…</value>
+  </data>
+  <data name="MenuBar_ToolbarSettings" xml:space="preserve">
+    <value>_Floating Toolbar Settings…</value>
+  </data>
+  <data name="MenuBar_Help" xml:space="preserve">
+    <value>_Help</value>
+  </data>
+  <data name="MenuBar_About" xml:space="preserve">
+    <value>_About BrowserFlip</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>BrowserFlip Settings</value>
+  </data>
+  <data name="Settings_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings_FloatingToolbar" xml:space="preserve">
+    <value>Floating Toolbar</value>
+  </data>
+  <data name="Settings_Startup" xml:space="preserve">
+    <value>Startup</value>
+  </data>
+  <data name="Settings_Advanced" xml:space="preserve">
+    <value>Advanced</value>
+  </data>
+  <data name="Settings_View" xml:space="preserve">
+    <value>Main window view</value>
+  </data>
+  <data name="Settings_LiveHint" xml:space="preserve">
+    <value>Changes apply at once. Cancel undoes them.</value>
+  </data>
+  <data name="Settings_Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Settings_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Settings_ToolbarDock" xml:space="preserve">
+    <value>Drag it to a screen edge to dock it; it then hides until the pointer comes near.</value>
+  </data>
+  <data name="Action_ShowToolbar" xml:space="preserve">
+    <value>Show floating toolbar</value>
+  </data>
+  <data name="Settings_StartupLast" xml:space="preserve">
+    <value>BrowserFlip starts with the window and the view you used last (main window or floating toolbar).</value>
+  </data>
+  <data name="Settings_StartupSingle" xml:space="preserve">
+    <value>Only one BrowserFlip runs at a time: starting it again brings the running window forward.</value>
+  </data>
+  <data name="Settings_StartupNoAutostart" xml:space="preserve">
+    <value>Starting automatically with Windows is not available in this version.</value>
+  </data>
+  <data name="Settings_SettingsFile" xml:space="preserve">
+    <value>Settings file</value>
+  </data>
+  <data name="Settings_InMemory" xml:space="preserve">
+    <value>(not saved)</value>
+  </data>
+  <data name="About_Title" xml:space="preserve">
+    <value>About BrowserFlip</value>
+  </data>
+  <data name="About_VersionLabel" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="About_License" xml:space="preserve">
+    <value>Released under the MIT License.</value>
+  </data>
+  <data name="About_Website" xml:space="preserve">
+    <value>Project page on GitHub</value>
+  </data>
+  <data name="About_ThirdParty" xml:space="preserve">
+    <value>Release packages include the .NET runtime; see THIRD-PARTY-NOTICES.txt.</value>
+  </data>
+  <data name="Dialog_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Nav_Home" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="Nav_Browsers" xml:space="preserve">
+    <value>Browsers</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Nav_About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Nav_Label" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="Panel_SettingsHint" xml:space="preserve">
+    <value>Settings open in their own window, shared by every view, the notification-area icon and the floating toolbar.</value>
+  </data>
+  <data name="Panel_OpenSettings" xml:space="preserve">
+    <value>Open Settings</value>
+  </data>
+  <data name="Home_Current" xml:space="preserve">
+    <value>Current default browser</value>
+  </data>
+  <data name="Home_QuickSwitch" xml:space="preserve">
+    <value>Switch to</value>
+  </data>
+  <data name="Home_Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="List_SetDefault" xml:space="preserve">
+    <value>Set as default</value>
+  </data>
+  <data name="Tray_Current" xml:space="preserve">
+    <value>Current default: {0}</value>
+  </data>
+  <data name="Tray_Switch" xml:space="preserve">
+    <value>Switch default browser</value>
+  </data>
+  <data name="Tray_NoBrowsers" xml:space="preserve">
+    <value>No browsers found</value>
+  </data>
+  <data name="Panel_CurrentSettings" xml:space="preserve">
+    <value>Current settings</value>
+  </data>
+  <data name="State_On" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="State_Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Drag_Tooltip" xml:space="preserve">
+    <value>Drag to move</value>
   </data>
 </root>

@@ -173,7 +173,15 @@ public sealed class MainWindowLayoutTests
                 trimmed.Add($"<only {candidates.Count} trimmable text blocks were checked — test is not effective>");
             }
 
-            return (root.DesiredSize.Height, trimmed);
+            // v0.3 adds the menu bar above the unchanged Classic content: the v0.2 size limits apply to the content
+            // (the menu bar is one compact line on its own).
+            var menu = (FrameworkElement)window.FindName("MainMenu");
+            if (menu.DesiredSize.Height is <= 0 or > 32)
+            {
+                trimmed.Add($"<menu bar height {menu.DesiredSize.Height:N0} DIP outside 1-32>");
+            }
+
+            return (root.DesiredSize.Height - menu.DesiredSize.Height - menu.Margin.Top - menu.Margin.Bottom, trimmed);
         }
         finally
         {
