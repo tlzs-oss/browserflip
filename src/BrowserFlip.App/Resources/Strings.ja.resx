@@ -278,7 +278,7 @@
     <value>キャンセル</value>
   </data>
   <data name="Settings_ToolbarDock" xml:space="preserve">
-    <value>画面の端へドラッグするとドッキングし、ポインターを近づけるまで隠れます。</value>
+    <value>画面の端へドラッグするとドッキングします。ポインターを近づけるまで端に隠れます。</value>
   </data>
   <data name="Action_ShowToolbar" xml:space="preserve">
     <value>フローティング ツールバーを表示</value>

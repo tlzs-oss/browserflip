@@ -306,6 +306,7 @@
             <sys:Double x:Key="BfTileWidth">136</sys:Double>
             <sys:Double x:Key="BfTileHeight">108</sys:Double>
             <sys:Double x:Key="BfTileIcon">32</sys:Double>
+            <Thickness x:Key="BfTilePadding">6,6</Thickness>
 
             <!-- Navigation entries (Panel view list, Settings window tabs): one look (UI-12). Hover = light tint;
                  selected = blue tint + accent pill (not colour alone: the pill marks it too); keyboard focus = ring. -->
@@ -586,7 +587,7 @@
             <!-- One browser as a tile (Card view, Panel view "Home"). -->
             <DataTemplate x:Key="BrowserTileTemplate" DataType="{x:Type vm:BrowserCardViewModel}">
                 <Button Style="{StaticResource BrowserCard}" Width="{DynamicResource BfTileWidth}" Height="{DynamicResource BfTileHeight}"
-                        Margin="4" Padding="6,6"
+                        Margin="4" Padding="{DynamicResource BfTilePadding}"
                         Command="{Binding DataContext.SelectBrowserCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                         CommandParameter="{Binding}"
                         IsEnabled="{Binding IsAvailable}"

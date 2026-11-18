@@ -50,7 +50,7 @@
     <value>仅 HTTPS 默认</value>
   </data>
   <data name="Card_Hint" xml:space="preserve">
-    <value>在 Windows 设置中更改</value>
+    <value>Windows 设置中更改</value>
   </data>
   <data name="Card_HintDefault" xml:space="preserve">
     <value>点击在 Windows 设置中查看</value>

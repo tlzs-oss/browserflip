@@ -1260,7 +1260,45 @@ public sealed class MultiViewTests
     }
 
     [Fact]
-    public void Menu_bar_drop_downs_open_left_aligned_and_opaque_in_every_view()
+    public void Short_tile_hints_stay_on_one_line_in_Card_and_Panel()
+    {
+        var before = BrowserFlip.App.Localization.Loc.Instance.Culture.Name;
+        var problems = new List<string>();
+        Run(() =>
+        {
+            try
+            {
+                // Final round: a 116 epx inner width broke the Japanese hint as "Windows の設定で変 / 更" (one orphan character).
+                // Japanese and Chinese break anywhere, so their short hint must fit one line; English wraps between words.
+                foreach (var language in new[] { "ja", "zh-CN" })
+                {
+                    BrowserFlip.App.Localization.Loc.Instance.SetLanguage(language);
+                    using var h = new Harness(Normal(MainView.Panel), Primary);
+                    foreach (var view in new[] { MainView.Panel, MainView.Card })
+                    {
+                        h.Shell.CurrentView = view;
+                        Harness.Pump();
+                        foreach (var t in Descendants<TextBlock>(h.Coordinator.MainWindow.CurrentPage!).Where(t => IsShown(t) && t.Text == L("Card_Hint")))
+                        {
+                            var line = double.IsNaN(t.LineHeight) ? t.FontSize * 1.4 : t.LineHeight;
+                            if (t.ActualHeight > 1.5 * line)
+                            {
+                                problems.Add($"{language}/{view}: '{t.Text}' wraps ({t.ActualHeight:N1})");
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                BrowserFlip.App.Localization.Loc.Instance.SetLanguage(before);
+            }
+        });
+        Assert.Empty(problems);
+    }
+
+    [Fact]
+    public void Menu_bar_drop_downs_open_left_aligned_in_every_view()
     {
         Run(() =>
         {

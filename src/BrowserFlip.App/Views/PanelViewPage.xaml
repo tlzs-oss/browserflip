@@ -8,9 +8,11 @@
     <!-- Panel view: navigation on the left (Home / Browsers / Settings / About), content on the right. -->
     <UserControl.Resources>
         <!-- Smaller tiles than the Card view: four fit in one row at the default window width (UI-03). -->
-        <sys:Double x:Key="BfTileWidth">128</sys:Double>
+        <sys:Double x:Key="BfTileWidth">132</sys:Double>
         <sys:Double x:Key="BfTileHeight">112</sys:Double>
         <sys:Double x:Key="BfTileIcon">32</sys:Double>
+        <!-- Inner width 126: the short Japanese / Chinese hint stays on one line instead of leaving one character. -->
+        <Thickness x:Key="BfTilePadding">2,6</Thickness>
         <Style x:Key="SummaryLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource BfSecondaryTextBrush}" />
             <Setter Property="Margin" Value="0,3,16,3" />
