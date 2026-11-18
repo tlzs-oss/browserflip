@@ -317,7 +317,7 @@ public sealed class MultiViewTests
             h.Shell.CurrentView = MainView.Card;
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(640, window.Width, 1);
+            Assert.Equal(664, window.Width, 1);
             Assert.Equal(SizeToContent.Height, window.SizeToContent); // UI-02: as tall as the cards, no empty half window
             Assert.False(window.ViewHeightByUser);
             Assert.Equal((500, 350), (h.Placement.GetBounds(h.MainHandle).Left, h.Placement.GetBounds(h.MainHandle).Top));
@@ -374,7 +374,7 @@ public sealed class MultiViewTests
                 h.Shell.CurrentView = MainView.Panel;
                 Harness.Pump();
                 var b = h.Placement.GetBounds(h.MainHandle);
-                Assert.Equal(3840 - (int)Math.Round(720 * 2.25), b.Left);
+                Assert.Equal(3840 - (int)Math.Round(760 * 2.25), b.Left);
                 Assert.True(b.Top <= 2292 - (int)Math.Round(200 * 2.25), $"top {b.Top}"); // content height: fitted once laid out
             }
 
@@ -764,7 +764,7 @@ public sealed class MultiViewTests
             using var h = new Harness(Normal(MainView.Panel), Primary);
             Harness.Pump();
             var window = h.Coordinator.MainWindow;
-            Assert.Equal(720, window.Width, 1);
+            Assert.Equal(760, window.Width, 1);
             // Phase 4: as tall as the Home page (measured), then kept while moving between pages; not a user height.
             Assert.Equal(SizeToContent.Manual, window.SizeToContent);
             Assert.False(window.ViewHeightByUser);
@@ -823,6 +823,19 @@ public sealed class MultiViewTests
                             var inner = tile.ActualHeight - tile.Padding.Bottom - tile.BorderThickness.Bottom;
                             foreach (var text in Descendants<TextBlock>(tile).Where(IsShown))
                             {
+                                // The browser name is never shortened with an ellipsis (found on the real desktop).
+                                if (text.Text == ((BrowserCardViewModel)tile.CommandParameter).DisplayName)
+                                {
+                                    var available = text.ActualWidth;
+                                    text.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                    var needed = text.DesiredSize.Width;
+                                    text.InvalidateMeasure();
+                                    if (needed > available + 1 && text.ActualHeight < 2 * text.FontSize)
+                                    {
+                                        problems.Add($"{language}/{view}: name '{text.Text}' shortened ({needed:N1} > {available:N1})");
+                                    }
+                                }
+
                                 var bottom = text.TranslatePoint(new Point(0, text.ActualHeight), tile).Y;
                                 if (bottom > inner + 0.5)
                                 {

@@ -8,7 +8,7 @@
     <!-- Panel view: navigation on the left (Home / Browsers / Settings / About), content on the right. -->
     <UserControl.Resources>
         <!-- Smaller tiles than the Card view: four fit in one row at the default window width (UI-03). -->
-        <sys:Double x:Key="BfTileWidth">116</sys:Double>
+        <sys:Double x:Key="BfTileWidth">128</sys:Double>
         <sys:Double x:Key="BfTileHeight">116</sys:Double>
         <sys:Double x:Key="BfTileIcon">32</sys:Double>
         <Style x:Key="SummaryLabel" TargetType="TextBlock">

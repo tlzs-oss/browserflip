@@ -279,7 +279,7 @@
             <sys:Double x:Key="BfControlHeight">32</sys:Double>
 
             <!-- Tile size (Card view; the Panel view overrides it with smaller tiles). -->
-            <sys:Double x:Key="BfTileWidth">136</sys:Double>
+            <sys:Double x:Key="BfTileWidth">144</sys:Double>
             <sys:Double x:Key="BfTileHeight">120</sys:Double>
             <sys:Double x:Key="BfTileIcon">36</sys:Double>
 
