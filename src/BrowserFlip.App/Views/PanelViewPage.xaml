@@ -146,14 +146,13 @@
                         </StackPanel>
                     </Button>
                 </WrapPanel>
-                <TextBlock Text="{Binding [Footer_Note], Source={x:Static loc:Loc.Instance}}" FontSize="{StaticResource BfFontCaption}" Margin="2,0,0,0" TextWrapping="Wrap"
-                           Foreground="{DynamicResource BfSecondaryTextBrush}" />
             </StackPanel>
         </ScrollViewer>
 
         <!-- Browsers -->
-        <DockPanel Grid.Column="1" x:Name="BrowsersPage" Margin="16,2,16,12"
+        <DockPanel Grid.Column="1" x:Name="BrowsersPage" Margin="16,8,16,12"
                    Visibility="{Binding IsSelected, ElementName=NavBrowsers, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Text="{Binding [Nav_Browsers], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BfSectionHeader}" Margin="0,0,0,0" />
             <views:StatusStrip DockPanel.Dock="Top" />
             <Border Style="{StaticResource BfCardPanel}" Margin="0,8,0,0" Padding="4" VerticalAlignment="Top">
                 <Grid>

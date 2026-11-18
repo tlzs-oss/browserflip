@@ -16,7 +16,7 @@
                        Foreground="{DynamicResource BfSecondaryTextBrush}" Margin="0,0,8,0" />
         </DockPanel>
 
-        <Border Style="{StaticResource BfCardPanel}" Margin="0,10,0,0" Padding="4">
+        <Border Style="{StaticResource BfCardPanel}" Margin="0,8,0,0" Padding="4">
             <Grid>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
                     <ItemsControl x:Name="BrowserList" ItemsSource="{Binding Browsers}" Focusable="False"

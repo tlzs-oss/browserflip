@@ -136,8 +136,6 @@
                                               AutomationProperties.Name="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" />
                                     <TextBlock Text="{Binding [Options_FloatingOrientation], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" />
                                 </DockPanel>
-                                <!-- The explanation spans the card (not squeezed beside the control). -->
-                                <TextBlock Margin="0,8,0,0" Style="{StaticResource Note}" Text="{Binding [Options_FloatingOrientationHint], Source={x:Static loc:Loc.Instance}}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingCard}">
