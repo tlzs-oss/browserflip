@@ -1,0 +1,11 @@
+<Solution>
+  <!-- Cross-platform subset of BrowserFlip.slnx: the projects that build and test on
+       macOS and Linux as well as Windows. The WPF projects (BrowserFlip.App and
+       BrowserFlip.App.Tests) are Windows-only and live in BrowserFlip.slnx. -->
+  <Folder Name="/src/">
+    <Project Path="src/BrowserFlip.Core/BrowserFlip.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BrowserFlip.Core.Tests/BrowserFlip.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -15,11 +15,16 @@ concurrency:
 
 env:
   SOLUTION: BrowserFlip.slnx
+  XPLAT_SOLUTION: BrowserFlip.CrossPlatform.slnx
   DOTNET_NOLOGO: "true"
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
 jobs:
+  # Windows is the product platform: full WPF build, the whole test suite (both target
+  # frameworks of BrowserFlip.Core.Tests, including the native Windows API smoke tests)
+  # and all repository-wide checks.
+  # NOTE: the job name is a required status check on main - do not rename it.
   build-test:
     name: Build, test & checks
     runs-on: windows-latest
@@ -55,10 +60,14 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: test-results
+          name: test-results-windows
           path: TestResults/
           retention-days: 14
           if-no-files-found: warn
+
+      - name: Developer entry point is usable
+        if: ${{ !cancelled() }}
+        run: ./scripts/dev.ps1 info
 
       - name: Format check (whitespace + code style)
         if: ${{ !cancelled() }}
@@ -93,3 +102,61 @@ jobs:
       - name: Dependency / License Check
         if: ${{ !cancelled() }}
         run: ./scripts/license-check.ps1 -Target $env:SOLUTION -VerifyOnline
+
+  # macOS proves that the portable Core keeps building and passing its tests off Windows.
+  # It deliberately does NOT repeat the Windows checks (format, licenses, vulnerabilities)
+  # and cannot build the WPF application. A green run here is not Windows verification.
+  macos-core:
+    name: macOS Core build & test
+    runs-on: macos-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Build & test the portable Core (via the developer entry point)
+        run: ./scripts/dev.sh check
+
+      # Guards the rule that Windows-native tests must never run on macOS: building the
+      # net10.0-windows target here must still produce zero failures, with the native
+      # smoke tests reported as skipped.
+      - name: Windows-only tests are skipped, never executed
+        run: |
+          set -euo pipefail
+          mkdir -p TestResults
+          log=TestResults/windows-tfm-on-macos.log
+          dotnet test "$XPLAT_SOLUTION" -c Release -f net10.0-windows --results-directory TestResults | tee "$log"
+          # The default console summary reads:
+          #   Passed!  - Failed: 0, Passed: 95, Skipped: 4, Total: 99
+          grep -Eq 'Failed: +0,' "$log" || { echo "::error::native Windows tests must not fail on macOS"; exit 1; }
+          # Each native test must appear as skipped by name, so the guard cannot be satisfied
+          # by some unrelated [Fact(Skip=...)] or by the tests disappearing from the build.
+          expected=$(grep -c '\[WindowsFact\]' tests/BrowserFlip.Core.Tests/Platform/WindowsNativeApiTests.cs)
+          [ "$expected" -gt 0 ] || { echo "::error::no [WindowsFact] tests found to guard"; exit 1; }
+          actual=$(grep -c '^  *Skipped BrowserFlip\.Core\.Tests\.WindowsNativeApiTests\.' "$log" || true)
+          if [ "$actual" -ne "$expected" ]; then
+            echo "::error::expected $expected WindowsNativeApiTests to be skipped on macOS, saw $actual"
+            exit 1
+          fi
+          echo "All $expected WindowsNativeApiTests were skipped, not executed."
+        env:
+          DOTNET_CLI_UI_LANGUAGE: en
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-macos
+          path: TestResults/
+          retention-days: 14
+          if-no-files-found: warn

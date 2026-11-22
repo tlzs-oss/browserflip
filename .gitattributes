@@ -8,5 +8,11 @@
 *.resx text eol=crlf
 *.manifest text eol=crlf
 *.ps1 text eol=crlf
+# Shell scripts must stay LF even when checked out on Windows (Git Bash / WSL).
+*.sh text eol=lf
+# GitHub Actions and JSON are read by Linux/macOS runners.
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
 *.png binary
 *.ico binary
