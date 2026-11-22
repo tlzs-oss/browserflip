@@ -1,0 +1,23 @@
+<Project>
+
+  <!-- Inherit the repository-wide quality settings (warnings as errors, nullable, analysers). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- R2 technology prototype. Isolated from the shipping Windows product: these projects are
+         NOT part of BrowserFlip.slnx and never ship in a release. -->
+    <IsPrototype>true</IsPrototype>
+    <!-- Avalonia's XAML compiler and generated partial classes do not satisfy some of the
+         repository's analyser rules that the WPF product does satisfy. Scope the exemptions here
+         so the product's own rule set stays untouched.
+         CA1515: public types are required by Avalonia XAML binding.
+         CA2007: desktop UI code intentionally continues on the captured context.
+         CA1707: test naming uses underscores.
+         CA1822: view-model members must stay instance members to be data-bindable, even when
+                 their body happens not to touch instance state.
+         CA1863: the format strings come from the localised .resx and change with the UI
+                 language, so a cached CompositeFormat would be wrong, not faster. -->
+    <NoWarn>$(NoWarn);CA1515;CA2007;CA1707;CA1822;CA1863</NoWarn>
+  </PropertyGroup>
+
+</Project>

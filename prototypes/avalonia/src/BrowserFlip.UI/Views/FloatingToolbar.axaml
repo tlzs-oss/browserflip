@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:BrowserFlip.UI.ViewModels"
+        x:Class="BrowserFlip.UI.Views.FloatingToolbar"
+        x:DataType="vm:MainViewModel"
+        Title="BrowserFlip toolbar"
+        Width="300" Height="52" CanResize="False"
+        WindowDecorations="None" Topmost="True"
+        ShowInTaskbar="False" Background="#F2202020"
+        TransparencyLevelHint="AcrylicBlur">
+
+  <Border CornerRadius="10" Padding="8" Background="#00000000">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <!-- Six-dot drag handle, matching the Windows product's floating toolbar. -->
+      <Border Grid.Column="0" Name="DragHandle" Width="16" Background="#00000000"
+              VerticalAlignment="Stretch">
+        <UniformGrid Columns="2" Rows="3" Width="8" Height="14" VerticalAlignment="Center">
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+          <Ellipse Width="3" Height="3" Fill="#90FFFFFF" Margin="1" />
+        </UniformGrid>
+      </Border>
+
+      <TextBlock Grid.Column="1" Margin="8,0" VerticalAlignment="Center"
+                 Foreground="White" FontSize="12" TextTrimming="CharacterEllipsis"
+                 Text="{Binding CurrentDefaultText}" />
+
+      <Button Grid.Column="2" Name="ToolbarRefresh" Content="&#x21bb;" Foreground="White"
+              Background="#30FFFFFF" Padding="8,2" VerticalAlignment="Center" />
+    </Grid>
+  </Border>
+</Window>

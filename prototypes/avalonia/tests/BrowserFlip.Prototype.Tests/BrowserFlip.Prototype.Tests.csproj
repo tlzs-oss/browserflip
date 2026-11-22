@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>BrowserFlip.Prototype.Tests</RootNamespace>
+    <NoWarn>$(NoWarn);CA1861;CA1812</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xunit v3, required by Avalonia.Headless.XUnit 12.x. The product's own test projects
+         stay on xunit 2.9.3; the two live in different solutions and never mix. -->
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <!-- Skia so the headless tests render real frames instead of a no-op surface. -->
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.Headless" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BrowserFlip.UI\BrowserFlip.UI.csproj" />
+    <ProjectReference Include="..\..\src\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
+  </ItemGroup>
+
+</Project>

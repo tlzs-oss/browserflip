@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BrowserFlip.Platform.MacOS</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- Every member is annotated [SupportedOSPlatform("macos")]; callers guard with
+         OperatingSystem.IsMacOS(). The assembly itself stays net10.0 so the solution
+         restores and builds on any host. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
+    <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
+  </ItemGroup>
+
+</Project>
