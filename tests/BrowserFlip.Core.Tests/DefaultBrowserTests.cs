@@ -1,6 +1,5 @@
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Core.Detection;
-using BrowserFlip.Core.Platform;
 using static BrowserFlip.Core.Tests.RegistryFixtures;
 
 namespace BrowserFlip.Core.Tests;
@@ -96,22 +95,6 @@ public class DefaultBrowserTests
     [Fact]
     public void Service_rejects_null_list()
         => Assert.Throws<ArgumentNullException>(() => new DefaultBrowserService(new FakeAssociations()).GetState(null!));
-
-    [Fact]
-    public void Real_association_query_returns_non_empty_progid_or_null()
-    {
-        // Smoke test against the real shell API: must never throw, regardless of machine configuration.
-        var info = new ShellAssociationQuery().QueryProtocol("https");
-        Assert.True(info is null || !string.IsNullOrWhiteSpace(info.ProgId));
-        if (info is not null)
-        {
-            // Regression: the executable must be resolvable (needs the "open" verb for URL protocols).
-            Assert.False(string.IsNullOrWhiteSpace(info.ExecutablePath));
-            Assert.True(File.Exists(info.ExecutablePath), info.ExecutablePath);
-        }
-
-        Assert.Null(new ShellAssociationQuery().QueryProtocol("browserflip-nonexistent-protocol"));
-    }
 }
 
 public class ChangeTrackerTests

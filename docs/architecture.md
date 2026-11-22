@@ -15,14 +15,15 @@ BrowserFlip の構成と主要な処理フローを説明します。対象バ�
 | 起動する URI の制限 | `ShellUriLauncher` は `ms-settings:` スキーム以外を例外で拒否する。 |
 | 依存ゼロ | 本体プロジェクトはサードパーティ パッケージに依存しない(テスト用パッケージのみ `Directory.Packages.props` で集中管理)。 |
 | テスト容易性 | OS への依存はすべて `Platform` 層のインターフェイス越しに扱い、単体テストではフェイクに差し替える。 |
+| 移植性 | Windows 専用の実装(P/Invoke・レジストリ)は `Platform/Windows/` に閉じ込め、`net10.0` ターゲットから除外する。Core のロジックは macOS / Linux でもビルドしてテストできる([cross-platform-dev.md](cross-platform-dev.md))。 |
 
 ## 2. レイヤー構成
 
 | プロジェクト | ターゲット | 役割 |
 | --- | --- | --- |
 | `src/BrowserFlip.App` | `net10.0-windows` (WPF) | View / ViewModel(MVVM)、テーマ、DPI、多言語リソース |
-| `src/BrowserFlip.Core` | `net10.0-windows` | 検出・既定状態・設定起動・ポリシー判定のロジック、および Windows 実装 |
-| `tests/BrowserFlip.Core.Tests` | xUnit | Core の単体テスト(`InternalsVisibleTo` で internal も検証) |
+| `src/BrowserFlip.Core` | `net10.0` / `net10.0-windows` | 検出・既定状態・設定起動・ポリシー判定のロジック(OS 非依存)、および `Platform/Windows/` 配下の Windows 実装 |
+| `tests/BrowserFlip.Core.Tests` | xUnit (`net10.0` / `net10.0-windows`) | Core の単体テスト(`InternalsVisibleTo` で internal も検証) |
 | `tests/BrowserFlip.App.Tests` | xUnit (WPF) | ViewModel・多言語・設定ファイルの単体テスト(Core のフェイクを共有) |
 
 ```mermaid

@@ -6,7 +6,7 @@ BrowserFlip へのコントリビューションを歓迎します。日本語�
 
 ## 開発環境
 
-- Windows 11(開発・テストは Windows 11 で行っています。Windows 10 は未検証)
+- Windows 11(製品のビルド・テストは Windows 11 で行っています。Windows 10 は未検証)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)(バージョンは `global.json` で固定)
 - Visual Studio 2026、Visual Studio Code(C# Dev Kit)、または JetBrains Rider など
 
@@ -18,7 +18,13 @@ dotnet test BrowserFlip.slnx
 dotnet run --project src/BrowserFlip.App
 ```
 
-構成は [docs/architecture.md](docs/architecture.md)、要件は [docs/requirements.md](docs/requirements.md)、テスト方針は [docs/testing.md](docs/testing.md) を参照してください。
+macOS / Linux でも移植可能な `BrowserFlip.Core` のビルドとテストはできます(WPF アプリケーションは Windows 専用のままです)。
+
+```sh
+./scripts/dev.sh check      # Windows では ./scripts/dev.ps1 check
+```
+
+詳しくは [docs/cross-platform-dev.md](docs/cross-platform-dev.md) を参照してください。構成は [docs/architecture.md](docs/architecture.md)、要件は [docs/requirements.md](docs/requirements.md)、テスト方針は [docs/testing.md](docs/testing.md) にあります。
 
 ## ブランチと PR の流れ
 
@@ -88,7 +94,7 @@ Project docs under `docs/` are written in Japanese; issues and pull requests in 
 
 ### Development setup
 
-- Windows 11 (development and testing use Windows 11; Windows 10 is not tested)
+- Windows 11 (the product is built and tested on Windows 11; Windows 10 is not tested)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned in `global.json`)
 
 ```powershell
@@ -96,6 +102,17 @@ dotnet build BrowserFlip.slnx -c Release
 dotnet test BrowserFlip.slnx
 dotnet run --project src/BrowserFlip.App
 ```
+
+The portable `BrowserFlip.Core` also builds and tests on macOS and Linux; the WPF application
+stays Windows-only. Use the shared entry point, which detects the host OS and reports
+PASS / FAIL / SKIPPED / UNSUPPORTED per step:
+
+```sh
+./scripts/dev.sh check      # ./scripts/dev.ps1 check on Windows
+```
+
+See [docs/cross-platform-dev.md](docs/cross-platform-dev.md) (Japanese) for the two-machine
+workflow and the Git synchronisation rules.
 
 ### Branches and pull requests
 
