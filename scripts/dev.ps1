@@ -103,6 +103,9 @@ if ($onWindows) {
 
 $script:report = [Collections.Generic.List[object]]::new()
 $script:failed = $false
+# Set when a command deliberately stopped without finishing (for example sync-finish
+# leaving changes uncommitted). That is not a FAIL row, but it must not exit 0 either.
+$script:stopped = $false
 
 function Add-Result {
     param(
@@ -140,7 +143,11 @@ function Write-Report {
         Write-Host '       verify Windows behaviour - that requires a Windows machine or the Windows CI job.'
         Write-Host $rule
     }
-    Write-Host (' RESULT: ' + $(if ($script:failed) { 'FAIL' } else { 'PASS' })) -ForegroundColor $(if ($script:failed) { 'Red' } else { 'Green' })
+    $result = if ($script:failed) { 'FAIL' }
+        elseif ($script:stopped) { 'INCOMPLETE (nothing failed, but the command stopped early)' }
+        else { 'PASS' }
+    $resultColour = if ($script:failed) { 'Red' } elseif ($script:stopped) { 'Yellow' } else { 'Green' }
+    Write-Host " RESULT: $result" -ForegroundColor $resultColour
     Write-Host "$rule`n"
 }
 
@@ -324,6 +331,7 @@ function Invoke-SyncFinish {
     Invoke-Test
     if ($script:failed) {
         Write-Host "`nTests failed - nothing was committed or pushed."
+        $script:stopped = $true
         Write-Report
         return
     }
@@ -336,6 +344,7 @@ function Invoke-SyncFinish {
         Write-Host "`nThere are uncommitted changes. Review them, then commit yourself, or re-run with:"
         Write-Host '  ./scripts/dev.ps1 sync-finish -Message "type(scope): summary"'
         Add-Result SKIPPED 'Commit' 'no -Message given; changes left in the working tree'
+        $script:stopped = $true
         Write-Report
         return
     } else {
@@ -387,4 +396,4 @@ switch ($Command) {
     'sync-finish' { Invoke-SyncFinish }
 }
 
-if ($script:failed) { exit 1 }
+if ($script:failed -or $script:stopped) { exit 1 }

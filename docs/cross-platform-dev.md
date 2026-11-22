@@ -84,7 +84,15 @@ BrowserFlip は **Windows + macOS の 2 台体制**で開発します。同じ�
 | `SKIPPED` | 実行対象だが意図的に飛ばした(例: ネイティブ テスト) |
 | `UNSUPPORTED` | このホストでは実行そのものが不可能(例: macOS の WPF) |
 
-macOS のレポートには次の注意書きが必ず付きます。
+最後の `RESULT` 行と終了コードの対応は次のとおりです。
+
+| `RESULT` | 終了コード | 意味 |
+| --- | --- | --- |
+| `PASS` | 0 | 実行した全ステップが成功した |
+| `FAIL` | 1 | いずれかのステップが失敗した |
+| `INCOMPLETE` | 1 | 失敗はないが、意図的に途中で止めた(例: `sync-finish` でコミット メッセージが無く、変更を残して終了) |
+
+ビルドとテストを含むレポートのうち、macOS では次の注意書きが必ず付きます。
 
 ```
 NOTE: this host cannot build or run the WPF application. A green run here does NOT

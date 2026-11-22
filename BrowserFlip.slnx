@@ -1,4 +1,6 @@
 <Solution>
+  <!-- When adding a project that is not Windows-only, add it to
+       BrowserFlip.CrossPlatform.slnx as well, or it gets no macOS CI coverage. -->
   <Folder Name="/src/">
     <Project Path="src/BrowserFlip.Core/BrowserFlip.Core.csproj" />
     <Project Path="src/BrowserFlip.App/BrowserFlip.App.csproj" />

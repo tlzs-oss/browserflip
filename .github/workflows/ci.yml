@@ -139,7 +139,16 @@ jobs:
           # The default console summary reads:
           #   Passed!  - Failed: 0, Passed: 95, Skipped: 4, Total: 99
           grep -Eq 'Failed: +0,' "$log" || { echo "::error::native Windows tests must not fail on macOS"; exit 1; }
-          grep -Eq 'Skipped: +[1-9]' "$log" || { echo "::error::native Windows tests must be reported as skipped on macOS"; exit 1; }
+          # Each native test must appear as skipped by name, so the guard cannot be satisfied
+          # by some unrelated [Fact(Skip=...)] or by the tests disappearing from the build.
+          expected=$(grep -c '\[WindowsFact\]' tests/BrowserFlip.Core.Tests/Platform/WindowsNativeApiTests.cs)
+          [ "$expected" -gt 0 ] || { echo "::error::no [WindowsFact] tests found to guard"; exit 1; }
+          actual=$(grep -c '^  *Skipped BrowserFlip\.Core\.Tests\.WindowsNativeApiTests\.' "$log" || true)
+          if [ "$actual" -ne "$expected" ]; then
+            echo "::error::expected $expected WindowsNativeApiTests to be skipped on macOS, saw $actual"
+            exit 1
+          fi
+          echo "All $expected WindowsNativeApiTests were skipped, not executed."
         env:
           DOTNET_CLI_UI_LANGUAGE: en
 

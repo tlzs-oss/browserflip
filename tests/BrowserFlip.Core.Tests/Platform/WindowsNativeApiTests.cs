@@ -63,10 +63,18 @@ public class WindowsNativeApiTests
     }
 
     [WindowsFact]
-    public void Real_os_info_reports_a_plausible_build()
+    public void Real_os_info_reads_the_update_build_revision()
     {
-        var os = new EnvironmentOsInfo(new WindowsRegistryReader());
+        var registry = new WindowsRegistryReader();
+        var os = new EnvironmentOsInfo(registry);
         Assert.True(os.BuildNumber > 0);
-        Assert.True(os.UpdateBuildRevision >= 0);
+
+        // EnvironmentOsInfo falls back to 0, so assert that the UBR value is genuinely
+        // readable: a wrong key path or registry view would silently report 0 instead.
+        var ubr = registry.GetInt32(
+            RegistryRoot.LocalMachine, RegistryViewKind.Registry64,
+            @"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "UBR");
+        Assert.NotNull(ubr);
+        Assert.Equal(ubr.Value, os.UpdateBuildRevision);
     }
 }

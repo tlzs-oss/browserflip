@@ -64,6 +64,9 @@ export PATH
 
 REPORT=()
 FAILED=0
+# Set when a command deliberately stopped without finishing (for example sync-finish
+# leaving changes uncommitted). That is not a FAIL row, but it must not exit 0 either.
+STOPPED=0
 
 record() { # record <status> <step> [detail]
   REPORT+=("$1|$2|${3:-}")
@@ -100,7 +103,13 @@ print_report() {
     printf '       verify Windows behaviour — that requires a Windows machine or the Windows CI job.\n'
     printf '%s\n' "-------------------------------------------------------------------------------"
   fi
-  [ "$FAILED" -eq 0 ] && printf ' RESULT: PASS\n' || printf ' RESULT: FAIL\n'
+  if [ "$FAILED" -ne 0 ]; then
+    printf ' RESULT: FAIL\n'
+  elif [ "$STOPPED" -ne 0 ]; then
+    printf ' RESULT: INCOMPLETE (nothing failed, but the command stopped early)\n'
+  else
+    printf ' RESULT: PASS\n'
+  fi
   printf '%s\n\n' "-------------------------------------------------------------------------------"
 }
 
@@ -309,6 +318,7 @@ cmd_sync_finish() {
       printf '\nThere are uncommitted changes. Review them, then commit yourself, or re-run with:\n'
       printf '  SYNC_MESSAGE="type(scope): summary" ./scripts/dev.sh sync-finish\n'
       record SKIPPED "Commit" "no SYNC_MESSAGE given; changes left in the working tree"
+      STOPPED=1
       print_report
       return 1
     fi
@@ -354,6 +364,8 @@ cmd_sync_finish() {
 
 # ----------------------------------------------------------------------- main
 
+usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
 case "${1:-check}" in
   info)         cmd_info ;;
   restore)      cmd_restore; print_report ;;
@@ -361,14 +373,14 @@ case "${1:-check}" in
   test)         cmd_test;    print_report ;;
   format)       cmd_format;  print_report ;;
   check|all)    cmd_check;   print_report ;;
-  sync-start)   cmd_sync_start ;;
-  sync-finish)  cmd_sync_finish ;;
+  sync-start)   cmd_sync_start  || STOPPED=1 ;;
+  sync-finish)  cmd_sync_finish || STOPPED=1 ;;
   -h|--help|help)
-    sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    usage ;;
   *)
     echo "Unknown command: $1" >&2
-    sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    usage >&2
     exit 2 ;;
 esac
 
-[ "$FAILED" -eq 0 ]
+[ "$FAILED" -eq 0 ] && [ "$STOPPED" -eq 0 ]
