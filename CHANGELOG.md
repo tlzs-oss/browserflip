@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+### 追加
+
+- **クロスプラットフォーム開発基盤**: `BrowserFlip.Core` と `BrowserFlip.Core.Tests` を `net10.0` / `net10.0-windows` のマルチターゲットにし、Windows 専用実装(P/Invoke・レジストリ)を `Platform/Windows/` に分離。macOS / Linux でも Core のビルドと単体テストを実行できるようになりました。実際の Windows API を呼ぶスモーク テストは `net10.0` ではコンパイルされず、非 Windows では SKIPPED になります。
+- OS を自動判別する開発入口 `scripts/dev.sh`(macOS / Linux)と `scripts/dev.ps1`(Windows / PowerShell 7)。ビルド・テスト・書式確認に加え、2 台の PC を行き来するための安全な Git 同期(`sync-start` / `sync-finish`)を提供します。結果は PASS / FAIL / SKIPPED / UNSUPPORTED で報告します。
+- WPF を除いたクロスプラットフォーム用ソリューション `BrowserFlip.CrossPlatform.slnx`。
+- CI に macOS ジョブを追加(移植可能 Core のビルドとテスト、および Windows 専用テストが実行されないことの検証)。Windows ジョブと リリース ワークフローは従来どおりです。
+- 開発手順書 [docs/cross-platform-dev.md](docs/cross-platform-dev.md)。
+
+Windows 版 BrowserFlip の機能に変更はありません。
+
 ## [0.3.0] - 2026-11-18
 
 メイン ウィンドウの表示を 5 種類から選べるようにし、メニュー バーと独立した設定ウィンドウを追加したリリースです。ブラウザーの検出、既定のブラウザーの読み取り、Windows の設定での確定(BrowserFlip が既定を直接書き換えることはありません)は v0.2 から変更していません。

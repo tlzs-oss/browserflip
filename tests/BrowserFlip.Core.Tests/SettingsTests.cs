@@ -185,10 +185,6 @@ public class SettingsLauncherTests
     }
 
     [Fact]
-    public void Real_launcher_refuses_non_settings_uris()
-        => Assert.Throws<ArgumentException>(() => new ShellUriLauncher().Launch(new Uri("https://example.com")));
-
-    [Fact]
     public void Only_ms_settings_uris_are_ever_built()
     {
         Sut().Open(MachineFirefox);

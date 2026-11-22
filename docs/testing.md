@@ -90,7 +90,29 @@ dotnet test BrowserFlip.slnx --collect:"XPlat Code Coverage"
 dotnet format BrowserFlip.slnx --verify-no-changes
 ```
 
-カバレッジの目安: Core のロジック(`Detection` / `Defaults` / `Settings`)は行カバレッジ 80% 以上。P/Invoke や `Registry` を直接呼ぶ Windows 実装クラス(`WindowsRegistryReader`, `ShellAssociationQuery`, `ShellIndirectStringResolver`)は単体テストの対象外とし、実機受け入れテストで確認します。
+OS を自動判別してビルドとテストをまとめて行う入口もあります(結果は PASS / FAIL / SKIPPED / UNSUPPORTED で報告されます)。
+
+```powershell
+./scripts/dev.ps1 check     # Windows
+```
+
+```sh
+./scripts/dev.sh check      # macOS / Linux
+```
+
+カバレッジの目安: Core のロジック(`Detection` / `Defaults` / `Settings`)は行カバレッジ 80% 以上。P/Invoke や `Registry` を直接呼ぶ Windows 実装クラス(`WindowsRegistryReader`, `ShellAssociationQuery`, `ShellIndirectStringResolver`)は通常の単体テストの対象外とし、実機受け入れテストで確認します。
+
+### macOS での実行範囲
+
+`BrowserFlip.Core` と `BrowserFlip.Core.Tests` は `net10.0` と `net10.0-windows` のマルチターゲットです。macOS では `net10.0` だけを対象にします。
+
+| 対象 | Windows | macOS |
+| --- | --- | --- |
+| Core のロジック テスト | PASS | PASS |
+| `tests/BrowserFlip.Core.Tests/Platform/WindowsNativeApiTests.cs`(実 API のスモーク テスト) | PASS | SKIPPED(`net10.0` ではコンパイルもされない) |
+| `tests/BrowserFlip.App.Tests`(WPF) | PASS | UNSUPPORTED |
+
+macOS のビルドが通ったことは、Windows の動作検証にはなりません。Windows の受け入れは実機または Windows CI でのみ成立します。詳しくは [cross-platform-dev.md](cross-platform-dev.md) を参照してください。
 
 ## 3. CI で実行するもの
 
@@ -98,7 +120,8 @@ dotnet format BrowserFlip.slnx --verify-no-changes
 | --- | --- |
 | Build | Windows ランナーで Release ビルド(警告はエラー) |
 | Unit tests | `dotnet test`(フェイクのみ、OS の設定は変更しない) |
-| Format | `dotnet format --verify-no-changes` |
+| macOS Core | macOS ランナーで移植可能 Core(`net10.0`)のビルドとテスト。Windows 専用テストが SKIPPED になることも検証する |
+| Format | `dotnet format --verify-no-changes`(Windows のみ) |
 | CodeQL | C# の静的解析 |
 | Dependency review / license | 依存関係レビューと `scripts/license-check.ps1` によるライセンス許可リスト確認 |
 | Secret scan | TruffleHog |
