@@ -27,7 +27,7 @@
 | --- | --- |
 | ブラウザー検出のデータモデル | `BrowserInfo` は `.desktop` ファイル名を ProgID 相当として扱える |
 | 既定状態の判定ロジック | `DefaultBrowserState` / `ChangeTracker` は OS 非依存 |
-| UI 全体(ウィンドウ、一覧、設定) | Avalonia が X11 / Wayland 両方を公式サポート |
+| UI 全体(ウィンドウ、一覧、設定) | X11 は `Avalonia.Desktop` に標準搭載。**Wayland は別パッケージ `Avalonia.Wayland` と `UseWaylandWithFallback()` が必須**(本プロトタイプは参照済み)。同パッケージは `xdg_wm_base >= 3` を要求し、満たさないコンポジターでは X11 にフォールバックする |
 | 多言語(en / ja / zh-CN) | `.resx` + `ResourceManager` は OS 非依存 |
 | 設定の永続化 | `JsonSettingsStore` が `$XDG_CONFIG_HOME/BrowserFlip` に解決(`SpecialFolder.ApplicationData`)。**コード変更不要** |
 | ブラウザー アイコン | `.desktop` の `Icon=` → XDG icon theme 探索。実装は必要だが概念は共通 |

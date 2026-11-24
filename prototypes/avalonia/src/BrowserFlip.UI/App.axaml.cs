@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using BrowserFlip.UI.Diagnostics;
 using BrowserFlip.UI.Localization;
@@ -176,6 +177,10 @@ public partial class App : Application
             ToolTipText = Strings.Get("AppTitle"),
             Menu = menu,
             IsVisible = true,
+            // Without this the StatusNotifierItem goes onto the bus with IconName="" and a 0x0
+            // pixmap, and a shell draws a blank placeholder. Measured over D-Bus on a live
+            // Wayland session before this was set.
+            Icon = LoadTrayIcon(),
         };
 
         TrayIcon.SetIcons(this, [trayIcon]);
@@ -239,6 +244,22 @@ public partial class App : Application
             TimeSpan.FromSeconds(2.5));
     }
 
+    /// <summary>The tray icon bitmap, or <c>null</c> when the asset cannot be loaded.</summary>
+    private static WindowIcon? LoadTrayIcon()
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri("avares://BrowserFlip.UI/Assets/trayicon.png"));
+            return new WindowIcon(stream);
+        }
+#pragma warning disable CA1031 // A missing icon must not stop the tray item being created.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return null;
+        }
+    }
+
     private static void ShowMainWindow(IClassicDesktopStyleApplicationLifetime desktop)
     {
         if (desktop.MainWindow is null)
@@ -257,7 +278,10 @@ public partial class App : Application
             return;
         }
 
-        if (!_model.ShowFloatingToolbar)
+        // Capabilities gate this too: restoring a saved "toolbar on" setting onto Wayland would
+        // open a window the compositor then places wherever it likes, which is exactly the
+        // silent failure the capability model exists to prevent.
+        if (!_model.ShowFloatingToolbar || Capabilities is { WindowPositioning.IsAvailable: false })
         {
             _toolbar?.Hide();
             return;

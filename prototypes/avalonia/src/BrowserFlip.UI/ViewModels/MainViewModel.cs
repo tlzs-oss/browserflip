@@ -91,6 +91,20 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>True when BrowserFlip itself must ask, because the OS will not.</summary>
     public bool RequiresOwnConfirmation => !_capabilities.OsConfirmsDefaultBrowserChange;
 
+    // The whole point of the capability model is that the UI disables what the platform cannot
+    // do, rather than offering a control that silently does nothing. These drive IsEnabled.
+
+    /// <summary>Whether "always on top" can actually work here (Wayland: no).</summary>
+    public bool CanUseTopmost => _capabilities.AlwaysOnTop.IsAvailable;
+
+    /// <summary>Why not, for the tooltip. Empty when it is available.</summary>
+    public string TopmostUnavailableReason => _capabilities.AlwaysOnTop.Reason ?? string.Empty;
+
+    /// <summary>The floating toolbar needs client-side positioning (Wayland: not allowed).</summary>
+    public bool CanUseFloatingToolbar => _capabilities.WindowPositioning.IsAvailable;
+
+    public string ToolbarUnavailableReason => _capabilities.WindowPositioning.Reason ?? string.Empty;
+
     public string MechanismDescription => Probe.Mechanism switch
     {
         SwitchMechanism.OpensSystemSettings => "Windows Settings opens; you confirm there.",
@@ -136,10 +150,12 @@ public sealed class MainViewModel : ObservableObject
 
     public bool Topmost
     {
-        get => _settings.Topmost;
+        // Report false where the platform cannot honour it, so the checkbox does not sit ticked
+        // over a window that is not actually on top.
+        get => _settings.Topmost && CanUseTopmost;
         set
         {
-            if (_settings.Topmost == value)
+            if (!CanUseTopmost || _settings.Topmost == value)
             {
                 return;
             }
@@ -152,10 +168,10 @@ public sealed class MainViewModel : ObservableObject
 
     public bool ShowFloatingToolbar
     {
-        get => _settings.ShowFloatingToolbar;
+        get => _settings.ShowFloatingToolbar && CanUseFloatingToolbar;
         set
         {
-            if (_settings.ShowFloatingToolbar == value)
+            if (!CanUseFloatingToolbar || _settings.ShowFloatingToolbar == value)
             {
                 return;
             }

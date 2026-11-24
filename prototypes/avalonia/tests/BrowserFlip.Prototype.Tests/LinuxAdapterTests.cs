@@ -731,6 +731,36 @@ Icon=back\\slash
     }
 
     [Fact]
+    public void A_running_watcher_beats_the_gnome_heuristic()
+    {
+        // Measured on a real Wayland session: with XDG_CURRENT_DESKTOP=ubuntu:GNOME, a session
+        // bus and a live StatusNotifierWatcher, the app refused to create a tray item - yet the
+        // tray would have worked. gnome-shell-extension-appindicator is a dependency of
+        // ubuntu-desktop, so the desktop-name heuristic misfires for most Ubuntu GNOME users.
+        var env = Environment(
+            ("XDG_SESSION_TYPE", "wayland"),
+            ("XDG_CURRENT_DESKTOP", "ubuntu:GNOME"),
+            ("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus"));
+
+        Assert.Equal(CapabilityState.Available, LinuxCapabilities.DetectTray(env, isGnome: true, () => true).State);
+
+        var refused = LinuxCapabilities.DetectTray(env, isGnome: true, () => false);
+        Assert.Equal(CapabilityState.Unavailable, refused.State);
+        Assert.Contains("AppIndicator", refused.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void No_session_bus_beats_everything_including_a_watcher()
+    {
+        // Without a bus there is nowhere to export the item, whatever else is true.
+        var env = Environment(("XDG_SESSION_TYPE", "x11"), ("XDG_CURRENT_DESKTOP", "KDE"));
+        var result = LinuxCapabilities.DetectTray(env, isGnome: false, () => true);
+
+        Assert.Equal(CapabilityState.Unavailable, result.State);
+        Assert.Contains("D-Bus", result.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_session_bus_socket_counts_even_without_the_environment_variable()
     {
         // A login session can expose the socket without advertising the address.

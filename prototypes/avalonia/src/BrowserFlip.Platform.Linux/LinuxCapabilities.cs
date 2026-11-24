@@ -49,10 +49,14 @@ public sealed class LinuxCapabilities : PlatformCapabilitiesBase
     /// Test seam: the environment is read through a delegate, and whether <c>xdg-settings</c> is
     /// installed through another, so the whole capability matrix is unit-testable off Linux.
     /// </summary>
-    internal LinuxCapabilities(Func<string, string?> getEnvironmentVariable, Func<bool> isSwitchToolAvailable)
+    internal LinuxCapabilities(
+        Func<string, string?> getEnvironmentVariable,
+        Func<bool> isSwitchToolAvailable,
+        Func<bool>? hasStatusNotifierWatcher = null)
     {
         ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
         ArgumentNullException.ThrowIfNull(isSwitchToolAvailable);
+        hasStatusNotifierWatcher ??= () => StatusNotifierWatcherIsRunning(getEnvironmentVariable);
 
         Session = DetectSession(getEnvironmentVariable);
         Desktop = DetectDesktop(getEnvironmentVariable);
@@ -87,14 +91,7 @@ public sealed class LinuxCapabilities : PlatformCapabilitiesBase
         // logging, so claiming the capability here would make the app report a tray icon that
         // provably does not exist. Measured on linux/arm64: with a session bus the app owns
         // org.kde.StatusNotifierItem-<pid>-0; without one, no such name exists on any bus.
-        TrayIcon = IsGnome
-            ? Capability.Unavailable(
-                "GNOME Shell ships no system tray; a tray icon needs the AppIndicator / KStatusNotifierItem extension to be installed and enabled.")
-            : HasSessionBus(getEnvironmentVariable)
-                ? Capability.Available
-                : Capability.Unavailable(
-                    "There is no D-Bus session bus (DBUS_SESSION_BUS_ADDRESS is unset and no bus socket exists), "
-                    + "so a StatusNotifierItem cannot be exported and no tray icon can appear.");
+        TrayIcon = DetectTray(getEnvironmentVariable, IsGnome, hasStatusNotifierWatcher);
 
         DefaultBrowserSwitch = isSwitchToolAvailable()
             ? Capability.Available
@@ -140,6 +137,72 @@ public sealed class LinuxCapabilities : PlatformCapabilitiesBase
     /// Whether a D-Bus session bus is reachable. Checks the advertised address first, then the
     /// conventional per-user socket, because a session can have the socket without the variable.
     /// </summary>
+    /// <summary>
+    /// Decides the tray capability. A watcher actually owning
+    /// <c>org.kde.StatusNotifierWatcher</c> settles it: GNOME Shell itself ships no tray host,
+    /// but <c>gnome-shell-extension-appindicator</c> is a dependency of <c>ubuntu-desktop</c>,
+    /// so refusing on the desktop name alone misfires for most Ubuntu GNOME users.
+    /// </summary>
+    /// <summary>
+    /// Whether anything owns <c>org.kde.StatusNotifierWatcher</c>. Asked over the session bus
+    /// with <c>busctl</c> / <c>dbus-send</c>; when neither tool is present the answer is "no",
+    /// which only falls back to the desktop-name heuristic and never over-claims.
+    /// </summary>
+    internal static bool StatusNotifierWatcherIsRunning(Func<string, string?> getEnvironmentVariable)
+    {
+        const string WatcherName = "org.kde.StatusNotifierWatcher";
+        var runner = new ProcessCommandRunner();
+        var timeout = TimeSpan.FromSeconds(3);
+
+        if (LinuxExecutables.Resolve("busctl", getEnvironmentVariable) is not null)
+        {
+            var result = runner.Run("busctl", ["--user", "--list", "--no-legend", "--no-pager"], timeout);
+            if (result.Succeeded && result.StandardOutput.Contains(WatcherName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        if (LinuxExecutables.Resolve("dbus-send", getEnvironmentVariable) is not null)
+        {
+            var result = runner.Run(
+                "dbus-send",
+                [
+                    "--session", "--print-reply", "--dest=org.freedesktop.DBus",
+                    "/org/freedesktop/DBus", "org.freedesktop.DBus.ListNames",
+                ],
+                timeout);
+            if (result.Succeeded && result.StandardOutput.Contains(WatcherName, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal static Capability DetectTray(
+        Func<string, string?> getEnvironmentVariable, bool isGnome, Func<bool> hasStatusNotifierWatcher)
+    {
+        if (!HasSessionBus(getEnvironmentVariable))
+        {
+            return Capability.Unavailable(
+                "There is no D-Bus session bus (DBUS_SESSION_BUS_ADDRESS is unset and no bus socket exists), "
+                + "so a StatusNotifierItem cannot be exported and no tray icon can appear.");
+        }
+
+        if (hasStatusNotifierWatcher())
+        {
+            return Capability.Available;
+        }
+
+        return isGnome
+            ? Capability.Unavailable(
+                "GNOME Shell ships no system tray and nothing on the session bus is acting as one; "
+                + "install and enable the AppIndicator / KStatusNotifierItem extension.")
+            : Capability.Available;
+    }
+
     internal static bool HasSessionBus(Func<string, string?> getEnvironmentVariable)
     {
         ArgumentNullException.ThrowIfNull(getEnvironmentVariable);

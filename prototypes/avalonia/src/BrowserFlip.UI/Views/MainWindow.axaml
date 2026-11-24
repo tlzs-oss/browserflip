@@ -31,9 +31,14 @@
                   SelectedItem="{Binding SelectedLanguage}" DisplayMemberBinding="{Binding Display}" />
         <Button x:Name="RefreshButton" Content="{Binding LabelRefresh}" />
       </StackPanel>
+      <!-- Disabled, with the reason as the tooltip, where the platform cannot honour it. -->
       <StackPanel Orientation="Horizontal" Spacing="16">
-        <CheckBox Content="{Binding LabelTopmost}" IsChecked="{Binding Topmost}" />
-        <CheckBox Content="{Binding LabelShowToolbar}" IsChecked="{Binding ShowFloatingToolbar}" />
+        <CheckBox Content="{Binding LabelTopmost}" IsChecked="{Binding Topmost}"
+                  IsEnabled="{Binding CanUseTopmost}"
+                  ToolTip.Tip="{Binding TopmostUnavailableReason}" />
+        <CheckBox Content="{Binding LabelShowToolbar}" IsChecked="{Binding ShowFloatingToolbar}"
+                  IsEnabled="{Binding CanUseFloatingToolbar}"
+                  ToolTip.Tip="{Binding ToolbarUnavailableReason}" />
       </StackPanel>
       <TextBlock FontSize="11" Opacity="0.6" TextWrapping="Wrap">
         <Run Text="{Binding LabelSettingsFile}" />

@@ -25,6 +25,11 @@
     <EmbeddedResource Include="..\..\..\..\src\BrowserFlip.App\Resources\Strings.zh-CN.resx" LogicalName="BrowserFlip.UI.Localization.Strings.zh-CN.resources" />
   </ItemGroup>
 
+  <!-- The product's own icon, so the tray item is not exported with an empty icon. -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\..\..\assets\icon\png\browserflip-64.png" Link="Assets/trayicon.png" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
   </ItemGroup>

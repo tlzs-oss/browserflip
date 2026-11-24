@@ -46,6 +46,12 @@ internal static class Program
     internal static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            // UsePlatformDetect() knows nothing about Wayland: Avalonia.Desktop carries only
+            // X11, Win32 and macOS. On a Wayland session with no XWayland the X11 backend
+            // cannot open a display and the process aborts. UseWaylandWithFallback must come
+            // AFTER UsePlatformDetect so Skia and HarfBuzz are already configured, and it
+            // falls back to X11 when the compositor advertises xdg_wm_base below version 3.
+            .UseWaylandWithFallback()
             .WithInterFont()
             .LogToTrace();
 
