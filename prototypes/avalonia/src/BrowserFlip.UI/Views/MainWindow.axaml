@@ -27,8 +27,8 @@
       <Separator />
       <StackPanel Orientation="Horizontal" Spacing="8">
         <TextBlock Text="{Binding LabelLanguage}" VerticalAlignment="Center" />
-        <ComboBox x:Name="LanguageBox" Width="130" ItemsSource="{Binding Languages}"
-                  SelectedItem="{Binding Language}" />
+        <ComboBox x:Name="LanguageBox" Width="150" ItemsSource="{Binding LanguageChoices}"
+                  SelectedItem="{Binding SelectedLanguage}" DisplayMemberBinding="{Binding Display}" />
         <Button x:Name="RefreshButton" Content="{Binding LabelRefresh}" />
       </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="16">

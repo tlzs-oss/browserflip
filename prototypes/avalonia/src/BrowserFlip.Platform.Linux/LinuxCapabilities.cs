@@ -82,10 +82,19 @@ public sealed class LinuxCapabilities : PlatformCapabilitiesBase
                 "The display protocol could not be identified (XDG_SESSION_TYPE is not set), so window positions cannot be restored."),
         };
 
+        // A Linux tray icon is a D-Bus StatusNotifierItem. Without a session bus there is
+        // nowhere to export it: Avalonia's SetIcons silently does nothing, neither throwing nor
+        // logging, so claiming the capability here would make the app report a tray icon that
+        // provably does not exist. Measured on linux/arm64: with a session bus the app owns
+        // org.kde.StatusNotifierItem-<pid>-0; without one, no such name exists on any bus.
         TrayIcon = IsGnome
             ? Capability.Unavailable(
                 "GNOME Shell ships no system tray; a tray icon needs the AppIndicator / KStatusNotifierItem extension to be installed and enabled.")
-            : Capability.Available;
+            : HasSessionBus(getEnvironmentVariable)
+                ? Capability.Available
+                : Capability.Unavailable(
+                    "There is no D-Bus session bus (DBUS_SESSION_BUS_ADDRESS is unset and no bus socket exists), "
+                    + "so a StatusNotifierItem cannot be exported and no tray icon can appear.");
 
         DefaultBrowserSwitch = isSwitchToolAvailable()
             ? Capability.Available
@@ -127,6 +136,28 @@ public sealed class LinuxCapabilities : PlatformCapabilitiesBase
     /// Reads <c>XDG_SESSION_TYPE</c>, falling back to the presence of <c>WAYLAND_DISPLAY</c> or
     /// <c>DISPLAY</c>, because some login managers and most containers leave the former unset.
     /// </summary>
+    /// <summary>
+    /// Whether a D-Bus session bus is reachable. Checks the advertised address first, then the
+    /// conventional per-user socket, because a session can have the socket without the variable.
+    /// </summary>
+    internal static bool HasSessionBus(Func<string, string?> getEnvironmentVariable)
+    {
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(getEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS")))
+        {
+            return true;
+        }
+
+        var runtimeDir = getEnvironmentVariable("XDG_RUNTIME_DIR");
+        if (!string.IsNullOrWhiteSpace(runtimeDir) && File.Exists(PosixPath.Join(runtimeDir, "bus")))
+        {
+            return true;
+        }
+
+        var uid = getEnvironmentVariable("UID");
+        return !string.IsNullOrWhiteSpace(uid) && File.Exists($"/run/user/{uid}/bus");
+    }
+
     internal static LinuxSessionType DetectSession(Func<string, string?> getEnvironmentVariable)
     {
         ArgumentNullException.ThrowIfNull(getEnvironmentVariable);

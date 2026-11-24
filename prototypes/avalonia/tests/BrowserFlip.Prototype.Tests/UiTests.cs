@@ -78,7 +78,9 @@ public class UiTests
         var window = new MainWindow { DataContext = Model() };
         window.Show();
         var box = window.FindControl<ComboBox>("LanguageBox")!;
-        Assert.Equal<string[]>(["en", "ja", "zh-CN"], [.. box.ItemsSource!.Cast<string>()]);
+        // "Follow the OS" first, then the three product languages.
+        var codes = box.ItemsSource!.Cast<LanguageChoice>().Select(c => c.Code).ToArray();
+        Assert.Equal<string?[]>([null, "en", "ja", "zh-CN"], codes);
     }
 
     [AvaloniaFact]
@@ -194,7 +196,7 @@ public class UiTests
         var settings = new SettingsViewModel(model, new FullCapabilities("macOS 15", osConfirms: true));
 
         settings.Topmost = true;
-        settings.Language = "ja";
+        settings.SelectedLanguage = new LanguageChoice("ja");
 
         Assert.True(model.Topmost);
         Assert.Equal("ja", model.Language);

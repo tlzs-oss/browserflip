@@ -83,7 +83,11 @@ public sealed class LinuxAssociationQuery : IAssociationQuery
         foreach (var browser in _catalog.GetBrowsers())
         {
             // Desktop file ids are file names on a case-sensitive file system: compare exactly.
-            if (string.Equals(browser.Id, desktopFileId, StringComparison.Ordinal))
+            // OrdinalIgnoreCase to match BrowserFlip.Core.Defaults.DefaultBrowserState, which
+            // compares handler ids case-insensitively. A case-sensitive match here would make a
+            // file named Firefox.Desktop invisible to a tool that printed firefox.desktop, and
+            // the status would read Unrecognized although the browser is installed.
+            if (string.Equals(browser.Id, desktopFileId, StringComparison.OrdinalIgnoreCase))
             {
                 return browser;
             }

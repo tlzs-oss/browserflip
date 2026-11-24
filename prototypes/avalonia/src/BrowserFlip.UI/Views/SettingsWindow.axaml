@@ -29,8 +29,9 @@
           <TextBlock Text="{Binding GeneralLabel}" FontWeight="SemiBold" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="{Binding LanguageLabel}" VerticalAlignment="Center" Width="120" />
-            <ComboBox x:Name="LanguageBox" Width="160"
-                      ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" />
+            <ComboBox x:Name="LanguageBox" Width="180"
+                      ItemsSource="{Binding LanguageChoices}" SelectedItem="{Binding SelectedLanguage}"
+                      DisplayMemberBinding="{Binding Display}" />
           </StackPanel>
         </StackPanel>
 

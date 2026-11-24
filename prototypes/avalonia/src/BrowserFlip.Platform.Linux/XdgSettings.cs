@@ -238,8 +238,42 @@ internal sealed class XdgSettings
     /// <c>xdg-settings get default-web-browser</c>: the desktop file id of the current default,
     /// or <c>null</c> when none is set or the tool failed.
     /// </summary>
+    /// <remarks>
+    /// <c>get</c> alone is not enough. On a system with no <c>mimeapps.list</c> it walks
+    /// <c>mimeinfo.cache</c> and returns the FIRST REGISTERED HANDLER, which is not a default
+    /// anyone chose - measured on a fresh Ubuntu arm64 install, where <c>get</c> answered
+    /// <c>org.gnome.Epiphany.desktop</c> while <c>check</c> answered <c>no</c>. Reporting that
+    /// as the default would assert a choice the user never made, and it would change silently
+    /// when a package is installed or removed. So the answer is confirmed with <c>check</c>.
+    /// </remarks>
     internal string? GetDefaultWebBrowser()
-        => ParseSingleValue(_runner.Run(SettingsTool, ["get", DefaultWebBrowser], Timeout));
+    {
+        var candidate = ParseSingleValue(_runner.Run(SettingsTool, ["get", DefaultWebBrowser], Timeout));
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        return IsConfirmedDefault(candidate) ? candidate : null;
+    }
+
+    /// <summary>
+    /// <c>xdg-settings check default-web-browser &lt;id&gt;</c>, which prints <c>yes</c> or
+    /// <c>no</c>. A tool failure is treated as "yes" so a missing or unusual <c>check</c>
+    /// implementation cannot make a genuinely configured default disappear.
+    /// </summary>
+    internal bool IsConfirmedDefault(string desktopFileId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(desktopFileId);
+        var result = _runner.Run(SettingsTool, ["check", DefaultWebBrowser, desktopFileId], Timeout);
+        if (!result.Succeeded)
+        {
+            return true;
+        }
+
+        var answer = ParseSingleValue(result);
+        return !string.Equals(answer, "no", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// <c>xdg-mime query default &lt;mimeType&gt;</c>: the handler for one MIME type, used for

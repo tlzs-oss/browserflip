@@ -78,14 +78,15 @@ public sealed class SettingsViewModel : ObservableObject
         "What this operating system and session actually allow. A disabled option above is "
         + "disabled because of one of these, not because it failed.";
 
-    public IReadOnlyList<string> Languages => _main.Languages;
+    /// <summary>Same choices as the main window, including "follow the OS".</summary>
+    public IReadOnlyList<LanguageChoice> LanguageChoices => _main.LanguageChoices;
 
-    public string? Language
+    public LanguageChoice SelectedLanguage
     {
-        get => _main.Language;
+        get => _main.SelectedLanguage;
         set
         {
-            _main.Language = value;
+            _main.SelectedLanguage = value;
             Raise();
             RaiseLabels();
         }

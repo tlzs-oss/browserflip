@@ -442,7 +442,30 @@ Icon=back\\slash
         var tool = new FakeXdgTool { DefaultWebBrowser = "firefox.desktop" };
 
         Assert.Equal("firefox.desktop", new XdgSettings(tool).GetDefaultWebBrowser());
-        Assert.Equal(new[] { "xdg-settings get default-web-browser" }, tool.Invocations.ToArray());
+        Assert.Equal<string[]>(
+            ["xdg-settings get default-web-browser", "xdg-settings check default-web-browser firefox.desktop"],
+            [.. tool.Invocations]);
+    }
+
+    [Fact]
+    public void A_handler_that_is_merely_registered_is_not_reported_as_the_default()
+    {
+        // Measured on a fresh Ubuntu arm64 install with no mimeapps.list: `get` walks
+        // mimeinfo.cache and returns the first REGISTERED handler, while `check` answers "no".
+        // Reporting that as the default asserts a choice the user never made.
+        var tool = new FakeXdgTool { DefaultWebBrowser = "org.gnome.Epiphany.desktop", CheckAnswer = "no" };
+
+        Assert.Null(new XdgSettings(tool).GetDefaultWebBrowser());
+    }
+
+    [Fact]
+    public void A_check_that_cannot_run_does_not_hide_a_real_default()
+    {
+        // Fail open on the confirmation only: an unusual or missing `check` must not make a
+        // genuinely configured default vanish.
+        var tool = new FakeXdgTool { DefaultWebBrowser = "firefox.desktop", CheckFails = true };
+
+        Assert.Equal("firefox.desktop", new XdgSettings(tool).GetDefaultWebBrowser());
     }
 
     [Theory]
@@ -593,7 +616,14 @@ Icon=back\\slash
         Assert.Equal("firefox.desktop", tool.DefaultWebBrowser);
         // The change is read back rather than assumed.
         Assert.Equal(
-            new[] { "xdg-settings set default-web-browser firefox.desktop", "xdg-settings get default-web-browser" },
+            new[]
+            {
+                "xdg-settings set default-web-browser firefox.desktop",
+                "xdg-settings get default-web-browser",
+                // The read-back now confirms with `check`, so a merely-registered handler is
+                // not mistaken for a configured default.
+                "xdg-settings check default-web-browser firefox.desktop",
+            },
             tool.Invocations.ToArray());
     }
 
@@ -683,6 +713,34 @@ Icon=back\\slash
         Assert.All(
             capabilities.All(),
             entry => Assert.True(entry.Capability.IsAvailable || !string.IsNullOrWhiteSpace(entry.Capability.Reason), entry.Name));
+    }
+
+    [Theory]
+    [InlineData("KDE")]
+    [InlineData("XFCE")]
+    [InlineData(null)]
+    public void Without_a_session_bus_there_can_be_no_tray_icon(string? desktop)
+    {
+        // Measured on linux/arm64: with no DBUS_SESSION_BUS_ADDRESS the app exports no
+        // StatusNotifierItem at all, yet Avalonia's SetIcons neither throws nor logs. Claiming
+        // the capability made the self-test report a tray icon that provably did not exist.
+        var capabilities = Capabilities("x11", desktop, sessionBus: false);
+
+        Assert.Equal(CapabilityState.Unavailable, capabilities.TrayIcon.State);
+        Assert.Contains("D-Bus", capabilities.TrayIcon.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_session_bus_socket_counts_even_without_the_environment_variable()
+    {
+        // A login session can expose the socket without advertising the address.
+        var withRuntimeDir = new LinuxCapabilities(
+            Environment(("XDG_SESSION_TYPE", "x11"), ("XDG_CURRENT_DESKTOP", "KDE"), ("XDG_RUNTIME_DIR", "/definitely/not/here")),
+            () => true);
+        Assert.Equal(CapabilityState.Unavailable, withRuntimeDir.TrayIcon.State);
+
+        Assert.False(LinuxCapabilities.HasSessionBus(_ => null));
+        Assert.True(LinuxCapabilities.HasSessionBus(n => n == "DBUS_SESSION_BUS_ADDRESS" ? "unix:path=/x" : null));
     }
 
     [Fact]
@@ -916,6 +974,12 @@ Icon=back\\slash
 
         public bool ToolInstalled { get; set; } = true;
 
+        /// <summary>What `xdg-settings check` prints: "yes" confirms, "no" denies.</summary>
+        public string CheckAnswer { get; set; } = "yes";
+
+        /// <summary>Models a `check` subcommand that errors out rather than answering.</summary>
+        public bool CheckFails { get; set; }
+
         public string StandardErrorText { get; set; } = string.Empty;
 
         public List<string> Invocations { get; } = [];
@@ -931,6 +995,9 @@ Icon=back\\slash
 
             return arguments switch
             {
+                ["check", "default-web-browser", _] => CheckFails
+                    ? new CommandResult(2, string.Empty, "xdg-settings: unknown command")
+                    : new CommandResult(0, CheckAnswer + "\n", string.Empty),
                 ["get", "default-web-browser"] => DefaultWebBrowser is null
                     ? new CommandResult(1, string.Empty, "xdg-settings: no default browser")
                     : new CommandResult(0, DefaultWebBrowser + "\n", string.Empty),
@@ -969,9 +1036,15 @@ Icon=back\\slash
         return key => map.TryGetValue(key, out var value) ? value : null;
     }
 
-    private static LinuxCapabilities Capabilities(string? sessionType, string? desktop, bool switchToolAvailable = true)
+    private static LinuxCapabilities Capabilities(
+        string? sessionType, string? desktop, bool switchToolAvailable = true, bool sessionBus = true)
         => new(
-            Environment(("XDG_SESSION_TYPE", sessionType), ("XDG_CURRENT_DESKTOP", desktop)),
+            Environment(
+                ("XDG_SESSION_TYPE", sessionType),
+                ("XDG_CURRENT_DESKTOP", desktop),
+                // A tray icon is a D-Bus StatusNotifierItem, so the matrix assumes a normal
+                // desktop session that has a bus. The no-bus case has its own tests.
+                ("DBUS_SESSION_BUS_ADDRESS", sessionBus ? "unix:path=/run/user/1000/bus" : null)),
             () => switchToolAvailable);
 
     private static BrowserInfo Map(

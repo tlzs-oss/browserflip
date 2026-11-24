@@ -66,7 +66,11 @@ public static class SelfTest
                 ? (trayIconCreated ? CheckResult.PASS : CheckResult.FAIL)
                 : (tray.State == CapabilityState.Unsupported ? CheckResult.UNSUPPORTED : CheckResult.SKIPPED),
             tray.IsAvailable
-                ? (trayIconCreated ? "TrayIcon registered with a 5-item NativeMenu" : "TrayIcon was not created")
+                // "created and handed to the platform" is all that can be justified: no toolkit
+                // on any of the three platforms confirms that the shell actually accepted it.
+                ? (trayIconCreated
+                    ? "TrayIcon created with a 5-item NativeMenu and handed to the platform"
+                    : "TrayIcon was not created")
                 : tray.Reason ?? "not available in this session");
 
         // 4. Installed browsers, read from the platform's own registry of handlers.

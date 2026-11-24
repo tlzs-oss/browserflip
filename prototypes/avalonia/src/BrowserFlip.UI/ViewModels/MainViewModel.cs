@@ -65,7 +65,25 @@ public sealed class MainViewModel : ObservableObject
 
     public string SettingsLocation => _store.Location;
 
-    public IReadOnlyList<string> Languages => Strings.SupportedLanguages;
+    /// <summary>
+    /// Language choices for the UI, with "follow the OS" first. The view binds to these rather
+    /// than to the raw codes, because the stored value for "follow the OS" is null and a null
+    /// SelectedItem shows an empty combo box with no way back to it.
+    /// </summary>
+    public IReadOnlyList<LanguageChoice> LanguageChoices { get; } =
+    [
+        LanguageChoice.FollowSystem,
+        .. Strings.SupportedLanguages.Select(code => new LanguageChoice(code)),
+    ];
+
+    /// <summary>The currently selected choice, kept in step with <see cref="Language"/>.</summary>
+    public LanguageChoice SelectedLanguage
+    {
+        get => LanguageChoices.FirstOrDefault(c =>
+                   string.Equals(c.Code, Language, StringComparison.OrdinalIgnoreCase))
+               ?? LanguageChoice.FollowSystem;
+        set => Language = value?.Code;
+    }
 
     /// <summary>How this platform applies a change, for honest UI wording.</summary>
     public SwitchMechanism Mechanism => Probe.Mechanism;
@@ -109,6 +127,7 @@ public sealed class MainViewModel : ObservableObject
             Strings.UseLanguage(value);
             Persist();
             Raise();
+            Raise(nameof(SelectedLanguage));
             // Rebuild the rows: their labels are read at construction, so a language change that
             // only raised the parent's properties would leave every button in the old language.
             Refresh();
