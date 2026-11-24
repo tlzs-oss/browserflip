@@ -133,7 +133,7 @@ public sealed class LinuxBrowserCatalog : IBrowserCatalog
         ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         var dataHome = Trimmed(getEnvironmentVariable("XDG_DATA_HOME"))
-                       ?? Path.Combine(homeDirectory ?? string.Empty, ".local", "share");
+                       ?? PosixPath.Join(homeDirectory ?? string.Empty, ".local", "share");
         var dataDirs = Trimmed(getEnvironmentVariable("XDG_DATA_DIRS")) ?? "/usr/local/share:/usr/share";
 
         var directories = new List<string>();
@@ -155,7 +155,7 @@ public sealed class LinuxBrowserCatalog : IBrowserCatalog
                 return;
             }
 
-            var applications = Path.Combine(trimmed, ApplicationsSubdirectory);
+            var applications = PosixPath.Join(trimmed, ApplicationsSubdirectory);
             if (seen.Add(applications))
             {
                 directories.Add(applications);
@@ -236,8 +236,11 @@ public sealed class LinuxBrowserCatalog : IBrowserCatalog
             return false;
         }
 
-        var prefix = homeDirectory.TrimEnd('/') + '/';
-        return path.StartsWith(prefix, StringComparison.Ordinal);
+        // Normalise both sides: during a directory walk the path can carry the host's separator
+        // while the configured home is POSIX, and the comparison must not depend on which.
+        var normalisedPath = path.Replace('\\', PosixPath.Separator);
+        var prefix = homeDirectory.Replace('\\', PosixPath.Separator).TrimEnd(PosixPath.Separator) + PosixPath.Separator;
+        return normalisedPath.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     private static string StripExtension(string desktopFileId)

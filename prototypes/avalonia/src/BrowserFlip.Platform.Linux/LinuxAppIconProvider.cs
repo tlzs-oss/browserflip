@@ -104,17 +104,17 @@ public sealed class LinuxAppIconProvider : IAppIconProvider
         ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         var home = homeDirectory ?? string.Empty;
-        var dataHome = Value(getEnvironmentVariable("XDG_DATA_HOME")) ?? Path.Combine(home, ".local", "share");
+        var dataHome = Value(getEnvironmentVariable("XDG_DATA_HOME")) ?? PosixPath.Join(home, ".local", "share");
         var dataDirs = Value(getEnvironmentVariable("XDG_DATA_DIRS")) ?? "/usr/local/share:/usr/share";
 
         var directories = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        Add(Path.Combine(dataHome, "icons"));
-        Add(Path.Combine(home, ".icons"));
+        Add(PosixPath.Join(dataHome, "icons"));
+        Add(PosixPath.Join(home, ".icons"));
         foreach (var dataDir in dataDirs.Split(':', StringSplitOptions.RemoveEmptyEntries))
         {
-            Add(Path.Combine(dataDir.Trim(), "icons"));
+            Add(PosixPath.Join(dataDir.Trim(), "icons"));
         }
 
         Add("/usr/share/pixmaps");

@@ -95,9 +95,19 @@ public static class SelfTest
         }
         else if (string.IsNullOrEmpty(SwitchTargetId))
         {
+            // The wording has to follow the platform: saying "NSWorkspace" on Linux, as an earlier
+            // version did, is simply false.
+            var how = switcher.Mechanism switch
+            {
+                SwitchMechanism.SystemConsentPrompt => "public NSWorkspace API; macOS shows its own consent prompt",
+                SwitchMechanism.OpensSystemSettings => "opens the Windows Settings page; the user confirms there",
+                SwitchMechanism.CommandLineTool =>
+                    "xdg-settings; the OS does NOT confirm, so BrowserFlip must ask the user first",
+                _ => "no supported mechanism",
+            };
             report.Add(6, "Default-browser switch API", CheckResult.SKIPPED,
-                $"available via {switcher.Mechanism} (public NSWorkspace API, OS-owned consent prompt). "
-                + "Not invoked: a real system change requires --switch-default <bundle-id>, triggered by the Owner.");
+                $"available via {switcher.Mechanism} ({how}). "
+                + "Not invoked: a real system change requires --switch-default <id>, triggered by the Owner.");
         }
         else
         {

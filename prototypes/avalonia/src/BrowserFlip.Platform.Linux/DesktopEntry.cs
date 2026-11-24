@@ -248,11 +248,15 @@ internal sealed record DesktopEntry
         ArgumentNullException.ThrowIfNull(filePath);
 
         var root = applicationsDirectory.TrimEnd('/', '\\');
-        var relative = filePath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            ? filePath[(root.Length + 1)..]
-            : Path.GetFileName(filePath);
+        // Accept either separator: the path may have come from the host's file APIs during a
+        // directory walk, while the XDG root itself is always POSIX.
+        var normalisedPath = filePath.Replace('\\', PosixPath.Separator);
+        var normalisedRoot = root.Replace('\\', PosixPath.Separator).TrimEnd(PosixPath.Separator);
+        var relative = normalisedPath.StartsWith(normalisedRoot + PosixPath.Separator, StringComparison.Ordinal)
+            ? normalisedPath[(normalisedRoot.Length + 1)..]
+            : normalisedPath[(normalisedPath.LastIndexOf(PosixPath.Separator) + 1)..];
 
-        return relative.Replace(Path.DirectorySeparatorChar, '-').Replace('/', '-');
+        return relative.Replace(PosixPath.Separator, '-');
     }
 
     /// <summary>Splits <c>Name[ja_JP]</c> into its key and locale; locale is <c>null</c> when absent.</summary>

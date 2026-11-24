@@ -177,7 +177,9 @@ internal static class LinuxExecutables
 
         foreach (var directory in path.Split(':', StringSplitOptions.RemoveEmptyEntries))
         {
-            var candidate = Path.Combine(directory, trimmed);
+            // POSIX join: PATH entries are POSIX paths, and the result must not depend on the
+            // host separator (the tests for this run on macOS and Windows too).
+            var candidate = PosixPath.Join(directory, trimmed);
             if (File.Exists(candidate))
             {
                 return candidate;
