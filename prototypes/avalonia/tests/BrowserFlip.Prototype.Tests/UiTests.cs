@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Prototype.Tests;
 using BrowserFlip.UI;
+using BrowserFlip.UI.Platform;
 using BrowserFlip.UI.ViewModels;
 using BrowserFlip.UI.Views;
 
@@ -127,6 +128,74 @@ public class UiTests
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
         Assert.True(frame.PixelSize.Width > 0 && frame.PixelSize.Height > 0);
+    }
+
+    /// <summary>A platform that forbids always-on-top and client-side window positioning.</summary>
+    private sealed class RestrictedCapabilities : PlatformCapabilitiesBase
+    {
+        public override string Description => "Linux (GNOME, Wayland)";
+
+        public override Capability AlwaysOnTop =>
+            Capability.Unsupported("Wayland has no always-on-top request for ordinary applications.");
+
+        public override Capability WindowPositioning =>
+            Capability.Unsupported("Wayland does not let a client place its own windows.");
+
+        public override Capability TrayIcon => Capability.Unavailable("GNOME needs the AppIndicator extension.");
+
+        public override Capability DefaultBrowserSwitch => Capability.Available;
+
+        public override bool OsConfirmsDefaultBrowserChange => false;
+    }
+
+    [AvaloniaFact]
+    public void The_settings_window_builds_and_lists_the_platform_capabilities()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new FullCapabilities("macOS 15", osConfirms: true));
+        var window = new SettingsWindow { DataContext = settings };
+        window.Show();
+
+        Assert.True(window.Bounds.Width > 0);
+        Assert.Equal(4, settings.Capabilities.Count);
+        Assert.All(settings.Capabilities, c => Assert.Equal("available", c.StateText));
+    }
+
+    [AvaloniaFact]
+    public void A_restricted_platform_disables_the_options_it_cannot_honour_and_says_why()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new RestrictedCapabilities());
+
+        Assert.False(settings.CanUseTopmost);
+        Assert.False(settings.CanUseToolbar);
+        Assert.Contains("Wayland", settings.TopmostReason, StringComparison.Ordinal);
+        Assert.Contains("Wayland", settings.ToolbarReason, StringComparison.Ordinal);
+
+        // Setting them must not silently pretend to work.
+        settings.Topmost = true;
+        settings.ShowFloatingToolbar = true;
+        Assert.False(settings.Topmost);
+        Assert.False(settings.ShowFloatingToolbar);
+        Assert.False(model.Topmost);
+        Assert.False(model.ShowFloatingToolbar);
+
+        var unsupported = settings.Capabilities.Where(c => c.StateText != "available").ToList();
+        Assert.Equal(3, unsupported.Count);
+        Assert.All(unsupported, c => Assert.False(string.IsNullOrWhiteSpace(c.Reason)));
+    }
+
+    [AvaloniaFact]
+    public void Settings_changes_flow_through_to_the_main_view_model()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new FullCapabilities("macOS 15", osConfirms: true));
+
+        settings.Topmost = true;
+        settings.Language = "ja";
+
+        Assert.True(model.Topmost);
+        Assert.Equal("ja", model.Language);
     }
 
     [AvaloniaFact]

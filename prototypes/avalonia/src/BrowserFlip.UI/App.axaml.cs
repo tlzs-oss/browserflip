@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using BrowserFlip.UI.Diagnostics;
 using BrowserFlip.UI.Localization;
+using BrowserFlip.UI.Platform;
 using BrowserFlip.UI.ViewModels;
 using BrowserFlip.UI.Views;
 
@@ -38,6 +39,7 @@ public partial class App : Application
 
             desktop.MainWindow = new MainWindow { DataContext = _model };
 
+            CreateApplicationMenu(desktop);
             CreateTrayIcon(desktop);
             ApplyToolbarVisibility();
             _model.PropertyChanged += (_, e) =>
@@ -68,6 +70,67 @@ public partial class App : Application
     /// </summary>
     public static Platform.IPlatformCapabilities? Capabilities { get; set; }
 
+    private SettingsWindow? _settings;
+
+    /// <summary>
+    /// Builds the application menu. On macOS Avalonia puts this in the system menu bar at the
+    /// top of the screen, which is where a Mac user expects it; on Windows and Linux the same
+    /// definition becomes the window's own menu. The structure mirrors the WPF product's.
+    /// </summary>
+    private void CreateApplicationMenu(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        var refresh = new NativeMenuItem(Strings.Get("MenuBar_RefreshBrowsers").Replace("_", string.Empty, StringComparison.Ordinal));
+        refresh.Click += (_, _) => _model?.Refresh();
+
+        var settings = new NativeMenuItem(Strings.Get("Menu_Settings"));
+        settings.Click += (_, _) => ShowSettings(desktop);
+
+        var toolbar = new NativeMenuItem(Strings.Get("Menu_ShowToolbar"));
+        toolbar.Click += (_, _) =>
+        {
+            if (_model is not null && Capabilities is null or { WindowPositioning.IsAvailable: true })
+            {
+                _model.ShowFloatingToolbar = !_model.ShowFloatingToolbar;
+            }
+        };
+
+        var file = new NativeMenuItem("File") { Menu = [refresh] };
+        var view = new NativeMenuItem("View") { Menu = [toolbar] };
+        var tools = new NativeMenuItem("Settings") { Menu = [settings] };
+
+        NativeMenu.SetMenu(this, [file, view, tools]);
+    }
+
+    /// <summary>Opens the single settings window, or focuses it when it is already open.</summary>
+    private void ShowSettings(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        if (_settings is not null)
+        {
+            _settings.Activate();
+            return;
+        }
+
+        _settings = new SettingsWindow
+        {
+            DataContext = new SettingsViewModel(_model, Capabilities ?? new FullCapabilities("Unknown", osConfirms: true)),
+        };
+        _settings.Closed += (_, _) => _settings = null;
+
+        if (desktop.MainWindow is not null)
+        {
+            _settings.Show(desktop.MainWindow);
+        }
+        else
+        {
+            _settings.Show();
+        }
+    }
+
     private void CreateTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
         // Where the platform says there is no usable status area, do not create one: a stray
@@ -83,8 +146,8 @@ public partial class App : Application
         var refresh = new NativeMenuItem(Strings.Get("Refresh"));
         refresh.Click += (_, _) => _model?.Refresh();
 
-        var toolbar = new NativeMenuItem(Strings.Get("Menu_ShowToolbar"));
-        toolbar.Click += (_, _) =>
+        var trayToolbar = new NativeMenuItem(Strings.Get("Menu_ShowToolbar"));
+        trayToolbar.Click += (_, _) =>
         {
             if (_model is not null)
             {
@@ -92,13 +155,17 @@ public partial class App : Application
             }
         };
 
+        var traySettings = new NativeMenuItem(Strings.Get("Menu_Settings"));
+        traySettings.Click += (_, _) => ShowSettings(desktop);
+
         var quit = new NativeMenuItem("Quit");
         quit.Click += (_, _) => desktop.Shutdown();
 
         var menu = new NativeMenu();
         menu.Items.Add(show);
         menu.Items.Add(refresh);
-        menu.Items.Add(toolbar);
+        menu.Items.Add(trayToolbar);
+        menu.Items.Add(traySettings);
         menu.Items.Add(new NativeMenuItemSeparator());
         menu.Items.Add(quit);
 
