@@ -38,7 +38,6 @@ public class LocalizationTests
     public void Japanese_and_chinese_really_contain_non_latin_text()
     {
         Strings.UseLanguage("ja");
-        Assert.Contains(Strings.Get("Refresh"), Strings.Get("Refresh"), StringComparison.Ordinal);
         Assert.True(Strings.Get("Refresh").Any(c => c > 0x2E80), "Japanese translation looks like ASCII.");
 
         Strings.UseLanguage("zh-CN");

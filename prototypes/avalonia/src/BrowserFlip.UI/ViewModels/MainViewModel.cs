@@ -245,6 +245,13 @@ public sealed class MainViewModel : ObservableObject
             return result.Error ?? "The request failed.";
         }
 
+        // The OS accepted the request but had not applied it when we stopped polling: the prompt
+        // may still be open. Saying "not changed" here would be wrong.
+        if (result.Outcome == SwitchOutcome.Requested && outcome is ChangeOutcome.NoChange or ChangeOutcome.Pending)
+        {
+            return result.Error ?? Strings.Get("Guide_AppPage");
+        }
+
         return outcome switch
         {
             ChangeOutcome.AppliedToTarget => string.Format(CultureInfo.CurrentCulture, Strings.Get("Status_Applied"), item.DisplayName),

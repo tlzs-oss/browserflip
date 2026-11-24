@@ -90,6 +90,12 @@ public static class SelfTest
                 report.Add(6, "Default-browser switch API", CheckResult.FAIL,
                     $"no installed browser has identifier '{SwitchTargetId}'");
             }
+            else if (target.IsDefault)
+            {
+                // Nothing would happen, so a PASS here would be meaningless.
+                report.Add(6, "Default-browser switch API (Owner-triggered, real change)", CheckResult.SKIPPED,
+                    $"{SwitchTargetId} is already the default; pick a different browser to exercise a real change.");
+            }
             else
             {
                 await model.SetDefaultAsync(target).ConfigureAwait(true);
@@ -109,18 +115,24 @@ public static class SelfTest
             + string.Join(", ", browsers.Where(b => b.IconPng is not null).Take(4).Select(b => $"{b.IconPng!.Length}B")));
 
         // 8. en / ja / zh-CN, read from the product's own .resx files.
-        var samples = new List<string>();
+        const string probeKey = "Refresh";
+        var translations = new List<string>();
         var original = model.Language;
         foreach (var language in Strings.SupportedLanguages)
         {
             Strings.UseLanguage(language);
-            samples.Add($"{language}=\"{Strings.Get("Refresh")}\"");
+            translations.Add(Strings.Get(probeKey));
         }
 
         Strings.UseLanguage(original);
-        var distinct = samples.Distinct(StringComparer.Ordinal).Count();
-        report.Add(8, "English / Japanese / Simplified Chinese", distinct == 3 ? CheckResult.PASS : CheckResult.FAIL,
-            string.Join("  ", samples));
+        // Compare the TRANSLATIONS, not the language tags: tagging each sample would make the
+        // set distinct by construction and the check could never fail. A translation equal to
+        // the resource key means the resource did not resolve at all.
+        var distinct = translations.Distinct(StringComparer.Ordinal).Count();
+        var allResolved = translations.TrueForAll(t => !string.IsNullOrWhiteSpace(t) && t != probeKey);
+        report.Add(8, "English / Japanese / Simplified Chinese",
+            distinct == Strings.SupportedLanguages.Count && allResolved ? CheckResult.PASS : CheckResult.FAIL,
+            string.Join("  ", Strings.SupportedLanguages.Zip(translations, (l, t) => $"{l}=\"{t}\"")));
 
         // 9. Topmost window and floating toolbar.
         mainWindow.Topmost = true;
@@ -131,13 +143,18 @@ public static class SelfTest
             + $"decorations={toolbar?.WindowDecorations}, size={toolbar?.Bounds.Width:F0}x{toolbar?.Bounds.Height:F0}");
         mainWindow.Topmost = model.Topmost;
 
-        // 10. Settings persistence: write, re-read from disk, compare.
+        // 10. Settings persistence: write a probe, re-read it from disk, then put the user's own
+        // settings back. The self-test must not leave the real configuration modified.
+        var originalSettings = store.Load();
         var probe = 1234 + (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000);
         var saved = store.Save(new PrototypeSettings { Language = "ja", Topmost = true, LaunchCount = probe });
         var reloaded = store.Load();
-        var roundTripped = saved && reloaded.LaunchCount == probe && reloaded.Language == "ja" && reloaded.Topmost;
+        var restored = store.Save(originalSettings);
+        var roundTripped = saved && restored
+                           && reloaded.LaunchCount == probe && reloaded.Language == "ja" && reloaded.Topmost;
         report.Add(10, "Settings persistence", roundTripped ? CheckResult.PASS : CheckResult.FAIL,
-            $"{store.Location}: wrote LaunchCount={probe}, read back {reloaded.LaunchCount}, Language={reloaded.Language}");
+            $"{store.Location}: wrote LaunchCount={probe}, read back {reloaded.LaunchCount}, "
+            + $"Language={reloaded.Language}; original settings restored={restored}");
 
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
         return report;

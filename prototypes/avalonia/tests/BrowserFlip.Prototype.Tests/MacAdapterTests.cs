@@ -48,6 +48,20 @@ public class MacAdapterTests
     }
 
     [MacFact]
+    public void A_similarly_named_home_directory_is_not_mistaken_for_the_users_own()
+    {
+        // Regression: a prefix test without a trailing separator classified /Users/bobby/... as
+        // living inside the home directory /Users/bob.
+        var other = MacBrowserCatalog.ToBrowserInfo(
+            new MacApp("/Users/someone-else/Applications/Brave.app", "com.brave.Browser", "Brave"), Home);
+        Assert.Equal(RegistrationScope.Machine, other.Scope);
+
+        var mine = MacBrowserCatalog.ToBrowserInfo(
+            new MacApp("/Users/someone/Applications/Brave.app", "com.brave.Browser", "Brave"), Home);
+        Assert.Equal(RegistrationScope.User, mine.Scope);
+    }
+
+    [MacFact]
     public void A_missing_bundle_is_reported_as_unavailable()
     {
         var info = MacBrowserCatalog.ToBrowserInfo(

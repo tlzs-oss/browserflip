@@ -98,6 +98,14 @@ internal static class ObjC
     [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
     internal static extern long SendLong(IntPtr receiver, IntPtr selector);
 
+    /// <summary>
+    /// For selectors returning <c>BOOL</c>. Objective-C only defines the low byte of the return
+    /// register for BOOL, so these must NOT go through the IntPtr-returning overload.
+    /// </summary>
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    internal static extern bool SendBool(IntPtr receiver, IntPtr selector, IntPtr a);
+
     [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
     internal static extern IntPtr SendWithLong(IntPtr receiver, IntPtr selector, long a);
 
@@ -191,6 +199,14 @@ internal static class ObjC
 
         return result;
     }
+
+    /// <summary>Whether <paramref name="receiver"/> implements <paramref name="selector"/>.</summary>
+    internal static bool RespondsTo(IntPtr receiver, IntPtr selector)
+        => receiver != Nil && SendBool(receiver, Sel("respondsToSelector:"), selector);
+
+    /// <summary>Whether <paramref name="obj"/> is an instance of <paramref name="cls"/> or a subclass.</summary>
+    internal static bool IsKindOf(IntPtr obj, IntPtr cls)
+        => obj != Nil && cls != Nil && SendBool(obj, Sel("isKindOfClass:"), cls);
 
     /// <summary>[NSWorkspace sharedWorkspace]</summary>
     internal static IntPtr SharedWorkspace() => Send(GetClass("NSWorkspace"), Sel("sharedWorkspace"));

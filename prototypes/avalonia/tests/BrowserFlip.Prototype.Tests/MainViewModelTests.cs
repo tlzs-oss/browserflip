@@ -124,6 +124,26 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task A_request_the_os_has_not_applied_yet_is_not_reported_as_no_change()
+    {
+        // Regression: SwitchOutcome.Requested with no observed change used to fall through to
+        // "The default browser was not changed", which is wrong while the prompt may still be open.
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var model = new MainViewModel(catalog, new FakeSwitcher(associations, SwitchOutcome.Requested),
+            new FakeIcons(), new InMemorySettingsStore(), new DefaultBrowserService(associations));
+        model.Initialize();
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(BrowserFlip.UI.Localization.Strings.Get("Status_NoChange"), model.StatusMessage);
+        Assert.False(string.IsNullOrWhiteSpace(model.StatusMessage));
+    }
+
+    [Fact]
     public void The_toolbar_position_round_trips_through_the_store()
     {
         var (model, _, _) = Build();

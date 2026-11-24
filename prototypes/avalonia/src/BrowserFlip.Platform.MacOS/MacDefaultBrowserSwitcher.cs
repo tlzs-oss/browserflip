@@ -43,7 +43,7 @@ public sealed class MacDefaultBrowserSwitcher : IDefaultBrowserSwitcher
 
             var workspace = ObjC.SharedWorkspace();
             var selector = ObjC.Sel("setDefaultApplicationAtURL:toOpenURLsWithScheme:completionHandler:");
-            return ObjC.Send(workspace, ObjC.Sel("respondsToSelector:"), selector) != ObjC.Nil;
+            return ObjC.RespondsTo(workspace, selector);
         }
     }
 
@@ -74,7 +74,7 @@ public sealed class MacDefaultBrowserSwitcher : IDefaultBrowserSwitcher
 
         // The OS prompt is modal and asynchronous. Poll the effective handler briefly so the
         // result reported to the user is what macOS actually did, not merely what we asked for.
-        var applied = await WaitForAsync(browser, cancellationToken).ConfigureAwait(false);
+        var applied = await WaitForAsync(browser, cancellationToken).ConfigureAwait(true);
         return applied
             ? new SwitchResult(SwitchOutcome.Applied)
             : new SwitchResult(SwitchOutcome.Requested, "macOS did not report the change (the prompt may still be open, or was declined).");
@@ -92,12 +92,16 @@ public sealed class MacDefaultBrowserSwitcher : IDefaultBrowserSwitcher
         }
     }
 
-    /// <summary>Polls for up to ~20 s, because the user has to answer the OS alert first.</summary>
+    /// <summary>
+    /// Polls for up to ~20 s, because the user has to answer the OS alert first.
+    /// <c>ConfigureAwait(true)</c> throughout: AppKit must be called from the thread that owns
+    /// the run loop, and a thread-pool thread has no autorelease pool for the returned objects.
+    /// </summary>
     private async Task<bool> WaitForAsync(BrowserInfo browser, CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 40; attempt++)
         {
-            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+            await Task.Delay(500, cancellationToken).ConfigureAwait(true);
             var current = _launchServices.GetDefaultWebBrowser();
             if (current is not null && Matches(current, browser))
             {

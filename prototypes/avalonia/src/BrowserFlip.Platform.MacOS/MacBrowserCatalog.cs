@@ -48,8 +48,13 @@ public sealed class MacBrowserCatalog : IBrowserCatalog
         // The bundle identifier is the handler token; fall back to the bundle path when a bundle
         // has none (rare, but possible for unsigned or malformed bundles).
         var id = app.BundleIdentifier ?? app.BundlePath;
-        var perUser = !string.IsNullOrEmpty(homeDirectory)
-                      && app.BundlePath.StartsWith(homeDirectory, StringComparison.OrdinalIgnoreCase);
+        // The trailing separator matters: without it "/Users/bobby/..." counts as living inside
+        // the home directory "/Users/bob".
+        var homePrefix = string.IsNullOrEmpty(homeDirectory)
+            ? null
+            : homeDirectory.TrimEnd('/') + '/';
+        var perUser = homePrefix is not null
+                      && app.BundlePath.StartsWith(homePrefix, StringComparison.OrdinalIgnoreCase);
 
         return new BrowserInfo
         {

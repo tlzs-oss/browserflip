@@ -68,6 +68,22 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void Saving_and_restoring_leaves_the_file_exactly_as_it_was()
+    {
+        // The self-test writes a probe into the real settings store; it must put the user's own
+        // settings back afterwards.
+        var store = NewStore();
+        var mine = new PrototypeSettings { Language = "en", Topmost = false, LaunchCount = 11 };
+        Assert.True(store.Save(mine));
+
+        var saved = store.Load();
+        Assert.True(store.Save(new PrototypeSettings { Language = "ja", Topmost = true, LaunchCount = 999 }));
+        Assert.True(store.Save(saved));
+
+        Assert.Equal(mine, store.Load());
+    }
+
+    [Fact]
     public void The_default_location_is_under_the_per_user_configuration_directory()
     {
         var location = JsonSettingsStore.DefaultLocation();

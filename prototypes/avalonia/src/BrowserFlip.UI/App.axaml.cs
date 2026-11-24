@@ -112,6 +112,12 @@ public partial class App : Application
             async () =>
             {
                 var exitCode = 1;
+                var adapters = (AdapterAccessor ?? throw new InvalidOperationException(
+                    "App.AdapterAccessor must be set when running the self-test."))();
+
+                // Snapshot the user's real settings BEFORE the self-test changes anything, and
+                // put them back at the end. Running the diagnostics must not reconfigure the app.
+                var settingsBefore = adapters.Store.Load();
                 try
                 {
                     // The toolbar is part of what the self-test inspects, so make sure it is up.
@@ -120,9 +126,6 @@ public partial class App : Application
                         _model.ShowFloatingToolbar = true;
                         ApplyToolbarVisibility();
                     }
-
-                    var adapters = (AdapterAccessor ?? throw new InvalidOperationException(
-                        "App.AdapterAccessor must be set when running the self-test."))();
 
                     var report = await SelfTest.RunAsync(
                         _model!, desktop.MainWindow!, _toolbar, _trayIconCreated,
@@ -144,6 +147,12 @@ public partial class App : Application
                 {
                     Console.Error.WriteLine("self-test failed: " + ex);
                 }
+
+                // Close the toolbar first: its Closed handler persists a position, and that
+                // write has to happen before the settings are restored.
+                _toolbar?.Close();
+                _toolbar = null;
+                adapters.Store.Save(settingsBefore);
 
                 desktop.Shutdown(exitCode);
             },
