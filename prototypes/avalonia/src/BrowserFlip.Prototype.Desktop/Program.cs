@@ -71,6 +71,25 @@ internal static class Program
                 new DefaultBrowserService(query));
         }
 
+#if WINDOWS
+        if (OperatingSystem.IsWindows())
+        {
+            // Reuses the shipping Windows implementation in Core rather than reimplementing it,
+            // so the Avalonia front-end and the WPF product cannot drift apart.
+            var windowsQuery = new Core.Platform.ShellAssociationQuery();
+            _switcher = new BrowserFlip.Platform.Windows.WindowsDefaultBrowserSwitcher();
+            _icons = new BrowserFlip.Platform.Windows.WindowsAppIconProvider();
+            _capabilities = new BrowserFlip.Platform.Windows.WindowsCapabilities();
+            App.Capabilities = _capabilities;
+            return new MainViewModel(
+                new BrowserFlip.Platform.Windows.WindowsBrowserCatalog(),
+                _switcher,
+                _icons,
+                store,
+                new DefaultBrowserService(windowsQuery));
+        }
+#endif
+
         // No adapter for this platform yet: start, and say so honestly rather than crash or
         // pretend an empty list means "no browsers installed".
         _switcher = new UnsupportedSwitcher();

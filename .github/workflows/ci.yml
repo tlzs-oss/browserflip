@@ -227,6 +227,60 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
+  # The Avalonia prototype on Windows. This is a SECOND, parallel front-end: the shipping WPF
+  # product is built and tested by the "Build, test & checks" job above and is unaffected.
+  prototype-windows:
+    name: Windows Avalonia prototype
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: prototypes/avalonia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      # On a Windows host the test and desktop projects add a net10.0-windows target, so this
+      # also compiles the Windows adapter and the Windows composition root.
+      - name: Build (both target frameworks)
+        run: dotnet build BrowserFlip.Prototype.slnx -c Release
+
+      - name: Test (includes the Windows adapter tests)
+        run: >
+          dotnet test tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.csproj
+          -c Release --no-build --logger trx --results-directory TestResults
+
+      # Starts the shared Avalonia UI on Windows with the Windows adapter composed in, and runs
+      # the same capability self-test the macOS and Linux jobs run. It never changes the default
+      # browser: that needs --switch-default, which CI never passes.
+      - name: Run the app and the capability self-test
+        run: |
+          dotnet publish src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj `
+            -c Release -f net10.0-windows -o publish-win --nologo
+          ./publish-win/BrowserFlipPrototype.exe --selftest "$PWD/selftest-out"
+          if (-not (Test-Path selftest-out/prototype-window.png)) {
+            Write-Host "::error::no window was rendered"; exit 1
+          }
+
+      - name: Upload Windows evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-evidence-windows
+          path: |
+            prototypes/avalonia/TestResults/
+            prototypes/avalonia/selftest-out/
+          retention-days: 14
+          if-no-files-found: warn
+
   # Linux is verified by actually RUNNING the application against a real X11 server (Xvfb),
   # not merely by compiling it. Wayland cannot be covered this way and is not claimed.
   prototype-linux:
