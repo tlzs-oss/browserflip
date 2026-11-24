@@ -265,7 +265,17 @@ jobs:
         run: |
           dotnet publish src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj `
             -c Release -f net10.0-windows -o publish-win --nologo
-          ./publish-win/BrowserFlipPrototype.exe --selftest "$PWD/selftest-out"
+          # The prototype is a WinExe, so the shell does not wait for it and it writes nothing to
+          # the console. Start-Process -Wait gives both the completion and the exit code, and the
+          # report is printed from the file it produced.
+          $p = Start-Process -FilePath ".\publish-win\BrowserFlipPrototype.exe" `
+                 -ArgumentList '--selftest', "$PWD\selftest-out" -PassThru -Wait
+          if (Test-Path selftest-out/capability-report.txt) {
+            Get-Content selftest-out/capability-report.txt
+          }
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::self-test exited with $($p.ExitCode)"; exit $p.ExitCode
+          }
           if (-not (Test-Path selftest-out/prototype-window.png)) {
             Write-Host "::error::no window was rendered"; exit 1
           }
