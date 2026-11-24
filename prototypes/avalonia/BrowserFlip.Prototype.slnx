@@ -1,0 +1,16 @@
+<Solution>
+  <!-- R2 Avalonia technology prototype. Deliberately SEPARATE from BrowserFlip.slnx so that
+       the shipping Windows product keeps its zero-third-party-dependency guarantee and its
+       CI checks (format, licence allowlist, vulnerable packages) are unaffected. -->
+  <Folder Name="/shared/">
+    <Project Path="../../src/BrowserFlip.Core/BrowserFlip.Core.csproj" />
+  </Folder>
+  <Folder Name="/prototype/">
+    <Project Path="src/BrowserFlip.UI/BrowserFlip.UI.csproj" />
+    <Project Path="src/BrowserFlip.Platform.MacOS/BrowserFlip.Platform.MacOS.csproj" />
+    <Project Path="src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.csproj" />
+  </Folder>
+</Solution>

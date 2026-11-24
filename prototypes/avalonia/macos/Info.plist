@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>BrowserFlip Prototype</string>
+  <key>CFBundleDisplayName</key>
+  <string>BrowserFlip Prototype</string>
+  <key>CFBundleIdentifier</key>
+  <string>co.jp.tlzs.browserflip.prototype</string>
+  <key>CFBundleVersion</key>
+  <string>0.0.1</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.0.1-r2-prototype</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleExecutable</key>
+  <string>BrowserFlipPrototype</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <!-- The prototype asks macOS to change the default browser through the public
+       NSWorkspace API, which shows its own consent alert. No private API, no entitlement. -->
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright (c) 2026 TLZS and BrowserFlip contributors. MIT License.</string>
+  <!-- Localizations the prototype ships, reusing the product's .resx translations. -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>ja</string>
+    <string>zh-Hans</string>
+  </array>
+</dict>
+</plist>

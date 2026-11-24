@@ -160,3 +160,59 @@ jobs:
           path: TestResults/
           retention-days: 14
           if-no-files-found: warn
+
+  # R2 technology prototype (Avalonia). It lives in its own solution and has its own
+  # dependencies, so it is built and tested separately and can never affect the product's
+  # build, its licence allowlist or its zero-third-party-dependency guarantee.
+  prototype-macos:
+    name: macOS Avalonia prototype
+    runs-on: macos-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/avalonia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build BrowserFlip.Prototype.slnx -c Release
+
+      - name: Test (unit + mocked system APIs + Avalonia headless UI)
+        run: >
+          dotnet test tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.csproj
+          -c Release --no-build --logger trx --results-directory TestResults
+
+      # Proves the prototype really starts on macOS and talks to the real OS. The app renders
+      # its own window to PNG, because screen capture needs a TCC grant a runner does not have.
+      # It never changes the default browser: that needs --switch-default, which CI never passes.
+      - name: Launch the app and run the capability self-test
+        run: |
+          set -euo pipefail
+          ./macos/bundle.sh Release
+          "artifacts/BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" --selftest "$PWD/selftest-out"
+          test -s selftest-out/prototype-window.png || { echo "::error::no window was rendered"; exit 1; }
+
+      - name: Linux compile feasibility (compile only - NOT a Linux run)
+        run: >
+          dotnet build src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj
+          -c Release -r linux-x64 --self-contained false -p:RuntimeIdentifiers=linux-x64
+
+      - name: Upload prototype evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-evidence-macos
+          path: |
+            prototypes/avalonia/TestResults/
+            prototypes/avalonia/selftest-out/
+          retention-days: 14
+          if-no-files-found: warn

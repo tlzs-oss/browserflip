@@ -1,0 +1,21 @@
+<Project>
+
+  <!-- Inherit the repository's central package versions (the test-only packages). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Packages.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <ItemGroup>
+    <!-- Avalonia UI (MIT). Prototype-only: the shipping Windows product still has no
+         third-party runtime dependency, and BrowserFlip.slnx does not reference these. -->
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.4" />
+    <!-- Avalonia.Headless.XUnit 12.x is built on xunit v3, while the shipping product's tests
+         stay on xunit 2.9.3. Only the prototype test project uses v3; the two never mix. -->
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+  </ItemGroup>
+
+</Project>

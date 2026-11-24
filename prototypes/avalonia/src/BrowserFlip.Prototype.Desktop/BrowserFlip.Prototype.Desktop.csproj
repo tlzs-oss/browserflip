@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BrowserFlip.Prototype.Desktop</RootNamespace>
+    <AssemblyName>BrowserFlipPrototype</AssemblyName>
+    <!-- The prototype runs on macOS first; the same entry point also starts on Windows and Linux. -->
+    <RuntimeIdentifiers>osx-arm64;osx-x64</RuntimeIdentifiers>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <ApplicationManifest />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
+    <ProjectReference Include="..\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+  </ItemGroup>
+
+</Project>

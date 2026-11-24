@@ -1,0 +1,202 @@
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
+using BrowserFlip.Core.Defaults;
+using BrowserFlip.UI.Localization;
+using BrowserFlip.UI.Platform;
+using BrowserFlip.UI.ViewModels;
+
+namespace BrowserFlip.UI.Diagnostics;
+
+/// <summary>
+/// Runs the R2 capability checks inside the live application: the real window is on screen, the
+/// real platform adapters are in place and the real OS answers the queries. Requirement 6
+/// (actually changing the default browser) is reported as SKIPPED — a real system change needs
+/// the Owner to trigger it explicitly, so the automated path only proves the API is present.
+/// </summary>
+public static class SelfTest
+{
+    /// <summary>Set by the entry point when <c>--selftest</c> is passed; a directory for the output.</summary>
+    public static string? OutputDirectory { get; set; }
+
+    /// <summary>Set by <c>--switch-default &lt;id&gt;</c>: an explicit, Owner-triggered real change.</summary>
+    public static string? SwitchTargetId { get; set; }
+
+    public static async Task<CapabilityReport> RunAsync(
+        MainViewModel model,
+        Window mainWindow,
+        Window? toolbar,
+        bool trayIconCreated,
+        IDefaultBrowserSwitcher switcher,
+        IAppIconProvider icons,
+        ISettingsStore store)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(mainWindow);
+
+        var report = new CapabilityReport
+        {
+            Platform = OperatingSystem.IsMacOS() ? "macOS" : Environment.OSVersion.Platform.ToString(),
+            OsVersion = Environment.OSVersion.VersionString,
+            Architecture = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(),
+            AvaloniaVersion = typeof(Application).Assembly.GetName().Version?.ToString() ?? "unknown",
+            Timestamp = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+        };
+
+        // 1. Avalonia builds and runs on this OS and architecture.
+        report.Add(1, "Avalonia builds and runs on macOS ARM64", CheckResult.PASS,
+            $"process is live; Avalonia {report.AvaloniaVersion}; {report.Architecture}");
+
+        // 2. A native desktop window is actually open and sized by the platform.
+        var open = mainWindow.IsVisible && mainWindow.Bounds.Width > 0 && mainWindow.Bounds.Height > 0;
+        report.Add(2, "Native desktop window displayed", open ? CheckResult.PASS : CheckResult.FAIL,
+            $"IsVisible={mainWindow.IsVisible} bounds={mainWindow.Bounds.Width:F0}x{mainWindow.Bounds.Height:F0} "
+            + $"handle={(mainWindow.TryGetPlatformHandle()?.Handle.ToString("X", CultureInfo.InvariantCulture) ?? "none")}");
+
+        // 3. Menu-bar (status) item with a menu. Avalonia maps TrayIcon to NSStatusItem on macOS.
+        report.Add(3, "System menu-bar icon and menu", trayIconCreated ? CheckResult.PASS : CheckResult.FAIL,
+            trayIconCreated ? "TrayIcon registered with a 5-item NativeMenu (NSStatusItem)" : "TrayIcon was not created");
+
+        // 4. Installed browsers, read from LaunchServices.
+        var browsers = model.Browsers;
+        report.Add(4, "Installed browser list", browsers.Count > 0 ? CheckResult.PASS : CheckResult.FAIL,
+            $"{browsers.Count} found: " + string.Join(", ", browsers.Take(8).Select(b => b.DisplayName)));
+
+        // 5. Current default browser.
+        var current = browsers.FirstOrDefault(b => b.IsDefault);
+        report.Add(5, "Current default browser", model.Status == DefaultStatus.None ? CheckResult.FAIL : CheckResult.PASS,
+            $"status={model.Status}; default={current?.DisplayName ?? "(not one of the detected browsers)"}; "
+            + $"text=\"{model.CurrentDefaultText}\"");
+
+        // 6. The officially supported switch API. Not invoked unless the Owner asked for it.
+        if (switcher.Mechanism == SwitchMechanism.Unsupported)
+        {
+            report.Add(6, "Default-browser switch API", CheckResult.UNSUPPORTED,
+                "NSWorkspace setDefaultApplicationAtURL:… is unavailable (macOS 12+ required)");
+        }
+        else if (string.IsNullOrEmpty(SwitchTargetId))
+        {
+            report.Add(6, "Default-browser switch API", CheckResult.SKIPPED,
+                $"available via {switcher.Mechanism} (public NSWorkspace API, OS-owned consent prompt). "
+                + "Not invoked: a real system change requires --switch-default <bundle-id>, triggered by the Owner.");
+        }
+        else
+        {
+            var target = browsers.FirstOrDefault(b =>
+                string.Equals(b.Identifier, SwitchTargetId, StringComparison.OrdinalIgnoreCase));
+            if (target is null)
+            {
+                report.Add(6, "Default-browser switch API", CheckResult.FAIL,
+                    $"no installed browser has identifier '{SwitchTargetId}'");
+            }
+            else if (target.IsDefault)
+            {
+                // Nothing would happen, so a PASS here would be meaningless.
+                report.Add(6, "Default-browser switch API (Owner-triggered, real change)", CheckResult.SKIPPED,
+                    $"{SwitchTargetId} is already the default; pick a different browser to exercise a real change.");
+            }
+            else
+            {
+                await model.SetDefaultAsync(target).ConfigureAwait(true);
+                var nowDefault = model.Browsers.FirstOrDefault(b => b.IsDefault);
+                var applied = nowDefault is not null
+                              && string.Equals(nowDefault.Identifier, SwitchTargetId, StringComparison.OrdinalIgnoreCase);
+                report.Add(6, "Default-browser switch API (Owner-triggered, real change)",
+                    applied ? CheckResult.PASS : CheckResult.FAIL,
+                    $"requested {SwitchTargetId}; now default={nowDefault?.Identifier ?? "none"}; \"{model.StatusMessage}\"");
+            }
+        }
+
+        // 7. Browser icons, from NSWorkspace iconForFile:.
+        var withIcons = browsers.Count(b => b.IconPng is { Length: > 0 });
+        report.Add(7, "Browser icons", withIcons > 0 ? CheckResult.PASS : CheckResult.FAIL,
+            $"{withIcons}/{browsers.Count} decoded as PNG; sizes: "
+            + string.Join(", ", browsers.Where(b => b.IconPng is not null).Take(4).Select(b => $"{b.IconPng!.Length}B")));
+
+        // 8. en / ja / zh-CN, read from the product's own .resx files.
+        const string probeKey = "Refresh";
+        var translations = new List<string>();
+        var original = model.Language;
+        foreach (var language in Strings.SupportedLanguages)
+        {
+            Strings.UseLanguage(language);
+            translations.Add(Strings.Get(probeKey));
+        }
+
+        Strings.UseLanguage(original);
+        // Compare the TRANSLATIONS, not the language tags: tagging each sample would make the
+        // set distinct by construction and the check could never fail. A translation equal to
+        // the resource key means the resource did not resolve at all.
+        var distinct = translations.Distinct(StringComparer.Ordinal).Count();
+        var allResolved = translations.TrueForAll(t => !string.IsNullOrWhiteSpace(t) && t != probeKey);
+        report.Add(8, "English / Japanese / Simplified Chinese",
+            distinct == Strings.SupportedLanguages.Count && allResolved ? CheckResult.PASS : CheckResult.FAIL,
+            string.Join("  ", Strings.SupportedLanguages.Zip(translations, (l, t) => $"{l}=\"{t}\"")));
+
+        // 9. Topmost window and floating toolbar.
+        mainWindow.Topmost = true;
+        var toolbarShown = toolbar is not null && toolbar.IsVisible;
+        report.Add(9, "Topmost window and floating toolbar",
+            mainWindow.Topmost && toolbarShown ? CheckResult.PASS : CheckResult.FAIL,
+            $"main.Topmost={mainWindow.Topmost}; toolbar visible={toolbarShown}, topmost={toolbar?.Topmost}, "
+            + $"decorations={toolbar?.WindowDecorations}, size={toolbar?.Bounds.Width:F0}x{toolbar?.Bounds.Height:F0}");
+        mainWindow.Topmost = model.Topmost;
+
+        // 10. Settings persistence: write a probe, re-read it from disk, then put the user's own
+        // settings back. The self-test must not leave the real configuration modified.
+        var originalSettings = store.Load();
+        var probe = 1234 + (int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds() % 1000);
+        var saved = store.Save(new PrototypeSettings { Language = "ja", Topmost = true, LaunchCount = probe });
+        var reloaded = store.Load();
+        var restored = store.Save(originalSettings);
+        var roundTripped = saved && restored
+                           && reloaded.LaunchCount == probe && reloaded.Language == "ja" && reloaded.Topmost;
+        report.Add(10, "Settings persistence", roundTripped ? CheckResult.PASS : CheckResult.FAIL,
+            $"{store.Location}: wrote LaunchCount={probe}, read back {reloaded.LaunchCount}, "
+            + $"Language={reloaded.Language}; original settings restored={restored}");
+
+        await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
+        return report;
+    }
+
+    /// <summary>
+    /// Renders the live window to PNG from inside the process. macOS screen recording needs a
+    /// TCC grant that a build agent does not have, so the application captures itself instead.
+    /// </summary>
+    private static async Task CaptureWindowAsync(Window window, CapabilityReport report)
+    {
+        if (string.IsNullOrEmpty(OutputDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(OutputDirectory);
+            var path = Path.Combine(OutputDirectory, "prototype-window.png");
+            var width = (int)Math.Max(1, window.Bounds.Width);
+            var height = (int)Math.Max(1, window.Bounds.Height);
+
+            // Two frames: the first lets the compositor finish the initial layout pass.
+            for (var pass = 0; pass < 2; pass++)
+            {
+                using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+                bitmap.Render(window);
+                bitmap.Save(path, new PngBitmapEncoderOptions());
+                if (pass == 0)
+                {
+                    await Task.Delay(400).ConfigureAwait(true);
+                }
+            }
+
+            report.RenderedWindowPng = path;
+        }
+#pragma warning disable CA1031 // The report must still be written when rendering is unavailable.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            report.RenderedWindowPng = "render failed: " + ex.Message;
+        }
+    }
+}

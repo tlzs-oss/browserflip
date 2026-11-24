@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BrowserFlip.UI</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+  </ItemGroup>
+
+  <!-- Reuses the shipping Core unchanged, through its portable net10.0 target (added in R1). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The product's existing translations, reused as-is. The .resx files are NOT copied or
+       modified: they are linked out of the WPF project so there is a single source of truth. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\src\BrowserFlip.App\Resources\Strings.resx" LogicalName="BrowserFlip.UI.Localization.Strings.resources" />
+    <EmbeddedResource Include="..\..\..\..\src\BrowserFlip.App\Resources\Strings.ja.resx" LogicalName="BrowserFlip.UI.Localization.Strings.ja.resources" />
+    <EmbeddedResource Include="..\..\..\..\src\BrowserFlip.App\Resources\Strings.zh-CN.resx" LogicalName="BrowserFlip.UI.Localization.Strings.zh-CN.resources" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
+  </ItemGroup>
+
+</Project>
