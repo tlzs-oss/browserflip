@@ -13,10 +13,18 @@ Windows / macOS / Linux 統合に向けた**技術検証用プロトタイプ**�
 
 | プロジェクト | 役割 |
 | --- | --- |
-| `src/BrowserFlip.UI` | 全 OS 共有の Avalonia UI・ViewModel・境界インターフェイス・多言語・自己診断 |
+| `src/BrowserFlip.UI` | 全 OS 共有の Avalonia UI・ViewModel・境界インターフェイス・能力モデル・多言語・自己診断 |
 | `src/BrowserFlip.Platform.MacOS` | macOS アダプター(AppKit への P/Invoke、公開 API のみ) |
+| `src/BrowserFlip.Platform.Linux` | Linux アダプター(`.desktop` 走査、`xdg-settings`、XDG アイコン) |
+| `src/BrowserFlip.Platform.Windows` | Windows アダプター(既存 Core の Windows 実装を再利用) |
 | `src/BrowserFlip.Prototype.Desktop` | 合成ルート(唯一 OS を判定する場所) |
 | `tests/BrowserFlip.Prototype.Tests` | 単体 + Mock + Avalonia ヘッドレス UI テスト |
+
+### 能力モデル(`IPlatformCapabilities`)
+
+三プラットフォームは**本当に違います**。Wayland はクライアントに自ウィンドウの配置も最前面要求も許さず、GNOME は既定でトレイを持たず、`xdg-settings` は確認なしで即適用します。
+
+不安定な回避策で取り繕うのではなく、各アダプターが「**何ができて、できないものはなぜか**」を申告し、UI はできないものを**理由付きで無効化**します。設定ウィンドウに能力一覧表が出ます。
 
 `BrowserFlip.Core` は**リポジトリの出荷版をそのまま参照**しています(コピーではありません)。
 
@@ -34,8 +42,20 @@ dotnet test  tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.cspro
 # macOS の .app を作る(self-contained。Finder から起動するため)
 ./macos/bundle.sh Release
 
+# 配布用 DMG を作る(未署名。下記「署名」を参照)
+./macos/make-dmg.sh Release
+
+# バンドルの実態を確認する(アーキテクチャ・署名・Gatekeeper 判定)
+./macos/verify-bundle.sh
+
 # 普通に起動する
 open "artifacts/BrowserFlip Prototype.app"
+```
+
+Linux では実 X11 サーバー(Xvfb)上で同じ自己診断を実行できます。
+
+```sh
+./linux/run-selftest.sh ./out Release
 ```
 
 ### 自己診断(R2 の検証項目を実機で確認する)
@@ -83,7 +103,7 @@ open "artifacts/BrowserFlip Prototype.app"
 ## 既知の制限
 
 - **Windows / Linux のアダプターは未実装。** 起動はしますが一覧は空で、切り替えは `UNSUPPORTED` を返します。
-- **アイコンのペイロードが大きい。** `-[NSWorkspace iconForFile:]` が返す `NSImage` の表現は `NSISIconImageRep` で、PNG へ直接エンコードできません。`TIFFRepresentation` 経由で最大解像度(1〜2 MB)になります。表示側はデコード幅を 64 px に制限しているため UI メモリは小さいままですが、`byte[]` の削減には `CGImageForProposedRect:` のブリッジが必要です。
+- **`.app` / DMG は未署名**のため、他の Mac では Gatekeeper が拒否します(`verify-bundle.sh` で `rejected` と出るのが正常)。配布条件は [../../docs/macos-signing.md](../../docs/macos-signing.md)。
 - **プロトタイプのテストだけ xunit v3** を使います(`Avalonia.Headless.XUnit` 12.x の要件)。製品側のテストは xunit 2.9.3 のままで、両者は別ソリューションです。
-- **`.app` に署名していません**(ローカル実行用のアドホック署名のみ)。配布には Developer ID 署名と公証が必要です。
-- **Linux は未実行。** コンパイルが通ることだけを確認しています。
+- **Wayland では**フローティング ツールバーと「常に手前に表示」が使えません。能力モデルが `UNSUPPORTED` として申告し、UI が理由付きで無効化します。
+- **署名・公証は未実施**(証明書未購入)。[../../docs/macos-signing.md](../../docs/macos-signing.md) に必要条件をまとめています。
