@@ -3,7 +3,7 @@
 Windows / macOS / Linux 統合に向けた**技術検証用プロトタイプ**です。製品ではありません。
 
 - **出荷中の Windows 製品には一切影響しません。** `BrowserFlip.slnx` には含まれず、ルートの `Directory.Build.props` / `Directory.Packages.props` も変更していません。製品の「第三者ランタイム依存ゼロ」は維持されています。
-- 検証対象は macOS ARM64 です。Windows / Linux のアダプターは未実装で、起動はしますが「未対応」と表示します。
+- **macOS・Windows・Linux の 3 アダプターすべて実装済み**です。macOS と Linux ARM64 は実機/実コンテナで動作確認済み、Windows は CI(windows-latest)で動作確認済みです。
 
 設計: [../../docs/unified-architecture.md](../../docs/unified-architecture.md) / Linux 評価: [../../docs/linux-feasibility.md](../../docs/linux-feasibility.md)
 
@@ -102,7 +102,9 @@ Linux では実 X11 サーバー(Xvfb)上で同じ自己診断を実行できま
 
 ## 既知の制限
 
-- **Windows / Linux のアダプターは未実装。** 起動はしますが一覧は空で、切り替えは `UNSUPPORTED` を返します。
+- **Wayland は未検証。** 能力モデルの Wayland 申告は調査ベースで、実コンポジター上では未測定です。
+- **Linux のアイコンは PNG のみ。** SVG のみを持つアプリ(GNOME 系の多く)はアイコンなしで表示されます。
+- **CJK フォントを同梱していません。** フォントの無い最小環境では日本語・中国語が豆腐(□)になります。AppImage は依存を宣言できないため、配布時に同梱が必要です。
 - **`.app` / DMG は未署名**のため、他の Mac では Gatekeeper が拒否します(`verify-bundle.sh` で `rejected` と出るのが正常)。配布条件は [../../docs/macos-signing.md](../../docs/macos-signing.md)。
 - **プロトタイプのテストだけ xunit v3** を使います(`Avalonia.Headless.XUnit` 12.x の要件)。製品側のテストは xunit 2.9.3 のままで、両者は別ソリューションです。
 - **Wayland では**フローティング ツールバーと「常に手前に表示」が使えません。能力モデルが `UNSUPPORTED` として申告し、UI が理由付きで無効化します。

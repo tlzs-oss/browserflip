@@ -10,8 +10,9 @@
 
 | 根拠の種類 | 内容 |
 | --- | --- |
-| **実測済み** | 共有コード(Core + UI + ViewModel)が `linux-x64` 向けに**コンパイル成功**。Avalonia 12.1.4 は Linux を公式サポート |
-| **未実測** | Linux 実機での起動・動作は**一切検証していません**。Linux マシンも CI ランナーも本ラウンドでは使用していません |
+| **実測済み(x64)** | GitHub Actions の ubuntu-latest で**実際にアプリを起動**(Xvfb = 実 X11 サーバー)。ビルド・テスト・自己診断すべて PASS |
+| **実測済み(ARM64)** | Docker Desktop の linux/arm64 コンテナで**実機 ARM64 実行**。実 `.desktop` 走査で 2 ブラウザー検出、実アイコンテーマ解決、設定の再起動間保持、起動 0.4 秒 / RSS 185 MB を計測 |
+| **未実測** | **Wayland コンポジター上の動作**、**GNOME Shell / KDE Plasma の実セッション**、実際の `xdg-settings set` の効果、Flatpak/Snap ブラウザーの列挙、**実 Firefox / Chromium の `.desktop`**(コンテナの Ubuntu では snap ラッパーしか無く導入不可) |
 | **調査ベース** | 以下の機能分類は公開仕様と既知の制約に基づく評価です |
 
 > **コンパイル成功は動作保証ではありません。** 実機検証は Linux ラウンドで別途必要です。
