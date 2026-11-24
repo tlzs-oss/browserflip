@@ -12,8 +12,8 @@ BrowserFlip は **Windows + macOS の 2 台体制**で開発します。同じ�
 
 | | Windows | macOS |
 | --- | --- | --- |
-| 主リポジトリ | `C:\workspace\browserflip` | `~/workspace/00_projects/browserflip` |
-| Worktree 置き場 | `C:\workspace-worktrees\browserflip\` | `~/workspace/10_worktrees/browserflip/` |
+| 主リポジトリ | `C:\workspace\00_projects\browserflip` | `~/workspace/00_projects/browserflip` |
+| Worktree 置き場 | `C:\workspace\10_worktrees\browserflip\` | `~/workspace/10_worktrees/browserflip/` |
 | 必要なもの | .NET 10 SDK、PowerShell 7 | .NET 10 SDK |
 | できること | 製品の完全ビルド・全テスト・リリース | Core(`net10.0`)のビルドとテストのみ |
 
