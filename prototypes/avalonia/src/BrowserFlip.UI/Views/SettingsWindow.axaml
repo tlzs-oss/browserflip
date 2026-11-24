@@ -3,7 +3,7 @@
         xmlns:vm="using:BrowserFlip.UI.ViewModels"
         x:Class="BrowserFlip.UI.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
-        Width="520" Height="520" CanResize="True"
+        Width="520" Height="700" MinHeight="420" CanResize="True"
         WindowStartupLocation="CenterOwner"
         Title="{Binding Title}">
 

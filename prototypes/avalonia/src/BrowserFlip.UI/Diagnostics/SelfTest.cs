@@ -207,7 +207,51 @@ public static class SelfTest
             + $"; OS confirms default-browser change={capabilities.OsConfirmsDefaultBrowserChange}");
 
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
+        await CaptureSettingsAsync(model, capabilities, report).ConfigureAwait(true);
         return report;
+    }
+
+    /// <summary>
+    /// Renders the real settings window, with the real capability table for this platform.
+    /// Opening it through the menu cannot be automated without an Accessibility grant, so the
+    /// self-test constructs and renders the same window the menu would open.
+    /// </summary>
+    private static async Task CaptureSettingsAsync(
+        MainViewModel model, IPlatformCapabilities capabilities, CapabilityReport report)
+    {
+        if (string.IsNullOrEmpty(OutputDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            var window = new Views.SettingsWindow
+            {
+                DataContext = new SettingsViewModel(model, capabilities),
+            };
+            window.Show();
+            await Task.Delay(400).ConfigureAwait(true);
+
+            var path = Path.Combine(OutputDirectory, "settings-window.png");
+            var width = (int)Math.Max(1, window.Bounds.Width);
+            var height = (int)Math.Max(1, window.Bounds.Height);
+            using (var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96)))
+            {
+                bitmap.Render(window);
+                bitmap.Save(path, new PngBitmapEncoderOptions());
+            }
+
+            window.Close();
+            report.Add(12, "Settings window renders with the capability table", CheckResult.PASS,
+                $"{width}x{height}; {capabilities.All().Count} capabilities listed; {path}");
+        }
+#pragma warning disable CA1031 // A diagnostic capture must never fail the run.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            report.Add(12, "Settings window renders with the capability table", CheckResult.FAIL, ex.Message);
+        }
     }
 
     /// <summary>
