@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
     <ProjectReference Include="..\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\BrowserFlip.Platform.Linux\BrowserFlip.Platform.Linux.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">

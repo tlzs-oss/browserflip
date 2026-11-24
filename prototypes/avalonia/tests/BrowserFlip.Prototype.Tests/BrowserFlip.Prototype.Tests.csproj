@@ -37,6 +37,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\BrowserFlip.UI\BrowserFlip.UI.csproj" />
     <ProjectReference Include="..\..\src\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\..\src\BrowserFlip.Platform.Linux\BrowserFlip.Platform.Linux.csproj" />
     <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
   </ItemGroup>
 

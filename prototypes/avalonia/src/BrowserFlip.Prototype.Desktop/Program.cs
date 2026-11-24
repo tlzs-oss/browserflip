@@ -90,6 +90,27 @@ internal static class Program
         }
 #endif
 
+        if (OperatingSystem.IsLinux())
+        {
+            // xdg-settings applies the change immediately with no OS prompt, unlike Windows and
+            // macOS. UserHasConfirmed is `required`, so no caller can construct the switcher
+            // without stating whether consent was obtained; false here means it will refuse to
+            // run anything until the UI has asked. See LinuxDefaultBrowserSwitcher.
+            _switcher = new BrowserFlip.Platform.Linux.LinuxDefaultBrowserSwitcher
+            {
+                UserHasConfirmed = false,
+            };
+            _icons = new BrowserFlip.Platform.Linux.LinuxAppIconProvider();
+            _capabilities = new BrowserFlip.Platform.Linux.LinuxCapabilities();
+            App.Capabilities = _capabilities;
+            return new MainViewModel(
+                new BrowserFlip.Platform.Linux.LinuxBrowserCatalog(),
+                _switcher,
+                _icons,
+                store,
+                new DefaultBrowserService(new BrowserFlip.Platform.Linux.LinuxAssociationQuery()));
+        }
+
         // No adapter for this platform yet: start, and say so honestly rather than crash or
         // pretend an empty list means "no browsers installed".
         _switcher = new UnsupportedSwitcher();
