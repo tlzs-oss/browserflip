@@ -34,11 +34,11 @@ internal static class Program
         }
 
         App.ViewModelFactory = Compose;
-        App.AdapterAccessor = () => (_switcher!, _icons!, _store!, _capabilities!);
+        App.AdapterAccessor = () => (_switcherFactory!(false), _icons!, _store!, _capabilities!);
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
-    private static IDefaultBrowserSwitcher? _switcher;
+    private static Func<bool, IDefaultBrowserSwitcher>? _switcherFactory;
     private static IAppIconProvider? _icons;
     private static ISettingsStore? _store;
     private static IPlatformCapabilities? _capabilities;
@@ -58,17 +58,23 @@ internal static class Program
         if (OperatingSystem.IsMacOS())
         {
             var query = new BrowserFlip.Platform.MacOS.MacAssociationQuery();
-            _switcher = new BrowserFlip.Platform.MacOS.MacDefaultBrowserSwitcher();
+            // macOS shows its own consent alert, so the consent flag is irrelevant here. The
+            // instance is created inside the OperatingSystem.IsMacOS() guard; a lambda body
+            // would be outside it as far as the platform-compatibility analyser is concerned.
+            var macSwitcher = new BrowserFlip.Platform.MacOS.MacDefaultBrowserSwitcher();
+            _switcherFactory = _ => macSwitcher;
             _icons = new BrowserFlip.Platform.MacOS.MacAppIconProvider();
             // macOS imposes none of the restrictions Linux does, and the OS owns the consent prompt.
             _capabilities = new FullCapabilities($"macOS {Environment.OSVersion.Version}", osConfirms: true);
             App.Capabilities = _capabilities;
             return new MainViewModel(
                 new BrowserFlip.Platform.MacOS.MacBrowserCatalog(),
-                _switcher,
+                _switcherFactory,
                 _icons,
                 store,
-                new DefaultBrowserService(query));
+                new DefaultBrowserService(query),
+                _capabilities,
+                Confirmation());
         }
 
 #if WINDOWS
@@ -77,53 +83,69 @@ internal static class Program
             // Reuses the shipping Windows implementation in Core rather than reimplementing it,
             // so the Avalonia front-end and the WPF product cannot drift apart.
             var windowsQuery = new Core.Platform.ShellAssociationQuery();
-            _switcher = new BrowserFlip.Platform.Windows.WindowsDefaultBrowserSwitcher();
+            // Windows Settings asks the user, so the consent flag is irrelevant here too.
+            _switcherFactory = _ => new BrowserFlip.Platform.Windows.WindowsDefaultBrowserSwitcher();
             _icons = new BrowserFlip.Platform.Windows.WindowsAppIconProvider();
             _capabilities = new BrowserFlip.Platform.Windows.WindowsCapabilities();
             App.Capabilities = _capabilities;
             return new MainViewModel(
                 new BrowserFlip.Platform.Windows.WindowsBrowserCatalog(),
-                _switcher,
+                _switcherFactory,
                 _icons,
                 store,
-                new DefaultBrowserService(windowsQuery));
+                new DefaultBrowserService(windowsQuery),
+                _capabilities,
+                Confirmation());
         }
 #endif
 
         if (OperatingSystem.IsLinux())
         {
             // xdg-settings applies the change immediately with no OS prompt, unlike Windows and
-            // macOS. UserHasConfirmed is `required`, so no caller can construct the switcher
-            // without stating whether consent was obtained; false here means it will refuse to
-            // run anything until the UI has asked. See LinuxDefaultBrowserSwitcher.
-            _switcher = new BrowserFlip.Platform.Linux.LinuxDefaultBrowserSwitcher
+            // macOS. UserHasConfirmed is `required`, so the switcher cannot be built without
+            // stating whether consent was obtained - and the view model only passes true after
+            // its own dialog returned yes. See LinuxDefaultBrowserSwitcher.
+            _switcherFactory = confirmed => new BrowserFlip.Platform.Linux.LinuxDefaultBrowserSwitcher
             {
-                UserHasConfirmed = false,
+                UserHasConfirmed = confirmed,
             };
             _icons = new BrowserFlip.Platform.Linux.LinuxAppIconProvider();
             _capabilities = new BrowserFlip.Platform.Linux.LinuxCapabilities();
             App.Capabilities = _capabilities;
             return new MainViewModel(
                 new BrowserFlip.Platform.Linux.LinuxBrowserCatalog(),
-                _switcher,
+                _switcherFactory,
                 _icons,
                 store,
-                new DefaultBrowserService(new BrowserFlip.Platform.Linux.LinuxAssociationQuery()));
+                new DefaultBrowserService(new BrowserFlip.Platform.Linux.LinuxAssociationQuery()),
+                _capabilities,
+                Confirmation());
         }
 
         // No adapter for this platform yet: start, and say so honestly rather than crash or
         // pretend an empty list means "no browsers installed".
-        _switcher = new UnsupportedSwitcher();
+        _switcherFactory = _ => new UnsupportedSwitcher();
         _icons = new NoIconProvider();
         _capabilities = new NoAdapterCapabilities();
         App.Capabilities = _capabilities;
         return new MainViewModel(
             new EmptyBrowserCatalog(),
-            _switcher,
+            _switcherFactory,
             _icons,
             store,
-            new DefaultBrowserService(new NoAssociations()));
+            new DefaultBrowserService(new NoAssociations()),
+            _capabilities,
+            Confirmation());
     }
+
+    /// <summary>
+    /// The dialog prompt, bound to whatever the main window currently is. During the self-test
+    /// no prompt is attached, so a platform needing one can never proceed unattended.
+    /// </summary>
+    private static BrowserFlip.UI.Views.DialogUserConfirmation Confirmation()
+        => new(() =>
+            (Avalonia.Application.Current?.ApplicationLifetime
+                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow);
 
     private sealed class EmptyBrowserCatalog : IBrowserCatalog
     {

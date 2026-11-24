@@ -37,8 +37,10 @@ public class UiTests
         var catalog = new FakeCatalog()
             .Add(Browsers.Mac("com.apple.Safari", "Safari"))
             .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
-        var model = new MainViewModel(catalog, new FakeSwitcher(associations), new FakeIcons(),
-            new InMemorySettingsStore(), new DefaultBrowserService(associations));
+        var model = new MainViewModel(
+            catalog, _ => new FakeSwitcher(associations), new FakeIcons(),
+            new InMemorySettingsStore(), new DefaultBrowserService(associations),
+            new FullCapabilities("test platform", osConfirms: true));
         model.Initialize();
         return model;
     }

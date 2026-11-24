@@ -64,6 +64,41 @@ internal sealed class FakeSwitcher : IDefaultBrowserSwitcher
     }
 }
 
+/// <summary>Records whether it was asked, and answers however the test says.</summary>
+internal sealed class FakeConfirmation : IUserConfirmation
+{
+    private readonly bool _answer;
+
+    public FakeConfirmation(bool answer) => _answer = answer;
+
+    public int AskedCount { get; private set; }
+
+    public string? LastMessage { get; private set; }
+
+    public Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
+    {
+        AskedCount++;
+        LastMessage = message;
+        return Task.FromResult(_answer);
+    }
+}
+
+/// <summary>A platform whose OS does NOT confirm, like Linux with xdg-settings.</summary>
+internal sealed class NoOsConfirmCapabilities : PlatformCapabilitiesBase
+{
+    public override string Description => "Linux (test, X11)";
+
+    public override Capability AlwaysOnTop => Capability.Available;
+
+    public override Capability WindowPositioning => Capability.Available;
+
+    public override Capability TrayIcon => Capability.Available;
+
+    public override Capability DefaultBrowserSwitch => Capability.Available;
+
+    public override bool OsConfirmsDefaultBrowserChange => false;
+}
+
 internal sealed class FakeIcons : IAppIconProvider
 {
     public byte[]? GetIconPng(string? applicationPath, int pixelSize = 64)

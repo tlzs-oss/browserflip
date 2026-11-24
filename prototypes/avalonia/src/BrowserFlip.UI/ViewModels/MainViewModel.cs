@@ -16,7 +16,18 @@ namespace BrowserFlip.UI.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private readonly IBrowserCatalog _catalog;
-    private readonly IDefaultBrowserSwitcher _switcher;
+
+    /// <summary>
+    /// Builds a switcher, given whether the user has consented. It is a factory rather than a
+    /// single instance because a platform that applies the change with no OS prompt (Linux)
+    /// must not be able to hold a pre-consented switcher: consent is stated at the moment it is
+    /// obtained, and the type refuses to be constructed without that statement.
+    /// </summary>
+    private readonly Func<bool, IDefaultBrowserSwitcher> _switcherFactory;
+
+    private readonly IPlatformCapabilities _capabilities;
+    private readonly IUserConfirmation _confirmation;
+    private IDefaultBrowserSwitcher? _probe;
     private readonly IAppIconProvider _icons;
     private readonly ISettingsStore _store;
     private readonly DefaultBrowserService _defaults;
@@ -28,17 +39,25 @@ public sealed class MainViewModel : ObservableObject
 
     public MainViewModel(
         IBrowserCatalog catalog,
-        IDefaultBrowserSwitcher switcher,
+        Func<bool, IDefaultBrowserSwitcher> switcherFactory,
         IAppIconProvider icons,
         ISettingsStore store,
-        DefaultBrowserService defaults)
+        DefaultBrowserService defaults,
+        IPlatformCapabilities capabilities,
+        IUserConfirmation? confirmation = null)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-        _switcher = switcher ?? throw new ArgumentNullException(nameof(switcher));
+        _switcherFactory = switcherFactory ?? throw new ArgumentNullException(nameof(switcherFactory));
         _icons = icons ?? throw new ArgumentNullException(nameof(icons));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _defaults = defaults ?? throw new ArgumentNullException(nameof(defaults));
+        _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
+        // Fail closed: with no prompt attached, a platform that needs one can never proceed.
+        _confirmation = confirmation ?? NeverConfirms.Instance;
     }
+
+    /// <summary>An unconsented switcher, safe to hold, used only to read platform metadata.</summary>
+    private IDefaultBrowserSwitcher Probe => _probe ??= _switcherFactory(false);
 
     public ObservableCollection<BrowserItemViewModel> Browsers { get; } = [];
 
@@ -49,9 +68,12 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<string> Languages => Strings.SupportedLanguages;
 
     /// <summary>How this platform applies a change, for honest UI wording.</summary>
-    public SwitchMechanism Mechanism => _switcher.Mechanism;
+    public SwitchMechanism Mechanism => Probe.Mechanism;
 
-    public string MechanismDescription => _switcher.Mechanism switch
+    /// <summary>True when BrowserFlip itself must ask, because the OS will not.</summary>
+    public bool RequiresOwnConfirmation => !_capabilities.OsConfirmsDefaultBrowserChange;
+
+    public string MechanismDescription => Probe.Mechanism switch
     {
         SwitchMechanism.OpensSystemSettings => "Windows Settings opens; you confirm there.",
         SwitchMechanism.SystemConsentPrompt => "macOS shows its own confirmation prompt; you confirm there.",
@@ -209,12 +231,35 @@ public sealed class MainViewModel : ObservableObject
         var before = _state;
         var tracker = new ChangeTracker(item.Browser, before);
 
+        // Where the OS does not ask, BrowserFlip must. Asking BEFORE anything is constructed or
+        // invoked means a declined prompt cannot leave a half-applied change behind.
+        var consented = true;
+        if (RequiresOwnConfirmation)
+        {
+            consented = await _confirmation.ConfirmAsync(
+                Strings.Get("AppTitle"),
+                string.Format(
+                    CultureInfo.CurrentCulture,
+                    "Make {0} the default browser?\n\nThis system applies the change immediately, "
+                    + "without asking again, and BrowserFlip cannot undo it.",
+                    item.DisplayName),
+                cancellationToken).ConfigureAwait(true);
+        }
+
+        if (!consented)
+        {
+            StatusMessage = Strings.Get("Status_NoChange");
+            return;
+        }
+
         item.Busy = true;
         Busy = true;
         StatusMessage = MechanismDescription;
         try
         {
-            var result = await _switcher.RequestSwitchAsync(item.Browser, cancellationToken).ConfigureAwait(true);
+            // The switcher is built only now, with consent stated as a fact.
+            var switcher = _switcherFactory(true);
+            var result = await switcher.RequestSwitchAsync(item.Browser, cancellationToken).ConfigureAwait(true);
             Refresh();
 
             // The Core change tracker decides what actually happened, on every platform.

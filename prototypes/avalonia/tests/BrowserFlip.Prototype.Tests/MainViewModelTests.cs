@@ -10,6 +10,9 @@ namespace BrowserFlip.Prototype.Tests;
 /// </summary>
 public class MainViewModelTests
 {
+    /// <summary>A platform whose OS confirms the change, so the view model must not ask again.</summary>
+    private static readonly IPlatformCapabilities Caps = new FullCapabilities("test platform", osConfirms: true);
+
     private static (MainViewModel Model, FakeSwitcher Switcher, InMemorySettingsStore Store) Build(
         string? http = "com.apple.Safari", string? https = "com.apple.Safari")
     {
@@ -20,7 +23,9 @@ public class MainViewModelTests
             .Add(Browsers.Mac("com.google.Chrome", "Google Chrome"));
         var switcher = new FakeSwitcher(associations);
         var store = new InMemorySettingsStore();
-        var model = new MainViewModel(catalog, switcher, new FakeIcons(), store, new DefaultBrowserService(associations));
+        var model = new MainViewModel(
+            catalog, _ => switcher, new FakeIcons(), store,
+            new DefaultBrowserService(associations), Caps);
         model.Initialize();
         return (model, switcher, store);
     }
@@ -65,11 +70,8 @@ public class MainViewModelTests
             .Add(Browsers.Mac("com.apple.Safari", "Safari"))
             .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
         var model = new MainViewModel(
-            catalog,
-            new FakeSwitcher(associations, SwitchOutcome.Requested),
-            new FakeIcons(),
-            new InMemorySettingsStore(),
-            new DefaultBrowserService(associations));
+            catalog, _ => new FakeSwitcher(associations, SwitchOutcome.Requested), new FakeIcons(),
+            new InMemorySettingsStore(), new DefaultBrowserService(associations), Caps);
         model.Initialize();
 
         await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"), TestContext.Current.CancellationToken);
@@ -84,13 +86,126 @@ public class MainViewModelTests
         var associations = new FakeAssociations();
         var catalog = new FakeCatalog().Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
         var switcher = new FakeSwitcher(associations, SwitchOutcome.Unsupported) { Mechanism = SwitchMechanism.Unsupported };
-        var model = new MainViewModel(catalog, switcher, new FakeIcons(), new InMemorySettingsStore(),
-            new DefaultBrowserService(associations));
+        var model = new MainViewModel(
+            catalog, _ => switcher, new FakeIcons(), new InMemorySettingsStore(),
+            new DefaultBrowserService(associations), Caps);
         model.Initialize();
 
         await model.SetDefaultAsync(model.Browsers[0], TestContext.Current.CancellationToken);
         Assert.Equal(SwitchMechanism.Unsupported, model.Mechanism);
         Assert.False(string.IsNullOrWhiteSpace(model.StatusMessage));
+    }
+
+    /// <summary>Builds a view model on a platform whose OS does not confirm (the Linux case).</summary>
+    private static (MainViewModel Model, List<bool> ConsentSeen, FakeConfirmation Prompt) BuildNoOsConfirm(bool userAnswers)
+    {
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var consentSeen = new List<bool>();
+        var prompt = new FakeConfirmation(userAnswers);
+        var model = new MainViewModel(
+            catalog,
+            confirmed =>
+            {
+                consentSeen.Add(confirmed);
+                return new FakeSwitcher(associations);
+            },
+            new FakeIcons(),
+            new InMemorySettingsStore(),
+            new DefaultBrowserService(associations),
+            new NoOsConfirmCapabilities(),
+            prompt);
+        model.Initialize();
+        return (model, consentSeen, prompt);
+    }
+
+    [Fact]
+    public async Task Where_the_os_does_not_confirm_the_user_is_asked_before_anything_happens()
+    {
+        var (model, consentSeen, prompt) = BuildNoOsConfirm(userAnswers: true);
+        consentSeen.Clear(); // discard the metadata probe
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, prompt.AskedCount);
+        Assert.Contains("Firefox", prompt.LastMessage, StringComparison.Ordinal);
+        // Exactly one switcher was built with consent stated as true. Unconsented instances may
+        // also exist - the view model builds one to read the platform's mechanism for the status
+        // line - and those are harmless by construction, because they refuse to apply anything.
+        Assert.Equal(1, consentSeen.Count(c => c));
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Firefox").IsDefault);
+    }
+
+    [Fact]
+    public async Task Declining_the_prompt_changes_nothing_and_never_builds_a_consented_switcher()
+    {
+        var (model, consentSeen, prompt) = BuildNoOsConfirm(userAnswers: false);
+        consentSeen.Clear();
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, prompt.AskedCount);
+        // The invariant that matters: no switcher was ever told the user consented.
+        Assert.DoesNotContain(true, consentSeen);
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Safari").IsDefault);
+        Assert.False(model.Browsers.Single(b => b.DisplayName == "Firefox").IsDefault);
+    }
+
+    [Fact]
+    public async Task With_no_prompt_attached_a_platform_needing_one_can_never_proceed()
+    {
+        // Fail-closed: an unattended run (self-test, CI) must not change a real system setting.
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var consentedBuilds = 0;
+        var model = new MainViewModel(
+            catalog,
+            confirmed =>
+            {
+                if (confirmed)
+                {
+                    consentedBuilds++;
+                }
+
+                return new FakeSwitcher(associations);
+            },
+            new FakeIcons(), new InMemorySettingsStore(), new DefaultBrowserService(associations),
+            new NoOsConfirmCapabilities());
+        model.Initialize();
+        consentedBuilds = 0;
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, consentedBuilds);
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Safari").IsDefault);
+    }
+
+    [Fact]
+    public async Task Where_the_os_confirms_browserflip_does_not_ask_a_second_time()
+    {
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var prompt = new FakeConfirmation(true);
+        var model = new MainViewModel(
+            catalog, _ => new FakeSwitcher(associations), new FakeIcons(),
+            new InMemorySettingsStore(), new DefaultBrowserService(associations), Caps, prompt);
+        model.Initialize();
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, prompt.AskedCount);
+        Assert.False(model.RequiresOwnConfirmation);
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Firefox").IsDefault);
     }
 
     [Fact]
@@ -116,8 +231,9 @@ public class MainViewModelTests
         var store = new InMemorySettingsStore();
         for (var i = 1; i <= 3; i++)
         {
-            var model = new MainViewModel(new FakeCatalog(), new FakeSwitcher(associations), new FakeIcons(), store,
-                new DefaultBrowserService(associations));
+            var model = new MainViewModel(
+                new FakeCatalog(), _ => new FakeSwitcher(associations), new FakeIcons(), store,
+                new DefaultBrowserService(associations), Caps);
             model.Initialize();
             Assert.Equal(i, model.LaunchCount);
         }
@@ -132,8 +248,9 @@ public class MainViewModelTests
         var catalog = new FakeCatalog()
             .Add(Browsers.Mac("com.apple.Safari", "Safari"))
             .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
-        var model = new MainViewModel(catalog, new FakeSwitcher(associations, SwitchOutcome.Requested),
-            new FakeIcons(), new InMemorySettingsStore(), new DefaultBrowserService(associations));
+        var model = new MainViewModel(
+            catalog, _ => new FakeSwitcher(associations, SwitchOutcome.Requested), new FakeIcons(),
+            new InMemorySettingsStore(), new DefaultBrowserService(associations), Caps);
         model.Initialize();
 
         await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
