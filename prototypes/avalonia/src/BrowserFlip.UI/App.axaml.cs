@@ -20,7 +20,7 @@ public partial class App : Application
     public static Func<MainViewModel>? ViewModelFactory { get; set; }
 
     /// <summary>Supplied by the entry point so the self-test can report on the real adapters.</summary>
-    public static Func<(Platform.IDefaultBrowserSwitcher Switcher, Platform.IAppIconProvider Icons, Platform.ISettingsStore Store)>? AdapterAccessor { get; set; }
+    public static Func<(Platform.IDefaultBrowserSwitcher Switcher, Platform.IAppIconProvider Icons, Platform.ISettingsStore Store, Platform.IPlatformCapabilities Capabilities)>? AdapterAccessor { get; set; }
 
     private MainViewModel? _model;
     private FloatingToolbar? _toolbar;
@@ -62,8 +62,21 @@ public partial class App : Application
     /// <c>NSStatusItem</c>, so this is the native menu-bar icon; on Windows it is the
     /// notification-area icon and on Linux the StatusNotifierItem.
     /// </summary>
+    /// <summary>
+    /// Supplied by the entry point: what this platform and session can actually do, so the UI
+    /// can disable what is unsupported instead of failing silently.
+    /// </summary>
+    public static Platform.IPlatformCapabilities? Capabilities { get; set; }
+
     private void CreateTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        // Where the platform says there is no usable status area, do not create one: a stray
+        // invisible item is worse than honestly having none.
+        if (Capabilities is { TrayIcon.IsAvailable: false })
+        {
+            return;
+        }
+
         var show = new NativeMenuItem(Strings.Get("AppTitle"));
         show.Click += (_, _) => ShowMainWindow(desktop);
 
@@ -129,7 +142,7 @@ public partial class App : Application
 
                     var report = await SelfTest.RunAsync(
                         _model!, desktop.MainWindow!, _toolbar, _trayIconCreated,
-                        adapters.Switcher, adapters.Icons, adapters.Store).ConfigureAwait(true);
+                        adapters.Switcher, adapters.Icons, adapters.Store, adapters.Capabilities).ConfigureAwait(true);
 
                     var directory = SelfTest.OutputDirectory!;
                     Directory.CreateDirectory(directory);

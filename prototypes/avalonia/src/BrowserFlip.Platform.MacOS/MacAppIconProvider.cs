@@ -31,28 +31,28 @@ public sealed class MacAppIconProvider : IAppIconProvider
                 return null;
             }
 
-            // NOTE (measured on macOS 27): -[NSWorkspace iconForFile:] returns an NSImage whose
-            // representations are NSISIconImageRep (16-1024 px), not NSBitmapImageRep, so they
-            // cannot encode themselves to PNG directly. Flattening through TIFFRepresentation is
-            // the documented path that works for every rep type. It yields the largest resolution
-            // (1-2 MB per browser); selecting a 64 px rep would need CGImageForProposedRect:
-            // bridging, which is tracked as a follow-up rather than done in this prototype.
-            // The view bounds decode size, so UI memory stays small regardless.
-            var tiff = ObjC.Send(image, ObjC.Sel("TIFFRepresentation"));
-            if (tiff == ObjC.Nil)
-            {
-                return null;
-            }
-
-            var rep = ObjC.Send(ObjC.GetClass("NSBitmapImageRep"), ObjC.Sel("imageRepWithData:"), tiff);
+            // -[NSWorkspace iconForFile:] returns a multi-resolution NSImage whose representations
+            // are NSISIconImageRep (16-1024 px), which cannot encode themselves to PNG. Asking for
+            // a CGImage at the size we actually want makes AppKit pick the right representation
+            // and hands back something NSBitmapImageRep can encode - so the result is a ~64 px
+            // icon of a few kilobytes instead of a 1-2 MB flattening of the 1024 px master.
+            var rep = CreateBitmapRep(image, pixelSize);
             if (rep == ObjC.Nil)
             {
                 return null;
             }
 
-            var empty = ObjC.Send(ObjC.GetClass("NSDictionary"), ObjC.Sel("dictionary"));
-            var png = ObjC.SendWithLongAndPtr(rep, ObjC.Sel("representationUsingType:properties:"), PngFileType, empty);
-            return ToBytes(png);
+            try
+            {
+                var empty = ObjC.Send(ObjC.GetClass("NSDictionary"), ObjC.Sel("dictionary"));
+                var png = ObjC.SendWithLongAndPtr(rep, ObjC.Sel("representationUsingType:properties:"), PngFileType, empty);
+                return ToBytes(png);
+            }
+            finally
+            {
+                // alloc/init transferred ownership to us, so it has to be released.
+                ObjC.Send(rep, ObjC.Sel("release"));
+            }
         }
 #pragma warning disable CA1031 // A missing icon must never break the list.
         catch (Exception)
@@ -60,6 +60,42 @@ public sealed class MacAppIconProvider : IAppIconProvider
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Builds an owned <c>NSBitmapImageRep</c> of about <paramref name="pixelSize"/> square from
+    /// <paramref name="image"/>. The caller must <c>release</c> the result.
+    /// Falls back to flattening the whole image when the CGImage route is unavailable.
+    /// </summary>
+    private static IntPtr CreateBitmapRep(IntPtr image, int pixelSize)
+    {
+        var rect = new ObjC.NSRect { X = 0, Y = 0, Width = pixelSize, Height = pixelSize };
+        var selector = ObjC.Sel("CGImageForProposedRect:context:hints:");
+        if (ObjC.RespondsTo(image, selector))
+        {
+            var cgImage = ObjC.SendWithRectPtr(image, selector, ref rect, ObjC.Nil, ObjC.Nil);
+            if (cgImage != ObjC.Nil)
+            {
+                var allocated = ObjC.Send(ObjC.GetClass("NSBitmapImageRep"), ObjC.Sel("alloc"));
+                var rep = ObjC.Send(allocated, ObjC.Sel("initWithCGImage:"), cgImage);
+                if (rep != ObjC.Nil)
+                {
+                    return rep;
+                }
+            }
+        }
+
+        // Fallback: the documented path that works for any representation type, at the cost of
+        // encoding the largest resolution available.
+        var tiff = ObjC.Send(image, ObjC.Sel("TIFFRepresentation"));
+        if (tiff == ObjC.Nil)
+        {
+            return ObjC.Nil;
+        }
+
+        var autoreleased = ObjC.Send(ObjC.GetClass("NSBitmapImageRep"), ObjC.Sel("imageRepWithData:"), tiff);
+        // Retain so the caller can release it uniformly regardless of which path produced it.
+        return autoreleased == ObjC.Nil ? ObjC.Nil : ObjC.Send(autoreleased, ObjC.Sel("retain"));
     }
 
     /// <summary>Copies an NSData into a managed array.</summary>

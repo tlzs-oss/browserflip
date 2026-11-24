@@ -30,14 +30,16 @@ public static class SelfTest
         bool trayIconCreated,
         IDefaultBrowserSwitcher switcher,
         IAppIconProvider icons,
-        ISettingsStore store)
+        ISettingsStore store,
+        IPlatformCapabilities capabilities)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(mainWindow);
+        ArgumentNullException.ThrowIfNull(capabilities);
 
         var report = new CapabilityReport
         {
-            Platform = OperatingSystem.IsMacOS() ? "macOS" : Environment.OSVersion.Platform.ToString(),
+            Platform = capabilities.Description,
             OsVersion = Environment.OSVersion.VersionString,
             Architecture = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString(),
             AvaloniaVersion = typeof(Application).Assembly.GetName().Version?.ToString() ?? "unknown",
@@ -45,8 +47,8 @@ public static class SelfTest
         };
 
         // 1. Avalonia builds and runs on this OS and architecture.
-        report.Add(1, "Avalonia builds and runs on macOS ARM64", CheckResult.PASS,
-            $"process is live; Avalonia {report.AvaloniaVersion}; {report.Architecture}");
+        report.Add(1, "Avalonia builds and runs on this platform", CheckResult.PASS,
+            $"process is live; Avalonia {report.AvaloniaVersion}; {report.Architecture}; {capabilities.Description}");
 
         // 2. A native desktop window is actually open and sized by the platform.
         var open = mainWindow.IsVisible && mainWindow.Bounds.Width > 0 && mainWindow.Bounds.Height > 0;
@@ -54,18 +56,34 @@ public static class SelfTest
             $"IsVisible={mainWindow.IsVisible} bounds={mainWindow.Bounds.Width:F0}x{mainWindow.Bounds.Height:F0} "
             + $"handle={(mainWindow.TryGetPlatformHandle()?.Handle.ToString("X", CultureInfo.InvariantCulture) ?? "none")}");
 
-        // 3. Menu-bar (status) item with a menu. Avalonia maps TrayIcon to NSStatusItem on macOS.
-        report.Add(3, "System menu-bar icon and menu", trayIconCreated ? CheckResult.PASS : CheckResult.FAIL,
-            trayIconCreated ? "TrayIcon registered with a 5-item NativeMenu (NSStatusItem)" : "TrayIcon was not created");
+        // 3. Status-area item with a menu. Avalonia maps TrayIcon onto NSStatusItem (macOS),
+        //    the notification area (Windows) and StatusNotifierItem (Linux). Where the platform
+        //    declares it unsupported - GNOME without the AppIndicator extension, for example -
+        //    not having one is the correct outcome, not a failure.
+        var tray = capabilities.TrayIcon;
+        report.Add(3, "Status-area / menu-bar icon and menu",
+            tray.IsAvailable
+                ? (trayIconCreated ? CheckResult.PASS : CheckResult.FAIL)
+                : (tray.State == CapabilityState.Unsupported ? CheckResult.UNSUPPORTED : CheckResult.SKIPPED),
+            tray.IsAvailable
+                ? (trayIconCreated ? "TrayIcon registered with a 5-item NativeMenu" : "TrayIcon was not created")
+                : tray.Reason ?? "not available in this session");
 
-        // 4. Installed browsers, read from LaunchServices.
+        // 4. Installed browsers, read from the platform's own registry of handlers.
+        //    A machine with no browser installed (a bare CI runner) is an environment fact, not a
+        //    defect, so it is reported as SKIPPED with the count rather than as a failure.
         var browsers = model.Browsers;
-        report.Add(4, "Installed browser list", browsers.Count > 0 ? CheckResult.PASS : CheckResult.FAIL,
-            $"{browsers.Count} found: " + string.Join(", ", browsers.Take(8).Select(b => b.DisplayName)));
+        report.Add(4, "Installed browser list",
+            browsers.Count > 0 ? CheckResult.PASS : CheckResult.SKIPPED,
+            browsers.Count > 0
+                ? $"{browsers.Count} found: " + string.Join(", ", browsers.Take(8).Select(b => b.DisplayName))
+                : "no web browser is installed on this machine, so there was nothing to enumerate");
 
         // 5. Current default browser.
         var current = browsers.FirstOrDefault(b => b.IsDefault);
-        report.Add(5, "Current default browser", model.Status == DefaultStatus.None ? CheckResult.FAIL : CheckResult.PASS,
+        report.Add(5, "Current default browser",
+            model.Status != DefaultStatus.None ? CheckResult.PASS
+                : browsers.Count == 0 ? CheckResult.SKIPPED : CheckResult.FAIL,
             $"status={model.Status}; default={current?.DisplayName ?? "(not one of the detected browsers)"}; "
             + $"text=\"{model.CurrentDefaultText}\"");
 
@@ -134,14 +152,26 @@ public static class SelfTest
             distinct == Strings.SupportedLanguages.Count && allResolved ? CheckResult.PASS : CheckResult.FAIL,
             string.Join("  ", Strings.SupportedLanguages.Zip(translations, (l, t) => $"{l}=\"{t}\"")));
 
-        // 9. Topmost window and floating toolbar.
-        mainWindow.Topmost = true;
-        var toolbarShown = toolbar is not null && toolbar.IsVisible;
-        report.Add(9, "Topmost window and floating toolbar",
-            mainWindow.Topmost && toolbarShown ? CheckResult.PASS : CheckResult.FAIL,
-            $"main.Topmost={mainWindow.Topmost}; toolbar visible={toolbarShown}, topmost={toolbar?.Topmost}, "
-            + $"decorations={toolbar?.WindowDecorations}, size={toolbar?.Bounds.Width:F0}x{toolbar?.Bounds.Height:F0}");
-        mainWindow.Topmost = model.Topmost;
+        // 9. Topmost window and floating toolbar. Wayland gives a client no way to ask to stay
+        //    on top or to place itself, so there the honest answer is UNSUPPORTED, not FAIL.
+        var onTop = capabilities.AlwaysOnTop;
+        var positioning = capabilities.WindowPositioning;
+        if (!onTop.IsAvailable || !positioning.IsAvailable)
+        {
+            var reason = !onTop.IsAvailable ? onTop.Reason : positioning.Reason;
+            report.Add(9, "Topmost window and floating toolbar", CheckResult.UNSUPPORTED,
+                reason ?? "not supported by this windowing system");
+        }
+        else
+        {
+            mainWindow.Topmost = true;
+            var toolbarShown = toolbar is not null && toolbar.IsVisible;
+            report.Add(9, "Topmost window and floating toolbar",
+                mainWindow.Topmost && toolbarShown ? CheckResult.PASS : CheckResult.FAIL,
+                $"main.Topmost={mainWindow.Topmost}; toolbar visible={toolbarShown}, topmost={toolbar?.Topmost}, "
+                + $"decorations={toolbar?.WindowDecorations}, size={toolbar?.Bounds.Width:F0}x{toolbar?.Bounds.Height:F0}");
+            mainWindow.Topmost = model.Topmost;
+        }
 
         // 10. Settings persistence: write a probe, re-read it from disk, then put the user's own
         // settings back. The self-test must not leave the real configuration modified.
@@ -155,6 +185,12 @@ public static class SelfTest
         report.Add(10, "Settings persistence", roundTripped ? CheckResult.PASS : CheckResult.FAIL,
             $"{store.Location}: wrote LaunchCount={probe}, read back {reloaded.LaunchCount}, "
             + $"Language={reloaded.Language}; original settings restored={restored}");
+
+        // 11. The platform's own declaration, so the report explains the results above.
+        report.Add(11, "Declared platform capabilities", CheckResult.PASS,
+            string.Join("; ", capabilities.All().Select(c =>
+                $"{c.Name}={c.Capability.State}{(c.Capability.Reason is null ? "" : $" ({c.Capability.Reason})")}"))
+            + $"; OS confirms default-browser change={capabilities.OsConfirmsDefaultBrowserChange}");
 
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
         return report;

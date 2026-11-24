@@ -34,13 +34,14 @@ internal static class Program
         }
 
         App.ViewModelFactory = Compose;
-        App.AdapterAccessor = () => (_switcher!, _icons!, _store!);
+        App.AdapterAccessor = () => (_switcher!, _icons!, _store!, _capabilities!);
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
     private static IDefaultBrowserSwitcher? _switcher;
     private static IAppIconProvider? _icons;
     private static ISettingsStore? _store;
+    private static IPlatformCapabilities? _capabilities;
 
     internal static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
@@ -59,6 +60,9 @@ internal static class Program
             var query = new BrowserFlip.Platform.MacOS.MacAssociationQuery();
             _switcher = new BrowserFlip.Platform.MacOS.MacDefaultBrowserSwitcher();
             _icons = new BrowserFlip.Platform.MacOS.MacAppIconProvider();
+            // macOS imposes none of the restrictions Linux does, and the OS owns the consent prompt.
+            _capabilities = new FullCapabilities($"macOS {Environment.OSVersion.Version}", osConfirms: true);
+            App.Capabilities = _capabilities;
             return new MainViewModel(
                 new BrowserFlip.Platform.MacOS.MacBrowserCatalog(),
                 _switcher,
@@ -67,10 +71,12 @@ internal static class Program
                 new DefaultBrowserService(query));
         }
 
-        // Windows and Linux adapters are out of scope for this prototype round; the prototype
-        // still starts and shows an honest "unsupported" message instead of crashing.
+        // No adapter for this platform yet: start, and say so honestly rather than crash or
+        // pretend an empty list means "no browsers installed".
         _switcher = new UnsupportedSwitcher();
         _icons = new NoIconProvider();
+        _capabilities = new NoAdapterCapabilities();
+        App.Capabilities = _capabilities;
         return new MainViewModel(
             new EmptyBrowserCatalog(),
             _switcher,
@@ -100,5 +106,24 @@ internal static class Program
     private sealed class NoAssociations : Core.Platform.IAssociationQuery
     {
         public Core.Platform.AssociationInfo? QueryProtocol(string protocol) => null;
+    }
+
+    /// <summary>Capabilities for a platform that has no adapter yet. Everything unsupported.</summary>
+    private sealed class NoAdapterCapabilities : PlatformCapabilitiesBase
+    {
+        private const string Reason = "no BrowserFlip platform adapter is implemented for this OS yet";
+
+        public override string Description =>
+            $"{(OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsLinux() ? "Linux" : "Unknown")} (no adapter)";
+
+        public override Capability AlwaysOnTop => Capability.Available;
+
+        public override Capability WindowPositioning => Capability.Available;
+
+        public override Capability TrayIcon => Capability.Available;
+
+        public override Capability DefaultBrowserSwitch => Capability.Unsupported(Reason);
+
+        public override bool OsConfirmsDefaultBrowserChange => true;
     }
 }

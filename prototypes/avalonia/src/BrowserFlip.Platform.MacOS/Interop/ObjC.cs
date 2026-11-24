@@ -200,6 +200,23 @@ internal static class ObjC
         return result;
     }
 
+    /// <summary>
+    /// A Core Graphics / AppKit rectangle (<c>NSRect</c>). Four CGFloats, which are 64-bit on
+    /// every platform BrowserFlip targets.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NSRect
+    {
+        internal double X;
+        internal double Y;
+        internal double Width;
+        internal double Height;
+    }
+
+    /// <summary>For selectors taking a struct POINTER, such as CGImageForProposedRect:context:hints:.</summary>
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    internal static extern IntPtr SendWithRectPtr(IntPtr receiver, IntPtr selector, ref NSRect rect, IntPtr b, IntPtr c);
+
     /// <summary>Whether <paramref name="receiver"/> implements <paramref name="selector"/>.</summary>
     internal static bool RespondsTo(IntPtr receiver, IntPtr selector)
         => receiver != Nil && SendBool(receiver, Sel("respondsToSelector:"), selector);
