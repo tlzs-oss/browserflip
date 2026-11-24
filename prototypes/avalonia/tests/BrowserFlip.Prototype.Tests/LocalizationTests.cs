@@ -1,5 +1,7 @@
 using System.Globalization;
+using BrowserFlip.Core.Defaults;
 using BrowserFlip.UI.Localization;
+using BrowserFlip.UI.ViewModels;
 
 namespace BrowserFlip.Prototype.Tests;
 
@@ -42,6 +44,43 @@ public class LocalizationTests
 
         Strings.UseLanguage("zh-CN");
         Assert.True(Strings.Get("Refresh").Any(c => c > 0x2E80), "Chinese translation looks like ASCII.");
+    }
+
+    [Fact]
+    public void Every_label_shown_on_a_browser_row_is_translated()
+    {
+        // Regression: the row's "Set as default" button and "default" badge were hardcoded
+        // English in the XAML, so a Japanese or Chinese user saw English inside an otherwise
+        // translated window. Acceptance on the installed .app caught it.
+        var row = new BrowserItemViewModel(
+            Browsers.Mac("org.mozilla.firefox", "Firefox"), iconPng: null)
+        { Role = BrowserDefaultRole.Both };
+
+        var seen = new List<string>();
+        foreach (var language in Strings.SupportedLanguages)
+        {
+            Strings.UseLanguage(language);
+            var button = row.SetDefaultLabel;
+            var badge = row.DefaultBadgeLabel;
+            Assert.False(string.IsNullOrWhiteSpace(button));
+            Assert.False(string.IsNullOrWhiteSpace(badge));
+            Assert.NotEqual("List_SetDefault", button);
+            Assert.NotEqual("Badge_Default", badge);
+            seen.Add(button);
+        }
+
+        // Three languages must give three different button captions.
+        Assert.Equal(3, seen.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void The_partial_badge_names_the_protocol_it_handles()
+    {
+        // Protocol names are the same in every language, which is why this one is not a resource.
+        var browser = Browsers.Mac("org.mozilla.firefox", "Firefox");
+        Assert.Equal("HTTP", new BrowserItemViewModel(browser, null) { Role = BrowserDefaultRole.HttpOnly }.PartialBadgeLabel);
+        Assert.Equal("HTTPS", new BrowserItemViewModel(browser, null) { Role = BrowserDefaultRole.HttpsOnly }.PartialBadgeLabel);
+        Assert.Empty(new BrowserItemViewModel(browser, null) { Role = BrowserDefaultRole.Both }.PartialBadgeLabel);
     }
 
     [Fact]

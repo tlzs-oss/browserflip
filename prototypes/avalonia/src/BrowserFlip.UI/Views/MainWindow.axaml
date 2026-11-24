@@ -66,16 +66,16 @@
                       <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                       <Border IsVisible="{Binding IsDefault}" Background="#0a7" CornerRadius="4"
                               Padding="5,1" VerticalAlignment="Center">
-                        <TextBlock Text="default" FontSize="10" Foreground="White" />
+                        <TextBlock Text="{Binding DefaultBadgeLabel}" FontSize="10" Foreground="White" />
                       </Border>
                       <Border IsVisible="{Binding IsPartialDefault}" Background="#d80" CornerRadius="4"
                               Padding="5,1" VerticalAlignment="Center">
-                        <TextBlock Text="partial" FontSize="10" Foreground="White" />
+                        <TextBlock Text="{Binding PartialBadgeLabel}" FontSize="10" Foreground="White" />
                       </Border>
                     </StackPanel>
                     <TextBlock Text="{Binding Identifier}" FontSize="11" Opacity="0.6" />
                   </StackPanel>
-                  <Button Grid.Column="2" VerticalAlignment="Center" Content="Set as default"
+                  <Button Grid.Column="2" VerticalAlignment="Center" Content="{Binding SetDefaultLabel}"
                           IsEnabled="{Binding CanSetDefault}"
                           Click="OnSetDefaultClick" />
                 </Grid>

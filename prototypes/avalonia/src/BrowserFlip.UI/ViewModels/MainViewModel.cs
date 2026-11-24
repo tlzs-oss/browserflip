@@ -109,7 +109,9 @@ public sealed class MainViewModel : ObservableObject
             Strings.UseLanguage(value);
             Persist();
             Raise();
-            RaiseLocalizedText();
+            // Rebuild the rows: their labels are read at construction, so a language change that
+            // only raised the parent's properties would leave every button in the old language.
+            Refresh();
         }
     }
 
