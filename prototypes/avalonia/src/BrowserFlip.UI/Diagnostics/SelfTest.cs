@@ -126,11 +126,15 @@ public static class SelfTest
             }
         }
 
-        // 7. Browser icons, from NSWorkspace iconForFile:.
+        // 7. Browser icons, from the platform's icon provider. With no browser installed there
+        //    is nothing to render, which is an environment fact rather than a defect.
         var withIcons = browsers.Count(b => b.IconPng is { Length: > 0 });
-        report.Add(7, "Browser icons", withIcons > 0 ? CheckResult.PASS : CheckResult.FAIL,
-            $"{withIcons}/{browsers.Count} decoded as PNG; sizes: "
-            + string.Join(", ", browsers.Where(b => b.IconPng is not null).Take(4).Select(b => $"{b.IconPng!.Length}B")));
+        report.Add(7, "Browser icons",
+            browsers.Count == 0 ? CheckResult.SKIPPED : withIcons > 0 ? CheckResult.PASS : CheckResult.FAIL,
+            browsers.Count == 0
+                ? "no browsers were found, so no icon could be loaded"
+                : $"{withIcons}/{browsers.Count} decoded as PNG; sizes: "
+                  + string.Join(", ", browsers.Where(b => b.IconPng is not null).Take(4).Select(b => $"{b.IconPng!.Length}B")));
 
         // 8. en / ja / zh-CN, read from the product's own .resx files.
         const string probeKey = "Refresh";
