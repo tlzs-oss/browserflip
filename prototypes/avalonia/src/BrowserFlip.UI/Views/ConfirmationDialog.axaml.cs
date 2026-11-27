@@ -58,6 +58,8 @@ public sealed class DialogUserConfirmation : IUserConfirmation
 
     public DialogUserConfirmation(Func<Window?> owner) => _owner = owner;
 
+    public string ConsentSource => "BrowserFlip's own confirmation dialog, answered by the user";
+
     public async Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
     {
         var owner = _owner();

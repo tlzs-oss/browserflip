@@ -145,13 +145,26 @@ internal static class Program
     }
 
     /// <summary>
-    /// The dialog prompt, bound to whatever the main window currently is. During the self-test
-    /// no prompt is attached, so a platform needing one can never proceed unattended.
+    /// How the user is asked, on a platform whose OS does not ask for us.
+    /// <para>
+    /// Normally that is a modal dialog bound to whatever the main window currently is. The one
+    /// exception is the unattended, Owner-triggered real change
+    /// (<c>--selftest &lt;dir&gt; --switch-default &lt;id&gt;</c>), where the flags are
+    /// themselves the deliberate consent and nobody is present to answer a dialog.
+    /// </para>
+    /// <para>
+    /// The self-test does NOT run without a prompt attached, as this was once documented to: the
+    /// main window exists throughout it, so the dialog really was shown. Measured on Ubuntu
+    /// 26.04.1 GNOME Wayland, that modal dialog had nobody to answer it and the run hung
+    /// indefinitely without writing any report. Hanging is not failing closed.
+    /// </para>
     /// </summary>
-    private static BrowserFlip.UI.Views.DialogUserConfirmation Confirmation()
-        => new(() =>
-            (Avalonia.Application.Current?.ApplicationLifetime
-                as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow);
+    private static IUserConfirmation Confirmation()
+        => SelfTest.OwnerTriggeredSwitch
+            ? CommandLineConsent.Instance
+            : new BrowserFlip.UI.Views.DialogUserConfirmation(() =>
+                (Avalonia.Application.Current?.ApplicationLifetime
+                    as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow);
 
     private sealed class EmptyBrowserCatalog : IBrowserCatalog
     {

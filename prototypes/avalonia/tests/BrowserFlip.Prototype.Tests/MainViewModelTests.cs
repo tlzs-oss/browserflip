@@ -188,6 +188,105 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public async Task The_owner_triggered_switch_completes_with_no_interactive_dialog()
+    {
+        // Measured on Ubuntu 26.04.1 GNOME Wayland: `--selftest <dir> --switch-default <id>`
+        // opened a modal dialog over the main window that nothing could ever answer, and the
+        // run hung indefinitely and wrote no report at all. The flags themselves are the
+        // consent for that one path, so the switch must now run to completion unattended.
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var consentSeen = new List<bool>();
+        var model = new MainViewModel(
+            catalog,
+            confirmed =>
+            {
+                consentSeen.Add(confirmed);
+                return new FakeSwitcher(associations);
+            },
+            new FakeIcons(), new InMemorySettingsStore(), new DefaultBrowserService(associations),
+            new NoOsConfirmCapabilities(),
+            CommandLineConsent.Instance);
+        model.Initialize();
+        consentSeen.Clear();
+
+        // No dialog exists to answer this, so a hang here is the defect reproducing.
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Firefox").IsDefault);
+        Assert.Equal(1, consentSeen.Count(c => c));
+
+        // The report must not read as though somebody clicked "yes" in a dialog.
+        Assert.Contains("--switch-default", model.ConsentSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("dialog, answered by the user", model.ConsentSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_reported_consent_source_names_whoever_actually_answers()
+    {
+        var associations = new FakeAssociations().With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog().Add(Browsers.Mac("com.apple.Safari", "Safari"));
+
+        MainViewModel Model(IPlatformCapabilities capabilities, IUserConfirmation? confirmation) => new(
+            catalog, _ => new FakeSwitcher(associations), new FakeIcons(), new InMemorySettingsStore(),
+            new DefaultBrowserService(associations), capabilities, confirmation);
+
+        // Where the OS asks, BrowserFlip must not claim it did.
+        Assert.Contains(
+            "operating system", Model(Caps, null).ConsentSource, StringComparison.Ordinal);
+        // The fail-closed default says plainly that nothing can consent.
+        Assert.Contains(
+            "no way of asking", Model(new NoOsConfirmCapabilities(), null).ConsentSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "--switch-default",
+            Model(new NoOsConfirmCapabilities(), CommandLineConsent.Instance).ConsentSource,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_dialog_with_no_window_to_parent_to_still_refuses_rather_than_waits()
+    {
+        // The ordinary GUI path is untouched and stays fail-closed: with no owner window there
+        // is no way to have asked, so the answer is no.
+        var confirmation = new BrowserFlip.UI.Views.DialogUserConfirmation(() => null);
+
+        Assert.False(await confirmation.ConfirmAsync("t", "m", TestContext.Current.CancellationToken));
+        Assert.Contains("dialog", confirmation.ConsentSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Command_line_consent_needs_both_flags_so_ordinary_gui_use_still_asks()
+    {
+        var directory = BrowserFlip.UI.Diagnostics.SelfTest.OutputDirectory;
+        var target = BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId;
+        try
+        {
+            BrowserFlip.UI.Diagnostics.SelfTest.OutputDirectory = null;
+            BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId = null;
+            Assert.False(BrowserFlip.UI.Diagnostics.SelfTest.OwnerTriggeredSwitch);
+
+            // --switch-default on its own must NOT make an interactive session consent-free.
+            BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId = "firefox.desktop";
+            Assert.False(BrowserFlip.UI.Diagnostics.SelfTest.OwnerTriggeredSwitch);
+
+            BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId = null;
+            BrowserFlip.UI.Diagnostics.SelfTest.OutputDirectory = "/tmp/report";
+            Assert.False(BrowserFlip.UI.Diagnostics.SelfTest.OwnerTriggeredSwitch);
+
+            BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId = "firefox.desktop";
+            Assert.True(BrowserFlip.UI.Diagnostics.SelfTest.OwnerTriggeredSwitch);
+        }
+        finally
+        {
+            BrowserFlip.UI.Diagnostics.SelfTest.OutputDirectory = directory;
+            BrowserFlip.UI.Diagnostics.SelfTest.SwitchTargetId = target;
+        }
+    }
+
+    [Fact]
     public async Task Where_the_os_confirms_browserflip_does_not_ask_a_second_time()
     {
         var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");

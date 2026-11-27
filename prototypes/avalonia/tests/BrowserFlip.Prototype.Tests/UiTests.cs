@@ -190,6 +190,50 @@ public class UiTests
     }
 
     [AvaloniaFact]
+    public void The_backend_is_read_off_a_real_window_rather_than_the_environment()
+    {
+        // The mechanism the Linux capability model depends on: a live window knows which
+        // Avalonia backend created it, and says so through the public TopLevel.PlatformImpl.
+        // Here that is the headless backend, which is the honest answer for this host.
+        var window = new MainWindow { DataContext = Model() };
+
+        var assembly = WindowingBackend.ImplementationAssemblyName(window);
+
+        Assert.False(string.IsNullOrEmpty(assembly));
+        Assert.StartsWith("Avalonia.", assembly, StringComparison.Ordinal);
+        // The implementation exists before the window is shown, which is why the composition
+        // root can build the capability model straight after constructing the window.
+        Assert.False(window.IsVisible);
+        Assert.Null(WindowingBackend.ImplementationAssemblyName(null));
+    }
+
+    [AvaloniaFact]
+    public void The_real_linux_capability_model_reaches_the_settings_screen_for_both_x11_cases()
+    {
+        // End to end over the production LinuxCapabilities rather than a stand-in: an X11
+        // client under XWayland keeps both options, a native Wayland client has them disabled
+        // with the protocol reason attached.
+        var underXWayland = new SettingsViewModel(Model(), LinuxCapabilityFixtures.XWayland());
+        Assert.True(underXWayland.CanUseTopmost);
+        Assert.True(underXWayland.CanUseToolbar);
+
+        var model = Model();
+        var underWayland = new SettingsViewModel(model, LinuxCapabilityFixtures.NativeWayland());
+        Assert.False(underWayland.CanUseTopmost);
+        Assert.False(underWayland.CanUseToolbar);
+        Assert.Contains("xdg-shell", underWayland.TopmostReason, StringComparison.Ordinal);
+        Assert.Contains("coordinates", underWayland.ToolbarReason, StringComparison.Ordinal);
+
+        // ... and must not be silently applied at runtime either.
+        underWayland.Topmost = true;
+        underWayland.ShowFloatingToolbar = true;
+        Assert.False(underWayland.Topmost);
+        Assert.False(underWayland.ShowFloatingToolbar);
+        Assert.False(model.Topmost);
+        Assert.False(model.ShowFloatingToolbar);
+    }
+
+    [AvaloniaFact]
     public void Settings_changes_flow_through_to_the_main_view_model()
     {
         var model = Model();

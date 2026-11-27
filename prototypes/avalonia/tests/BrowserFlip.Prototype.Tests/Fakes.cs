@@ -1,5 +1,6 @@
 using BrowserFlip.Core.Detection;
 using BrowserFlip.Core.Platform;
+using BrowserFlip.Platform.Linux;
 using BrowserFlip.UI.Platform;
 
 namespace BrowserFlip.Prototype.Tests;
@@ -71,6 +72,8 @@ internal sealed class FakeConfirmation : IUserConfirmation
 
     public FakeConfirmation(bool answer) => _answer = answer;
 
+    public string ConsentSource => "a test fake standing in for the confirmation dialog";
+
     public int AskedCount { get; private set; }
 
     public string? LastMessage { get; private set; }
@@ -120,6 +123,43 @@ internal sealed class InMemorySettingsStore : ISettingsStore
         _settings = settings;
         SaveCount++;
         return true;
+    }
+}
+
+/// <summary>
+/// The production <see cref="LinuxCapabilities"/>, pinned to one of the three Linux display
+/// backends. Used where a test needs the real capability model rather than a stand-in, so the
+/// reasons and states it asserts are the ones a user would be shown.
+/// </summary>
+internal static class LinuxCapabilityFixtures
+{
+    /// <summary>An X11 client inside a Wayland session: the case the old model got wrong.</summary>
+    public static LinuxCapabilities XWayland()
+        => Build(LinuxWindowingBackend.X11, sessionType: "wayland", display: ":0");
+
+    public static LinuxCapabilities NativeWayland()
+        => Build(LinuxWindowingBackend.Wayland, sessionType: "wayland", waylandDisplay: "wayland-0");
+
+    public static LinuxCapabilities NativeX11()
+        => Build(LinuxWindowingBackend.X11, sessionType: "x11", display: ":0");
+
+    private static LinuxCapabilities Build(
+        LinuxWindowingBackend backend, string sessionType, string? waylandDisplay = null, string? display = null)
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["XDG_SESSION_TYPE"] = sessionType,
+            ["XDG_CURRENT_DESKTOP"] = "ubuntu:GNOME",
+            ["WAYLAND_DISPLAY"] = waylandDisplay,
+            ["DISPLAY"] = display,
+            ["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/run/user/1000/bus",
+        };
+
+        return new LinuxCapabilities(
+            key => environment.TryGetValue(key, out var value) ? value : null,
+            () => true,
+            hasStatusNotifierWatcher: () => true,
+            getWindowingBackend: () => backend);
     }
 }
 

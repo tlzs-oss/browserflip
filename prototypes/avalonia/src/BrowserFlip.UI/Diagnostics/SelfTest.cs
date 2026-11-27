@@ -23,6 +23,19 @@ public static class SelfTest
     /// <summary>Set by <c>--switch-default &lt;id&gt;</c>: an explicit, Owner-triggered real change.</summary>
     public static string? SwitchTargetId { get; set; }
 
+    /// <summary>
+    /// True only for the unattended, Owner-triggered real change: an automated self-test run
+    /// that also names a browser to switch to.
+    /// <para>
+    /// <b>Both</b> flags are required on purpose. <c>--switch-default</c> on its own must not
+    /// turn an ordinary interactive session into one where BrowserFlip stops asking - the host
+    /// uses this to decide whether command-line consent stands in for the dialog, and widening
+    /// it to the GUI would quietly remove the consent step the product promises.
+    /// </para>
+    /// </summary>
+    public static bool OwnerTriggeredSwitch
+        => !string.IsNullOrEmpty(OutputDirectory) && !string.IsNullOrEmpty(SwitchTargetId);
+
     public static async Task<CapabilityReport> RunAsync(
         MainViewModel model,
         Window mainWindow,
@@ -130,13 +143,19 @@ public static class SelfTest
             }
             else
             {
+                // Where consent came from is recorded BEFORE the call, from the object the view
+                // model will actually ask. On a platform whose OS does not prompt, this run is
+                // consented by the command line and no dialog is shown; the report has to say
+                // so rather than let the PASS read as though someone clicked "yes".
+                var consentSource = model.ConsentSource;
                 await model.SetDefaultAsync(target).ConfigureAwait(true);
                 var nowDefault = model.Browsers.FirstOrDefault(b => b.IsDefault);
                 var applied = nowDefault is not null
                               && string.Equals(nowDefault.Identifier, SwitchTargetId, StringComparison.OrdinalIgnoreCase);
                 report.Add(6, "Default-browser switch API (Owner-triggered, real change)",
                     applied ? CheckResult.PASS : CheckResult.FAIL,
-                    $"requested {SwitchTargetId}; now default={nowDefault?.Identifier ?? "none"}; \"{model.StatusMessage}\"");
+                    $"requested {SwitchTargetId}; now default={nowDefault?.Identifier ?? "none"}; "
+                    + $"consent came from {consentSource}; \"{model.StatusMessage}\"");
             }
         }
 

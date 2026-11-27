@@ -91,6 +91,14 @@ public sealed class MainViewModel : ObservableObject
     /// <summary>True when BrowserFlip itself must ask, because the OS will not.</summary>
     public bool RequiresOwnConfirmation => !_capabilities.OsConfirmsDefaultBrowserChange;
 
+    /// <summary>
+    /// Where consent for a change comes from, read off the object that is actually asked rather
+    /// than re-derived, so a diagnostics report cannot claim a dialog that was never shown.
+    /// </summary>
+    public string ConsentSource => RequiresOwnConfirmation
+        ? _confirmation.ConsentSource
+        : "the operating system's own prompt";
+
     // The whole point of the capability model is that the UI disables what the platform cannot
     // do, rather than offering a control that silently does nothing. These drive IsEnabled.
 
