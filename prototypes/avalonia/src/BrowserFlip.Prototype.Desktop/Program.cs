@@ -73,6 +73,8 @@ internal static class Program
             // macOS imposes none of the restrictions Linux does, and the OS owns the consent prompt.
             _capabilities = new FullCapabilities($"macOS {Environment.OSVersion.Version}", osConfirms: true);
             App.Capabilities = _capabilities;
+            // Lets the self-test read the real NSStatusItem back out of the menu bar, and click it.
+            App.StatusAreaProbe = new BrowserFlip.Platform.MacOS.MacStatusAreaProbe();
             return new MainViewModel(
                 new BrowserFlip.Platform.MacOS.MacBrowserCatalog(),
                 _switcherFactory,

@@ -24,9 +24,16 @@ public partial class App : Application
     /// <summary>Supplied by the entry point so the self-test can report on the real adapters.</summary>
     public static Func<(Platform.IDefaultBrowserSwitcher Switcher, Platform.IAppIconProvider Icons, Platform.ISettingsStore Store, Platform.IPlatformCapabilities Capabilities)>? AdapterAccessor { get; set; }
 
+    /// <summary>
+    /// Supplied by the entry point where the platform can read its own status area back. Null
+    /// means "not measurable here", which the report says instead of guessing.
+    /// </summary>
+    public static Platform.IStatusAreaProbe? StatusAreaProbe { get; set; }
+
     private MainViewModel? _model;
     private FloatingToolbar? _toolbar;
     private bool _trayIconCreated;
+    private NativeMenu? _trayMenu;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -47,7 +54,19 @@ public partial class App : Application
             _model.Initialize();
             mainWindow.DataContext = _model;
 
-            CreateApplicationMenu(desktop);
+            // Not on macOS. Measured on macOS 27 with Avalonia 12.1.4: Avalonia exports the
+            // application menu from its windowing-subsystem initialiser, which AppBuilder runs
+            // BEFORE the Application object exists, so its exporter reads Application.Current as
+            // null, installs its own default menu ("About Avalonia", "Hide", "Quit") and binds
+            // its native menu to that one for good. A later NativeMenu.SetMenu(Application, ...)
+            // is therefore silently dropped - the menu bar still showed Avalonia's defaults, with
+            // no File/View/Settings - and replacing an exported menu is the upstream crash of
+            // AvaloniaUI/Avalonia#22287. Calling it anyway would only pretend to have a menu bar.
+            // Everything in it is reachable from the status-area menu below.
+            if (!OperatingSystem.IsMacOS())
+            {
+                CreateApplicationMenu(desktop);
+            }
             CreateTrayIcon(desktop);
             ApplyToolbarVisibility();
             _model.PropertyChanged += (_, e) =>
@@ -102,9 +121,11 @@ public partial class App : Application
             }
         };
 
-        var file = new NativeMenuItem("File") { Menu = [refresh] };
-        var view = new NativeMenuItem("View") { Menu = [toolbar] };
-        var tools = new NativeMenuItem("Settings") { Menu = [settings] };
+        // The access-key markers are left in place: Avalonia renders them as access keys on the
+        // platforms where this menu is actually used, and the macOS exporter strips them itself.
+        var file = new NativeMenuItem(Strings.Get("MenuBar_File")) { Menu = [refresh] };
+        var view = new NativeMenuItem(Strings.Get("MenuBar_View")) { Menu = [toolbar] };
+        var tools = new NativeMenuItem(Strings.Get("MenuBar_Settings")) { Menu = [settings] };
 
         NativeMenu.SetMenu(this, [file, view, tools]);
     }
@@ -148,34 +169,35 @@ public partial class App : Application
             return;
         }
 
-        var show = new NativeMenuItem(Strings.Get("AppTitle"));
-        show.Click += (_, _) => ShowMainWindow(desktop);
-
-        var refresh = new NativeMenuItem(Strings.Get("Refresh"));
-        refresh.Click += (_, _) => _model?.Refresh();
-
-        var trayToolbar = new NativeMenuItem(Strings.Get("Menu_ShowToolbar"));
-        trayToolbar.Click += (_, _) =>
-        {
-            if (_model is not null)
+        // One definition, in BrowserFlip.UI.Menus.StatusAreaMenu, so the labels and the
+        // handlers are testable without a display and cannot drift from what is shown.
+        var entries = Menus.StatusAreaMenu.Build(
+            showMainWindow: () => ShowMainWindow(desktop),
+            refresh: () => _model?.Refresh(),
+            toggleToolbar: () =>
             {
-                _model.ShowFloatingToolbar = !_model.ShowFloatingToolbar;
-            }
-        };
-
-        var traySettings = new NativeMenuItem(Strings.Get("Menu_Settings"));
-        traySettings.Click += (_, _) => ShowSettings(desktop);
-
-        var quit = new NativeMenuItem("Quit");
-        quit.Click += (_, _) => desktop.Shutdown();
+                if (_model is not null)
+                {
+                    _model.ShowFloatingToolbar = !_model.ShowFloatingToolbar;
+                }
+            },
+            showSettings: () => ShowSettings(desktop),
+            quit: () => desktop.Shutdown());
 
         var menu = new NativeMenu();
-        menu.Items.Add(show);
-        menu.Items.Add(refresh);
-        menu.Items.Add(trayToolbar);
-        menu.Items.Add(traySettings);
-        menu.Items.Add(new NativeMenuItemSeparator());
-        menu.Items.Add(quit);
+        foreach (var entry in entries)
+        {
+            if (entry.IsSeparator)
+            {
+                menu.Items.Add(new NativeMenuItemSeparator());
+                continue;
+            }
+
+            var item = new NativeMenuItem(entry.Label);
+            var invoke = entry.Invoke!;
+            item.Click += (_, _) => invoke();
+            menu.Items.Add(item);
+        }
 
         // Avalonia owns and disposes the TrayIcon once it is registered with SetIcons,
         // so the application does not keep a disposable field of its own.
@@ -192,6 +214,7 @@ public partial class App : Application
 
         TrayIcon.SetIcons(this, [trayIcon]);
         _trayIconCreated = true;
+        _trayMenu = menu;
     }
 
     /// <summary>
@@ -221,7 +244,8 @@ public partial class App : Application
 
                     var report = await SelfTest.RunAsync(
                         _model!, desktop.MainWindow!, _toolbar, _trayIconCreated,
-                        adapters.Switcher, adapters.Icons, adapters.Store, adapters.Capabilities).ConfigureAwait(true);
+                        adapters.Switcher, adapters.Icons, adapters.Store, adapters.Capabilities,
+                        StatusAreaProbe, _trayMenu, Strings.Get("AppTitle")).ConfigureAwait(true);
 
                     var directory = SelfTest.OutputDirectory!;
                     Directory.CreateDirectory(directory);
@@ -251,6 +275,17 @@ public partial class App : Application
                 _toolbar?.Close();
                 _toolbar = null;
                 adapters.Store.Save(settingsBefore);
+
+                // The interaction check runs last, after the report is on disk, because a menu
+                // that really opens blocks the UI thread in the platform's modal tracking loop.
+                // It ends the process itself; only when there is nothing to click do we shut
+                // down the ordinary way.
+                if (StatusAreaProbe is not null && _trayMenu is not null && SelfTest.OutputDirectory is not null)
+                {
+                    SelfTest.VerifyMenuOpensThenExit(
+                        StatusAreaProbe, _trayMenu, Strings.Get("AppTitle"), SelfTest.OutputDirectory, exitCode);
+                    return;
+                }
 
                 desktop.Shutdown(exitCode);
             },

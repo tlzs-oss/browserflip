@@ -120,6 +120,17 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 
 ---
 
+## メニューバー項目の検証
+
+macOS では自己診断が**実際の `NSStatusItem` を OS から読み戻します**。「`TrayIcon.SetIcons` を呼んだ」ことは BrowserFlip についての主張であって macOS についての主張ではなく、それを根拠に PASS を出していたために、クリックしてもメニューが開かない欠陥(MAC-D6)を見逃しました。
+
+- **チェック 3** — メニューバー上の実 `NSStatusBarButton` の表示状態・画像・メニュー項目のラベルを記録します。見つからなければ `FAIL` です。
+- **チェック 13** — `+[NSEvent mouseEventWithType:…]` で作った実イベントを `-[NSApplication postEvent:atStart:]` でこのプロセスのキューに投入し、`NativeMenu.Opening` が発火するかを確認します。**合成 CGEvent を使わないため、Accessibility も Screen Recording も不要です。** 結果は `menu-click.txt` にも残ります。
+
+プローブを持たない Linux / Windows では、チェック 3 は「このプラットフォームでは読み戻せないので実表示とクリック動作はこのチェックでは未検証」と明記します。
+
+詳細・計測値・再現できなかった条件の一覧は [../../docs/macos-menu-bar.md](../../docs/macos-menu-bar.md)。
+
 ## 既知の制限
 
 - **Wayland は未検証。** 能力モデルの Wayland 申告は調査ベースで、実コンポジター上では未測定です。
@@ -130,6 +141,7 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 - **プロトタイプのテストだけ xunit v3** を使います(`Avalonia.Headless.XUnit` 12.x の要件)。製品側のテストは xunit 2.9.3 のままで、両者は別ソリューションです。
 - **Wayland では**フローティング ツールバーと「常に手前に表示」が使えません。能力モデルが `UNSUPPORTED` として申告し、UI が理由付きで無効化します。
 - **署名・公証は未実施**(証明書未購入)。[../../docs/macos-signing.md](../../docs/macos-signing.md) に必要条件をまとめています。
+- **macOS ではアプリケーション メニュー バーを差し替えられません**(`UNSUPPORTED_UPSTREAM`)。Avalonia は `Application` オブジェクトが生成される前にメニューを書き出すため、後から `NativeMenu.SetMenu(Application, …)` を呼んでも無視されます(実測)。メニューの内容はすべてメニューバー アイコンのメニューから到達できます。根拠と計測値は [../../docs/macos-menu-bar.md](../../docs/macos-menu-bar.md)。
 
 ## Linux 配布(AppImage)
 

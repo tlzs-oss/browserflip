@@ -44,7 +44,10 @@ public static class SelfTest
         IDefaultBrowserSwitcher switcher,
         IAppIconProvider icons,
         ISettingsStore store,
-        IPlatformCapabilities capabilities)
+        IPlatformCapabilities capabilities,
+        IStatusAreaProbe? statusArea = null,
+        NativeMenu? trayMenu = null,
+        string? trayToolTip = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(mainWindow);
@@ -74,17 +77,36 @@ public static class SelfTest
         //    declares it unsupported - GNOME without the AppIndicator extension, for example -
         //    not having one is the correct outcome, not a failure.
         var tray = capabilities.TrayIcon;
-        report.Add(3, "Status-area / menu-bar icon and menu",
-            tray.IsAvailable
-                ? (trayIconCreated ? CheckResult.PASS : CheckResult.FAIL)
-                : (tray.State == CapabilityState.Unsupported ? CheckResult.UNSUPPORTED : CheckResult.SKIPPED),
-            tray.IsAvailable
-                // "created and handed to the platform" is all that can be justified: no toolkit
-                // on any of the three platforms confirms that the shell actually accepted it.
-                ? (trayIconCreated
-                    ? "TrayIcon created with a 5-item NativeMenu and handed to the platform"
-                    : "TrayIcon was not created")
-                : tray.Reason ?? "not available in this session");
+        var menuTitles = trayMenu is null
+            ? []
+            : trayMenu.Items.Select(i => i is NativeMenuItem item ? item.Header ?? "(no header)" : "(separator)").ToList();
+        if (!tray.IsAvailable)
+        {
+            report.Add(3, "Status-area / menu-bar icon and menu",
+                tray.State == CapabilityState.Unsupported ? CheckResult.UNSUPPORTED : CheckResult.SKIPPED,
+                tray.Reason ?? "not available in this session");
+        }
+        else if (statusArea is null)
+        {
+            // No way to read the item back on this platform, so say exactly that instead of
+            // letting "BrowserFlip asked for an icon" read as "the shell is showing one".
+            report.Add(3, "Status-area / menu-bar icon and menu",
+                trayIconCreated ? CheckResult.PASS : CheckResult.FAIL,
+                trayIconCreated
+                    ? $"TrayIcon created with a {menuTitles.Count}-item NativeMenu and handed to the platform. "
+                      + "This platform cannot read the item back from the shell, so visible rendering and click "
+                      + "behaviour are NOT verified by this check."
+                    : "TrayIcon was not created");
+        }
+        else
+        {
+            // Measured, not inferred: the item is read back out of the live status area.
+            var facts = statusArea.Inspect(trayToolTip ?? string.Empty);
+            var ok = trayIconCreated && facts.ItemFound && facts.ItemVisible && facts.HasImage && menuTitles.Count > 0;
+            report.Add(3, "Status-area / menu-bar icon and menu",
+                ok ? CheckResult.PASS : CheckResult.FAIL,
+                $"{facts.Detail}; menu carries {menuTitles.Count} item(s): " + string.Join(" | ", menuTitles));
+        }
 
         // 4. Installed browsers, read from the platform's own registry of handlers.
         //    A machine with no browser installed (a bare CI runner) is an environment fact, not a
@@ -261,6 +283,73 @@ public static class SelfTest
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
         await CaptureSettingsAsync(model, capabilities, report).ConfigureAwait(true);
         return report;
+    }
+
+    /// <summary>
+    /// Delivers a real click to the status-area item and records whether the menu actually
+    /// opened, then ends the process.
+    /// <para>
+    /// This is the check that the Owner's menu-bar acceptance needed and the report did not have:
+    /// the icon was present and the menu never opened (MAC-D6), and nothing in the automated run
+    /// could tell. The evidence is the platform's own notification that the menu is opening, so a
+    /// menu that is attached but unreachable fails here.
+    /// </para>
+    /// <para>
+    /// It runs last, after the report is on disk, and finishes on a background thread: an open
+    /// native menu runs its own modal tracking loop on the UI thread, so nothing scheduled there
+    /// could be relied on to write the result or to shut the application down.
+    /// </para>
+    /// </summary>
+    public static void VerifyMenuOpensThenExit(
+        IStatusAreaProbe probe, NativeMenu trayMenu, string trayToolTip, string outputDirectory, int exitCode)
+    {
+        ArgumentNullException.ThrowIfNull(probe);
+        ArgumentNullException.ThrowIfNull(trayMenu);
+
+        var opened = 0;
+        var closed = 0;
+        trayMenu.Opening += (_, _) => Interlocked.Exchange(ref opened, 1);
+        trayMenu.Closed += (_, _) => Interlocked.Exchange(ref closed, 1);
+
+        var posted = probe.TryClick(trayToolTip, out var clickDetail);
+
+        _ = Task.Run(async () =>
+        {
+            // The platform raises "opening" synchronously while it builds the menu, so a short
+            // wait is enough; it is generous rather than tight because a slow machine must not
+            // turn a working menu into a failure.
+            for (var waited = 0; waited < 50 && Volatile.Read(ref opened) == 0; waited++)
+            {
+                await Task.Delay(100).ConfigureAwait(false);
+            }
+
+            var fired = Volatile.Read(ref opened) == 1;
+            var result = !posted ? CheckResult.FAIL : fired ? CheckResult.PASS : CheckResult.FAIL;
+            var line = string.Create(CultureInfo.InvariantCulture,
+                $"13  {result,-11} Status-area menu opens on a real click\n"
+                + $"    {clickDetail}; NativeMenu.Opening raised={fired}; NativeMenu.Closed raised={Volatile.Read(ref closed) == 1}\n");
+
+            try
+            {
+                Directory.CreateDirectory(outputDirectory);
+                await File.WriteAllTextAsync(Path.Combine(outputDirectory, "menu-click.txt"), line).ConfigureAwait(false);
+                await File.AppendAllTextAsync(Path.Combine(outputDirectory, "capability-report.txt"), "\n" + line)
+                    .ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The result must still be printed and the process must still end.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                Console.Error.WriteLine("menu-click evidence could not be written: " + ex.Message);
+            }
+
+            Console.Write(line);
+            Console.Out.Flush();
+
+            // Environment.Exit, not the application lifetime: if the menu really did open, the
+            // UI thread is inside the platform's modal menu loop and will not run anything.
+            Environment.Exit(result == CheckResult.PASS ? exitCode : 2);
+        });
     }
 
     /// <summary>
