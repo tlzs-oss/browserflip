@@ -130,3 +130,75 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 - **プロトタイプのテストだけ xunit v3** を使います(`Avalonia.Headless.XUnit` 12.x の要件)。製品側のテストは xunit 2.9.3 のままで、両者は別ソリューションです。
 - **Wayland では**フローティング ツールバーと「常に手前に表示」が使えません。能力モデルが `UNSUPPORTED` として申告し、UI が理由付きで無効化します。
 - **署名・公証は未実施**(証明書未購入)。[../../docs/macos-signing.md](../../docs/macos-signing.md) に必要条件をまとめています。
+
+## Linux 配布(AppImage)
+
+> 配布対象はこのプロトタイプです。**出荷中の Windows 製品(WPF)には影響しません。**
+
+### 作り方
+
+```sh
+# 1. self-contained で publish する
+dotnet publish src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj \
+  -c Release -f net10.0 -r linux-arm64 --self-contained true -o out/linux-arm64
+
+# 2. 単一ファイルの AppImage にする
+linux/make-appimage.sh out/linux-arm64 BrowserFlip-arm64.AppImage
+```
+
+`make-appimage.sh` は AppDir を組み立て、`mksquashfs`(zstd)で固め、AppImage の
+**type-2 runtime** を先頭に連結します。
+
+### runtime の入手について
+
+`appimagetool` は Ubuntu のアーカイブに**ありません**。本プロジェクトでは
+**公式ソースからビルド**しています(リリース バイナリの取得はしていません)。
+
+| 項目 | 内容 |
+| --- | --- |
+| runtime ソース | `github.com/AppImage/type2-runtime`(commit `fedfad5`) |
+| 依存 | `github.com/vasi/squashfuse`(commit `b008af9`)をソースからビルド |
+| ライセンス | AppImage runtime: MIT / squashfuse: BSD-2-Clause |
+| ビルド | `clang` + システムの `libfuse3` / `zstd` / `zlib` / `lzma` |
+
+> **上流の公式ビルドは Docker + Alpine(musl)で静的リンクします。** 本番配布では
+> その公式手順で作った runtime を使うべきです。ここでビルドした runtime は
+> glibc にリンクされるため、**ビルドしたディストリビューションと同等以上の glibc を
+> 持つ環境でのみ動作します**。再現性のため上記 commit を固定しています。
+
+### 必要なフォント(重要)
+
+**この AppImage に CJK フォントは同梱されていません。** 日本語・簡体中文の表示には
+**システム側に CJK フォントが必要**です。
+
+| ディストリビューション | 導入方法 |
+| --- | --- |
+| Ubuntu / Debian | `sudo apt install fonts-noto-cjk` |
+| Fedora | `sudo dnf install google-noto-sans-cjk-fonts` |
+| Arch | `sudo pacman -S noto-fonts-cjk` |
+| openSUSE | `sudo zypper install noto-sans-cjk-fonts` |
+
+**CJK フォントが入っていない環境では、日本語と簡体中文が豆腐(□)になります。**
+実測で確認済みです — フォント無しでは `fc-match sans:lang=ja` が `DejaVuSans.ttf` に
+解決し、CJK 字形を持たないため表示できません。UI の英語表示と機能そのものは影響を受けません。
+
+日本語・中国語のデスクトップ環境には通常これらのフォントが標準で入っています。
+
+> フォントを AppImage に同梱する案は実装しましたが、**同梱するとアプリが起動しません**。
+> 詳細と再現条件は [docs/known-defect-font-bundling.md](../../docs/known-defect-font-bundling.md) を参照してください。
+> 内蔵対応を進めるかどうかは Owner 判断です。
+
+### 動作要件
+
+| 項目 | 内容 |
+| --- | --- |
+| アーキテクチャ | ARM64(aarch64)。x64 は下記参照 |
+| FUSE | `libfuse2` 系(AppImage の自己マウントに必要)。無い場合は `--appimage-extract-and-run` |
+| ホスト側の共有ライブラリ | `libc` `libstdc++` `libm` `libgcc_s` `libdl` `libpthread` のみ。**未解決の依存は 0 件**(実測) |
+| .NET | **不要**(self-contained) |
+
+### x64 について
+
+本ラウンドで実機検証したのは **ARM64 のみ**です。x64 版の成果物は作っていません。
+理由は、QA 環境(TLZS-Linux-ARM64-QA)が ARM64 であり、x64 の AppImage runtime は
+x86_64 上でビルドする必要があるためです。**x64 は未検証**です。
