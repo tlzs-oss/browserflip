@@ -9,6 +9,7 @@ namespace BrowserFlip.Prototype.Tests;
 /// The shared view model, driven entirely by in-memory adapters: no OS call is made, so these
 /// tests are identical on macOS, Windows and Linux.
 /// </summary>
+[Collection(SerialUiCulture.Name)]
 public class MainViewModelTests
 {
     /// <summary>A platform whose OS confirms the change, so the view model must not ask again.</summary>
@@ -506,8 +507,12 @@ public class MainViewModelTests
     [Fact]
     public async Task A_platform_error_is_shown_as_a_labelled_detail_not_as_the_message()
     {
-        Strings.UseLanguage("ja");
+        // The language must be set AFTER the view model is built: its constructor applies the
+        // stored preference, and the in-memory store has none, so it resets the UI culture to
+        // the OS default. Setting "ja" first silently did nothing on CI (an en-US runner) while
+        // passing on a developer machine whose own UI culture is Japanese.
         var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.Failed, "kLSApplicationNotFoundErr"));
+        Strings.UseLanguage("ja");
 
         await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
             TestContext.Current.CancellationToken);

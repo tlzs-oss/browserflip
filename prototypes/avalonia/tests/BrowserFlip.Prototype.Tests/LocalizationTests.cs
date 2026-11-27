@@ -10,6 +10,7 @@ namespace BrowserFlip.Prototype.Tests;
 /// The prototype must show the three product languages, reading the very same .resx files the
 /// Windows product ships. These tests prove the linked resources really resolve at run time.
 /// </summary>
+[Collection(SerialUiCulture.Name)]
 public class LocalizationTests
 {
     [Theory]
