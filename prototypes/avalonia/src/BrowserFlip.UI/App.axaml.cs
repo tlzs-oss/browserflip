@@ -34,11 +34,18 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // The window is created BEFORE the view model on purpose. The Linux capability
+            // model asks the live window which Avalonia backend implemented it - X11 or Wayland
+            // - instead of guessing from XDG_SESSION_TYPE, and that answer only exists once a
+            // window object exists. Window's constructor creates its platform implementation, so
+            // the backend is known here even though the window has not been shown yet.
+            var mainWindow = new MainWindow();
+            desktop.MainWindow = mainWindow;
+
             _model = (ViewModelFactory ?? throw new InvalidOperationException(
                 "App.ViewModelFactory must be set by the platform entry point."))();
             _model.Initialize();
-
-            desktop.MainWindow = new MainWindow { DataContext = _model };
+            mainWindow.DataContext = _model;
 
             CreateApplicationMenu(desktop);
             CreateTrayIcon(desktop);

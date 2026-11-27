@@ -852,6 +852,137 @@ Icon=back\\slash
     public void Every_capability_is_enumerated_for_the_diagnostics_screen()
         => Assert.Equal(4, Capabilities("wayland", "GNOME").All().Count);
 
+    // --------------------------------------------- native Wayland / XWayland / native X11
+
+    [Theory]
+    // The measured defect. A real GNOME Wayland session, run with WAYLAND_DISPLAY unset and
+    // DISPLAY=:0 so Avalonia fell through to X11: XDG_SESSION_TYPE still says "wayland", but the
+    // process is an X11 client and the X11 mechanisms are the ones in play. The old model read
+    // the session type alone and reported "Wayland's xdg-shell protocol has no always-on-top
+    // request" for a run that was provably using X11.
+    [InlineData("x11", "wayland", null, ":0", "XWayland", CapabilityState.Available, CapabilityState.Available)]
+    // A genuine Wayland client: the protocol limits are real and are reported as Unsupported.
+    [InlineData("wayland", "wayland", "wayland-0", null, "NativeWayland", CapabilityState.Unsupported, CapabilityState.Unsupported)]
+    // A plain X11 session with no compositor anywhere.
+    [InlineData("x11", "x11", null, ":0", "NativeX11", CapabilityState.Available, CapabilityState.Available)]
+    // Avalonia.Wayland failed its xdg_wm_base >= 3 check and UseWaylandWithFallback dropped to
+    // X11, even though WAYLAND_DISPLAY is set. The backend is what counts, so this is XWayland.
+    [InlineData("x11", "wayland", "wayland-0", ":0", "XWayland", CapabilityState.Available, CapabilityState.Available)]
+    // The reverse: the Wayland backend won on a session advertising x11 (a nested compositor).
+    // Still a native Wayland client, because that is what will create the windows.
+    [InlineData("wayland", "x11", "wayland-1", ":0", "NativeWayland", CapabilityState.Unsupported, CapabilityState.Unsupported)]
+    // Nothing identifiable: claim nothing.
+    [InlineData("none", null, null, null, "Unknown", CapabilityState.Unavailable, CapabilityState.Unavailable)]
+    public void The_window_capabilities_follow_the_backend_that_actually_initialised(
+        string backend,
+        string? sessionType,
+        string? waylandDisplay,
+        string? display,
+        string expectedDisplayBackend,
+        CapabilityState alwaysOnTop,
+        CapabilityState windowPositioning)
+    {
+        var capabilities = Capabilities(
+            sessionType, "ubuntu:GNOME", backend: backend, waylandDisplay: waylandDisplay, display: display);
+
+        // The expectation is a string because LinuxDisplayBackend is internal and a public test
+        // signature cannot name it.
+        Assert.Equal(expectedDisplayBackend, capabilities.Display.ToString());
+        Assert.Equal(alwaysOnTop, capabilities.AlwaysOnTop.State);
+        Assert.Equal(windowPositioning, capabilities.WindowPositioning.State);
+        Assert.All(
+            capabilities.All(),
+            entry => Assert.True(entry.Capability.IsAvailable || !string.IsNullOrWhiteSpace(entry.Capability.Reason), entry.Name));
+    }
+
+    [Fact]
+    public void An_x11_client_in_a_wayland_session_is_never_told_that_xdg_shell_forbids_it()
+    {
+        // The exact defect, as a guard: the reason given to the user must not describe a
+        // protocol the process is not speaking.
+        var xwayland = Capabilities("wayland", "ubuntu:GNOME", backend: "x11", display: ":0");
+
+        Assert.Equal("XWayland", xwayland.Display.ToString());
+        Assert.Equal(CapabilityState.Available, xwayland.AlwaysOnTop.State);
+        Assert.Equal(CapabilityState.Available, xwayland.WindowPositioning.State);
+        Assert.Null(xwayland.AlwaysOnTop.Reason);
+        Assert.Null(xwayland.WindowPositioning.Reason);
+        // ... and the diagnostics must name which of the two X11 cases produced the answer.
+        Assert.Equal("Linux (ubuntu/GNOME, XWayland)", xwayland.Description);
+    }
+
+    [Fact]
+    public void The_live_backend_beats_the_session_type_in_both_directions()
+    {
+        // Same environment, opposite backends, opposite answers. Nothing about the environment
+        // decides this.
+        var asX11 = Capabilities("wayland", "GNOME", backend: "x11", waylandDisplay: "wayland-0", display: ":0");
+        var asWayland = Capabilities("wayland", "GNOME", backend: "wayland", waylandDisplay: "wayland-0", display: ":0");
+
+        Assert.Equal(LinuxSessionType.Wayland, asX11.Session);
+        Assert.Equal(LinuxSessionType.Wayland, asWayland.Session);
+        Assert.True(asX11.AlwaysOnTop.IsAvailable);
+        Assert.False(asWayland.AlwaysOnTop.IsAvailable);
+    }
+
+    [Theory]
+    [InlineData("Avalonia.X11", "X11")]
+    [InlineData("Avalonia.Wayland", "Wayland")]
+    [InlineData("Avalonia.Headless", "Unknown")]
+    [InlineData("Avalonia.Native", "Unknown")]
+    [InlineData("Avalonia.Win32", "Unknown")]
+    [InlineData(null, "Unknown")]
+    public void The_backend_is_read_from_the_assembly_that_implements_the_window(string? assembly, string expected)
+        => Assert.Equal(expected, LinuxCapabilities.BackendOfAssembly(assembly).ToString());
+
+    [Theory]
+    // WAYLAND_DISPLAY was deliberately unset in the measured run, so it cannot be the only test.
+    [InlineData(null, null, null, false)]
+    [InlineData(null, "wayland-0", null, true)]
+    [InlineData("wayland", null, null, true)]
+    [InlineData("x11", null, null, false)]
+    [InlineData("WAYLAND", null, null, true)]
+    public void A_wayland_compositor_is_looked_for_in_more_than_one_place(
+        string? sessionType, string? waylandDisplay, string? runtimeDirectory, bool expected)
+    {
+        var env = Environment(
+            ("XDG_SESSION_TYPE", sessionType),
+            ("WAYLAND_DISPLAY", waylandDisplay),
+            ("XDG_RUNTIME_DIR", runtimeDirectory));
+
+        Assert.Equal(expected, LinuxCapabilities.WaylandCompositorIsPresent(env));
+    }
+
+    [Fact]
+    public void A_compositor_socket_counts_even_with_no_environment_variable_and_a_stale_lock_does_not()
+    {
+        var root = NewTemporaryDirectory();
+        try
+        {
+            var env = Environment(("XDG_RUNTIME_DIR", root));
+
+            // A lock file can outlive the compositor that wrote it, so on its own it proves
+            // nothing.
+            File.WriteAllText(Path.Combine(root, "wayland-0.lock"), string.Empty);
+            Assert.False(LinuxCapabilities.WaylandCompositorIsPresent(env));
+
+            File.WriteAllText(Path.Combine(root, "wayland-0"), string.Empty);
+            Assert.True(LinuxCapabilities.WaylandCompositorIsPresent(env));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("x11", "wayland", "Linux (ubuntu/GNOME, XWayland)")]
+    [InlineData("wayland", "wayland", "Linux (ubuntu/GNOME, Wayland)")]
+    [InlineData("x11", "x11", "Linux (ubuntu/GNOME, X11)")]
+    public void The_description_names_the_backend_rather_than_the_session_type(
+        string backend, string? sessionType, string expected)
+        => Assert.Equal(expected, Capabilities(sessionType, "ubuntu:GNOME", backend: backend).Description);
+
     // ---------------------------------------------------------------- icons
 
     [Theory]
@@ -1066,16 +1197,38 @@ Icon=back\\slash
         return key => map.TryGetValue(key, out var value) ? value : null;
     }
 
+    /// <summary>
+    /// <paramref name="backend"/> stands in for the Avalonia windowing backend that actually
+    /// initialised; it is a string because <c>LinuxWindowingBackend</c> is internal and the
+    /// theory data that drives it sits on public test methods. The default is "none", which is
+    /// what an off-Linux unit-test host really has.
+    /// </summary>
     private static LinuxCapabilities Capabilities(
-        string? sessionType, string? desktop, bool switchToolAvailable = true, bool sessionBus = true)
+        string? sessionType,
+        string? desktop,
+        bool switchToolAvailable = true,
+        bool sessionBus = true,
+        string backend = "none",
+        string? waylandDisplay = null,
+        string? display = null)
         => new(
             Environment(
                 ("XDG_SESSION_TYPE", sessionType),
                 ("XDG_CURRENT_DESKTOP", desktop),
+                ("WAYLAND_DISPLAY", waylandDisplay),
+                ("DISPLAY", display),
                 // A tray icon is a D-Bus StatusNotifierItem, so the matrix assumes a normal
                 // desktop session that has a bus. The no-bus case has its own tests.
                 ("DBUS_SESSION_BUS_ADDRESS", sessionBus ? "unix:path=/run/user/1000/bus" : null)),
-            () => switchToolAvailable);
+            () => switchToolAvailable,
+            getWindowingBackend: () => Backend(backend));
+
+    private static LinuxWindowingBackend Backend(string name) => name switch
+    {
+        "wayland" => LinuxWindowingBackend.Wayland,
+        "x11" => LinuxWindowingBackend.X11,
+        _ => LinuxWindowingBackend.Unknown,
+    };
 
     private static BrowserInfo Map(
         string desktopFileId,
