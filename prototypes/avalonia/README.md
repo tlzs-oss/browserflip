@@ -45,7 +45,10 @@ dotnet test  tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.cspro
 # 配布用 DMG を作る(未署名。下記「署名」を参照)
 ./macos/make-dmg.sh Release
 
-# バンドルの実態を確認する(アーキテクチャ・署名・Gatekeeper 判定)
+# 製品アイコン(.icns)だけを作る。bundle.sh が内部で呼ぶので通常は不要
+./macos/make-icns.sh
+
+# バンドルの実態を確認する(アーキテクチャ・アイコン・署名・Gatekeeper 判定)
 ./macos/verify-bundle.sh
 
 # 普通に起動する
@@ -61,19 +64,36 @@ Linux では実 X11 サーバー(Xvfb)上で同じ自己診断を実行できま
 ### 自己診断(R2 の検証項目を実機で確認する)
 
 ```sh
+# .app として起動する(LaunchServices 経由。メニューバー項目と Dock アイコンは
+# これでないと本番と同じ経路になりません)
+open -n "artifacts/BrowserFlip Prototype.app" --args --selftest ./out
+
+# 直接バイナリを起動してもよい(標準出力に表が出る)
 "artifacts/BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" --selftest ./out
 ```
 
-実際にウィンドウを開き、実際のメニュー バー項目を作り、実際の macOS API を呼んだうえで、`out/capability-report.txt`、`out/capability-report.json`、`out/prototype-window.png`(**アプリが自分の実ウィンドウをレンダリングした画像**)を出力して終了します。終了コードは 0 = 失敗なし、2 = FAIL あり。
+実際にウィンドウを開き、実際のメニュー バー項目を作り、実際の macOS API を呼んだうえで、`out/capability-report.txt`、`out/capability-report.json`、`out/prototype-window.png`(**アプリが自分の実ウィンドウをレンダリングした画像**)を出力して終了します。
+
+終了コード: **0** = 問題なし / **2** = FAIL あり / **3** = PENDING あり(開始したが OS がまだ答えていない項目がある)。
+
+`PENDING` は `FAIL` ではありません。macOS の同意ダイアログは `CoreServicesUIAgent` のもので、ユーザーが答えるまで出たままになり、**要求元プロセスが終了しても消えません**(実測: 画面上に 7.5 分)。答えた時点で変更は適用されます(実測: Firefox で 44 秒後、Chrome で 474 秒後)。待ちを打ち切ったことを「失敗」と報告するのは事実に反するため、別の状態にしてあります。
 
 ### 既定ブラウザーを実際に変更する(Owner のみ)
 
 自動テストは**絶対に実システムを変更しません**。実変更は明示的に要求したときだけ行われ、そのうえで **macOS 自身が確認ダイアログを出します**。
 
 ```sh
-"artifacts/BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" \
+open -n "artifacts/BrowserFlip Prototype.app" --args \
     --selftest ./out --switch-default org.mozilla.firefox
 ```
+
+**1 回の操作に対して OS のダイアログは 1 つだけ**です。`https` を 1 回要求すると macOS が
+http / https を同時に更新するため(実測)、要求も 1 回にしてあります。OS が片方しか更新しなかった
+場合に限り、残りのスキームをもう一度要求します(その場合はダイアログがもう 1 つ出ます)。
+
+結果はすべて **OS に問い直して**から判定します(`NSWorkspace.urlForApplication(toOpen:)`)。
+ダイアログに答えがないまま待ちを打ち切ったときは `PENDING` であって `FAIL` ではなく、
+アプリはそのまま最大 10 分バックグラウンドで監視し、適用された時点で表示を更新します。
 
 ---
 
@@ -105,6 +125,7 @@ Linux では実 X11 サーバー(Xvfb)上で同じ自己診断を実行できま
 - **Wayland は未検証。** 能力モデルの Wayland 申告は調査ベースで、実コンポジター上では未測定です。
 - **Linux のアイコンは PNG のみ。** SVG のみを持つアプリ(GNOME 系の多く)はアイコンなしで表示されます。
 - **CJK フォントを同梱していません。** フォントの無い最小環境では日本語・中国語が豆腐(□)になります。AppImage は依存を宣言できないため、配布時に同梱が必要です。
+- **macOS の同意ダイアログは抑止できませんし、抑止しません。** 答えがないまま待ちを打ち切った場合、結果は「不明(PENDING)」であって「失敗」ではありません。
 - **`.app` / DMG は未署名**のため、他の Mac では Gatekeeper が拒否します(`verify-bundle.sh` で `rejected` と出るのが正常)。配布条件は [../../docs/macos-signing.md](../../docs/macos-signing.md)。
 - **プロトタイプのテストだけ xunit v3** を使います(`Avalonia.Headless.XUnit` 12.x の要件)。製品側のテストは xunit 2.9.3 のままで、両者は別ソリューションです。
 - **Wayland では**フローティング ツールバーと「常に手前に表示」が使えません。能力モデルが `UNSUPPORTED` として申告し、UI が理由付きで無効化します。

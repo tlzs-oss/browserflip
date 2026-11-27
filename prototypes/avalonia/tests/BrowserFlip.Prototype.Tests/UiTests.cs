@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Prototype.Tests;
 using BrowserFlip.UI;
+using BrowserFlip.UI.Localization;
 using BrowserFlip.UI.Platform;
 using BrowserFlip.UI.ViewModels;
 using BrowserFlip.UI.Views;
@@ -162,7 +163,10 @@ public class UiTests
 
         Assert.True(window.Bounds.Width > 0);
         Assert.Equal(4, settings.Capabilities.Count);
-        Assert.All(settings.Capabilities, c => Assert.Equal("available", c.StateText));
+        // The state column is localised now, so the expectation is read from the resources
+        // rather than pinned to the English word; LocalizationTests proves the three languages
+        // really differ.
+        Assert.All(settings.Capabilities, c => Assert.Equal(Strings.Get("Capability_Available"), c.StateText));
     }
 
     [AvaloniaFact]
@@ -184,7 +188,8 @@ public class UiTests
         Assert.False(model.Topmost);
         Assert.False(model.ShowFloatingToolbar);
 
-        var unsupported = settings.Capabilities.Where(c => c.StateText != "available").ToList();
+        var unsupported = settings.Capabilities
+            .Where(c => c.StateText != Strings.Get("Capability_Available")).ToList();
         Assert.Equal(3, unsupported.Count);
         Assert.All(unsupported, c => Assert.False(string.IsNullOrWhiteSpace(c.Reason)));
     }

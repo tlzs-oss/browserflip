@@ -149,12 +149,33 @@ public static class SelfTest
                 // so rather than let the PASS read as though someone clicked "yes".
                 var consentSource = model.ConsentSource;
                 await model.SetDefaultAsync(target).ConfigureAwait(true);
+
+                // The OS consent alert is answered by a human, on human time: 44 s and 474 s
+                // were both measured on this Mac, and the alert outlives this process. The view
+                // model leaves a background watch running for exactly that, so the self-test
+                // waits for the real answer instead of grading its own impatience.
+                await model.PendingChange.ConfigureAwait(true);
+
+                model.Refresh();
                 var nowDefault = model.Browsers.FirstOrDefault(b => b.IsDefault);
                 var applied = nowDefault is not null
                               && string.Equals(nowDefault.Identifier, SwitchTargetId, StringComparison.OrdinalIgnoreCase);
+
+                // Three outcomes, not two. "Not applied yet" is PENDING: the request was
+                // accepted, the dialog has not been answered, and nothing has been refused.
+                // Reporting that as FAIL is what made an earlier run print the opposite of
+                // what macOS then did.
+                var last = model.LastSwitchResult;
+                var result = applied ? CheckResult.PASS
+                    : last?.Outcome is SwitchOutcome.Declined or SwitchOutcome.Failed
+                      or SwitchOutcome.BrowserUnavailable ? CheckResult.FAIL
+                    : CheckResult.PENDING;
                 report.Add(6, "Default-browser switch API (Owner-triggered, real change)",
-                    applied ? CheckResult.PASS : CheckResult.FAIL,
-                    $"requested {SwitchTargetId}; now default={nowDefault?.Identifier ?? "none"}; "
+                    result,
+                    $"requested {SwitchTargetId}; switcher outcome={last?.Outcome.ToString() ?? "none"}; "
+                    + $"OS read back \"{last?.ObservedDefault ?? "not read"}\"; "
+                    + $"detail=\"{last?.Error ?? "-"}\"; "
+                    + $"now default={nowDefault?.Identifier ?? "none"}; "
                     + $"consent came from {consentSource}; \"{model.StatusMessage}\"");
             }
         }

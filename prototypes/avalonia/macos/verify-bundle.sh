@@ -23,6 +23,19 @@ printf ' architectures     : %s\n' "$(lipo -archs "$BIN" 2>/dev/null || echo unk
 printf ' minimum macOS     : %s\n' "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist" 2>/dev/null || echo unset)"
 printf ' bundle identifier : %s\n' "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist" 2>/dev/null || echo unset)"
 
+# The product icon: the plist key AND the file it names, because either one missing leaves
+# Finder and the Dock drawing the blank generic application page.
+ICON_KEY="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP/Contents/Info.plist" 2>/dev/null || echo unset)"
+printf ' CFBundleIconFile  : %s\n' "$ICON_KEY"
+ICON_PATH="$APP/Contents/Resources/${ICON_KEY%.icns}.icns"
+if [ "$ICON_KEY" != "unset" ] && [ -s "$ICON_PATH" ]; then
+  printf ' icon file         : present, %s, largest %s px\n' \
+    "$(du -h "$ICON_PATH" | cut -f1)" \
+    "$(sips -g pixelWidth "$ICON_PATH" 2>/dev/null | awk '/pixelWidth/ {print $2}')"
+else
+  printf ' icon file         : MISSING (Finder and the Dock will show a blank page)\n'
+fi
+
 rule
 printf ' Code signature\n'
 rule

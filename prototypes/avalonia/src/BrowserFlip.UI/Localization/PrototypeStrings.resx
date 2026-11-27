@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings that exist only in the Avalonia prototype.
+
+  The shipping WPF product's Strings.resx is linked into this project unchanged and is the
+  single source of truth for every string both UIs share. It must not grow prototype-only
+  keys, so the prototype keeps its own neutral/ja/zh-CN set here and Strings.Get falls back
+  to it. Three languages, exactly like the product's set.
+-->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- How this platform performs the change. -->
+  <data name="Mech_OpensSystemSettings" xml:space="preserve">
+    <value>Windows Settings opens; you confirm there.</value>
+  </data>
+  <data name="Mech_SystemConsentPrompt" xml:space="preserve">
+    <value>macOS shows its own confirmation dialog; you confirm there.</value>
+  </data>
+  <data name="Mech_CommandLineTool" xml:space="preserve">
+    <value>xdg-settings applies the change.</value>
+  </data>
+  <data name="Mech_Unsupported" xml:space="preserve">
+    <value>Changing the default browser is not supported on this system.</value>
+  </data>
+
+  <!-- The outcome of a requested change. A request the OS has not finished acting on is NOT
+       a failure, and the wording must never say otherwise. -->
+  <data name="Status_AwaitingConsent" xml:space="preserve">
+    <value>Waiting for you to answer the system dialog. {0} becomes the default as soon as you confirm.</value>
+  </data>
+  <data name="Status_StillPending" xml:space="preserve">
+    <value>The system dialog has not been answered yet, so nothing has changed. BrowserFlip is still watching: confirm the dialog and {0} becomes the default.</value>
+  </data>
+  <data name="Status_PendingUnknown" xml:space="preserve">
+    <value>BrowserFlip has stopped watching. The system dialog may still be open; if you confirm it, {0} will become the default even now. The default browser is unchanged so far.</value>
+  </data>
+  <data name="Status_Declined" xml:space="preserve">
+    <value>The change was declined, so the default browser is unchanged.</value>
+  </data>
+  <data name="Status_RequestFailed" xml:space="preserve">
+    <value>The request failed: {0}</value>
+  </data>
+  <data name="Status_RequestFailedUnknown" xml:space="preserve">
+    <value>The request failed, and the system gave no reason.</value>
+  </data>
+  <data name="Status_SecondProtocol" xml:space="preserve">
+    <value>{0} now handles one of http / https. Confirm the second system dialog to finish the other.</value>
+  </data>
+  <data name="Detail_Technical" xml:space="preserve">
+    <value>{0} (technical detail: {1})</value>
+  </data>
+
+  <!-- Asked by BrowserFlip itself, on a platform whose OS does not ask. -->
+  <data name="Confirm_SetDefaultImmediate" xml:space="preserve">
+    <value>Make {0} the default browser?
+
+This system applies the change immediately, without asking again, and BrowserFlip cannot undo it.</value>
+  </data>
+
+  <!-- The platform capability table in the settings window. -->
+  <data name="Settings_Capabilities" xml:space="preserve">
+    <value>Platform capabilities</value>
+  </data>
+  <data name="Settings_CapabilitiesHint" xml:space="preserve">
+    <value>What this operating system and session actually allow. A disabled option above is disabled because of one of these, not because it failed.</value>
+  </data>
+  <data name="Capability_Available" xml:space="preserve">
+    <value>available</value>
+  </data>
+  <data name="Capability_Unsupported" xml:space="preserve">
+    <value>unsupported</value>
+  </data>
+  <data name="Capability_Unavailable" xml:space="preserve">
+    <value>unavailable</value>
+  </data>
+  <data name="Capability_AlwaysOnTop" xml:space="preserve">
+    <value>Always on top</value>
+  </data>
+  <data name="Capability_WindowPositioning" xml:space="preserve">
+    <value>Window positioning</value>
+  </data>
+  <data name="Capability_TrayIcon" xml:space="preserve">
+    <value>Tray / menu-bar icon</value>
+  </data>
+  <data name="Capability_DefaultBrowserSwitch" xml:space="preserve">
+    <value>Default browser switching</value>
+  </data>
+</root>

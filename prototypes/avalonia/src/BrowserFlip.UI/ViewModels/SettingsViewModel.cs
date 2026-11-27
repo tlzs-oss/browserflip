@@ -11,9 +11,9 @@ public sealed class CapabilityRow
         Name = name;
         StateText = capability.State switch
         {
-            CapabilityState.Available => "available",
-            CapabilityState.Unsupported => "unsupported",
-            _ => "unavailable",
+            CapabilityState.Available => Strings.Get("Capability_Available"),
+            CapabilityState.Unsupported => Strings.Get("Capability_Unsupported"),
+            _ => Strings.Get("Capability_Unavailable"),
         };
         StateBrush = capability.State switch
         {
@@ -47,10 +47,14 @@ public sealed class SettingsViewModel : ObservableObject
     {
         _main = main ?? throw new ArgumentNullException(nameof(main));
         _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
-        Capabilities = [.. capabilities.All().Select(c => new CapabilityRow(c.Name, c.Capability))];
+        Capabilities = BuildCapabilityRows();
     }
 
-    public IReadOnlyList<CapabilityRow> Capabilities { get; }
+    /// <summary>
+    /// Rebuilt on a language change: the rows cache their own text, so raising only the label
+    /// properties would leave the whole table in the previous language.
+    /// </summary>
+    public IReadOnlyList<CapabilityRow> Capabilities { get; private set; }
 
     public string Title => Strings.Get("Settings_Title");
 
@@ -72,11 +76,9 @@ public sealed class SettingsViewModel : ObservableObject
 
     public string SettingsLocation => _main.SettingsLocation;
 
-    public string CapabilitiesLabel => "Platform capabilities";
+    public string CapabilitiesLabel => Strings.Get("Settings_Capabilities");
 
-    public string CapabilitiesHint =>
-        "What this operating system and session actually allow. A disabled option above is "
-        + "disabled because of one of these, not because it failed.";
+    public string CapabilitiesHint => Strings.Get("Settings_CapabilitiesHint");
 
     /// <summary>Same choices as the main window, including "follow the OS".</summary>
     public IReadOnlyList<LanguageChoice> LanguageChoices => _main.LanguageChoices;
@@ -128,8 +130,15 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
+    private IReadOnlyList<CapabilityRow> BuildCapabilityRows()
+        => [.. _capabilities.All().Select(c => new CapabilityRow(c.Name, c.Capability))];
+
     private void RaiseLabels()
     {
+        Capabilities = BuildCapabilityRows();
+        Raise(nameof(Capabilities));
+        Raise(nameof(CapabilitiesLabel));
+        Raise(nameof(CapabilitiesHint));
         Raise(nameof(Title));
         Raise(nameof(GeneralLabel));
         Raise(nameof(AppearanceLabel));

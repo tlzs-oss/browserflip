@@ -1,4 +1,5 @@
 using BrowserFlip.Core.Defaults;
+using BrowserFlip.UI.Localization;
 using BrowserFlip.UI.Platform;
 using BrowserFlip.UI.ViewModels;
 
@@ -373,5 +374,166 @@ public class MainViewModelTests
         var (model, _, _) = Build(http: null, https: null);
         Assert.Equal(DefaultStatus.None, model.Status);
         Assert.DoesNotContain(model.Browsers, b => b.IsDefault);
+    }
+
+    // ---- D2: a request the OS has not answered is reported as pending, never as failure ----
+
+    /// <summary>
+    /// The macOS shape: Safari is the default, the user asks for Firefox, the OS alert is still
+    /// open. <paramref name="outcome"/> is whatever the switcher reported.
+    /// </summary>
+    private static (MainViewModel Model, FakeAssociations Associations) BuildPending(SwitchResult result)
+    {
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog()
+            .Add(Browsers.Mac("com.apple.Safari", "Safari"))
+            .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
+        var model = new MainViewModel(
+            catalog, _ => new ScriptedSwitcher(result), new FakeIcons(), new InMemorySettingsStore(),
+            new DefaultBrowserService(associations), Caps)
+        {
+            PendingWatchInterval = TimeSpan.FromMilliseconds(20),
+            PendingWatchBudget = TimeSpan.FromSeconds(5),
+        };
+        model.Initialize();
+        return (model, associations);
+    }
+
+    [Fact]
+    public async Task A_timed_out_consent_prompt_is_worded_as_still_pending_not_as_a_failure()
+    {
+        // The reported defect: an applied change was printed as "macOS did not report the
+        // change" and graded FAIL, while the OS went on to apply it 44 s / 474 s later.
+        Strings.UseLanguage("en");
+        var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.TimedOutPending, "no answer within 20s", "com.apple.Safari"));
+        model.PendingWatchBudget = TimeSpan.FromMilliseconds(1);
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(Strings.Format("Status_StillPending", "Firefox"), model.StatusMessage);
+        Assert.NotEqual(Strings.Get("Status_NoChange"), model.StatusMessage);
+        Assert.DoesNotContain("fail", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
+        // And the raw platform text is not what the user is shown.
+        Assert.DoesNotContain("no answer within 20s", model.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_change_the_user_confirms_later_updates_the_message_without_a_new_request()
+    {
+        // The consent alert outlives the wait, so the view model keeps watching and corrects
+        // itself when the change finally lands. Without this the window would keep saying
+        // "pending" over a default browser that had already changed.
+        Strings.UseLanguage("en");
+        var (model, associations) = BuildPending(new SwitchResult(SwitchOutcome.TimedOutPending, null, "com.apple.Safari"));
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(Strings.Format("Status_StillPending", "Firefox"), model.StatusMessage);
+
+        // The user answers the OS dialog.
+        associations.With("http", "org.mozilla.firefox").With("https", "org.mozilla.firefox");
+        await model.PendingChange;
+
+        Assert.Equal(Strings.Format("Status_Applied", "Firefox"), model.StatusMessage);
+        Assert.True(model.Browsers.Single(b => b.DisplayName == "Firefox").IsDefault);
+    }
+
+    [Fact]
+    public async Task Giving_up_on_an_unanswered_prompt_says_unknown_rather_than_unchanged()
+    {
+        Strings.UseLanguage("en");
+        var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.TimedOutPending, null, "com.apple.Safari"));
+        model.PendingWatchBudget = TimeSpan.FromMilliseconds(60);
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+        await model.PendingChange;
+
+        Assert.Equal(Strings.Format("Status_PendingUnknown", "Firefox"), model.StatusMessage);
+        Assert.NotEqual(Strings.Get("Status_NoChange"), model.StatusMessage);
+    }
+
+    [Fact]
+    public async Task A_declined_prompt_is_the_one_case_that_says_the_default_is_unchanged()
+    {
+        Strings.UseLanguage("en");
+        var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.Declined, "The user declined.", "com.apple.Safari"));
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.StartsWith(Strings.Get("Status_Declined"), model.StatusMessage, StringComparison.Ordinal);
+        // Nothing is left watching: the user answered, so there is nothing to wait for.
+        Assert.True(model.PendingChange.IsCompleted);
+    }
+
+    [Fact]
+    public async Task The_switcher_result_is_kept_so_diagnostics_quote_it_instead_of_guessing()
+    {
+        var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.TimedOutPending, "detail", "com.apple.Safari (/Applications/Safari.app)"));
+        model.PendingWatchBudget = TimeSpan.FromMilliseconds(1);
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(model.LastSwitchResult);
+        Assert.Equal(SwitchOutcome.TimedOutPending, model.LastSwitchResult.Outcome);
+        Assert.Equal("com.apple.Safari (/Applications/Safari.app)", model.LastSwitchResult.ObservedDefault);
+    }
+
+    // ---- D3: nothing the user reads is a hardcoded English literal ----
+
+    [Fact]
+    public void The_mechanism_description_is_translated_in_every_supported_language()
+    {
+        // Regression: this sentence sat under the heading as an English literal, inside an
+        // otherwise Japanese window.
+        var (model, _, _) = Build();
+        var seen = new List<string>();
+        foreach (var language in Strings.SupportedLanguages)
+        {
+            Strings.UseLanguage(language);
+            var text = model.MechanismDescription;
+            Assert.False(string.IsNullOrWhiteSpace(text));
+            Assert.DoesNotContain("Mech_", text, StringComparison.Ordinal);
+            seen.Add(text);
+        }
+
+        Assert.Equal(3, seen.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public async Task A_platform_error_is_shown_as_a_labelled_detail_not_as_the_message()
+    {
+        Strings.UseLanguage("ja");
+        var (model, _) = BuildPending(new SwitchResult(SwitchOutcome.Failed, "kLSApplicationNotFoundErr"));
+
+        await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+            TestContext.Current.CancellationToken);
+
+        // The sentence is Japanese; the untranslatable platform text is carried inside it.
+        Assert.Equal(Strings.Format("Status_RequestFailed", "kLSApplicationNotFoundErr"), model.StatusMessage);
+        Assert.Contains("kLSApplicationNotFoundErr", model.StatusMessage, StringComparison.Ordinal);
+        Assert.Contains('失', model.StatusMessage);
+        Strings.UseLanguage("en");
+    }
+
+    [Fact]
+    public async Task The_confirmation_prompt_on_a_platform_that_does_not_ask_is_translated()
+    {
+        // Regression: BrowserFlip's own consent dialog was an English literal.
+        foreach (var language in Strings.SupportedLanguages)
+        {
+            Strings.UseLanguage(language);
+            var (model, _, prompt) = BuildNoOsConfirm(userAnswers: false);
+            await model.SetDefaultAsync(model.Browsers.Single(b => b.DisplayName == "Firefox"),
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal(1, prompt.AskedCount);
+            Assert.Equal(Strings.Format("Confirm_SetDefaultImmediate", "Firefox"), prompt.LastMessage);
+        }
+
+        Strings.UseLanguage("en");
     }
 }

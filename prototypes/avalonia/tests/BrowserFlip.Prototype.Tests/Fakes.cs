@@ -65,6 +65,29 @@ internal sealed class FakeSwitcher : IDefaultBrowserSwitcher
     }
 }
 
+/// <summary>
+/// A switcher whose answer is scripted, including the states that mean "the OS has not
+/// finished": the test decides the outcome and, separately, whether and when the association
+/// actually changes. Nothing here touches the real system.
+/// </summary>
+internal sealed class ScriptedSwitcher : IDefaultBrowserSwitcher
+{
+    private readonly SwitchResult _result;
+
+    public ScriptedSwitcher(SwitchResult result) => _result = result;
+
+    public SwitchMechanism Mechanism { get; set; } = SwitchMechanism.SystemConsentPrompt;
+
+    public List<string> Requested { get; } = [];
+
+    public Task<SwitchResult> RequestSwitchAsync(BrowserInfo browser, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(browser);
+        Requested.Add(browser.Id);
+        return Task.FromResult(_result);
+    }
+}
+
 /// <summary>Records whether it was asked, and answers however the test says.</summary>
 internal sealed class FakeConfirmation : IUserConfirmation
 {

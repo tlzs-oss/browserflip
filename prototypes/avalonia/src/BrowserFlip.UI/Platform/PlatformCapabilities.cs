@@ -1,3 +1,5 @@
+using BrowserFlip.UI.Localization;
+
 namespace BrowserFlip.UI.Platform;
 
 /// <summary>Whether a capability can be used here, and why not when it cannot.</summary>
@@ -60,7 +62,11 @@ public interface IPlatformCapabilities
     /// </summary>
     bool OsConfirmsDefaultBrowserChange { get; }
 
-    /// <summary>Enumerates every capability for diagnostics and the settings screen.</summary>
+    /// <summary>
+    /// Enumerates every capability for diagnostics and the settings screen. The names come from
+    /// the resources in the current UI language, so the capability table is not English inside
+    /// a Japanese or Chinese window.
+    /// </summary>
     IReadOnlyList<(string Name, Capability Capability)> All();
 }
 
@@ -79,12 +85,16 @@ public abstract class PlatformCapabilitiesBase : IPlatformCapabilities
 
     public abstract bool OsConfirmsDefaultBrowserChange { get; }
 
+    /// <summary>
+    /// Resolved on every call rather than cached, so switching the UI language re-reads the
+    /// names instead of leaving the previous language's text in the table.
+    /// </summary>
     public IReadOnlyList<(string Name, Capability Capability)> All() =>
     [
-        ("Always on top", AlwaysOnTop),
-        ("Window positioning", WindowPositioning),
-        ("Tray / menu-bar icon", TrayIcon),
-        ("Default browser switching", DefaultBrowserSwitch),
+        (Strings.Get("Capability_AlwaysOnTop"), AlwaysOnTop),
+        (Strings.Get("Capability_WindowPositioning"), WindowPositioning),
+        (Strings.Get("Capability_TrayIcon"), TrayIcon),
+        (Strings.Get("Capability_DefaultBrowserSwitch"), DefaultBrowserSwitch),
     ];
 }
 

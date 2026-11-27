@@ -228,7 +228,24 @@ internal static class ObjC
     /// <summary>[NSWorkspace sharedWorkspace]</summary>
     internal static IntPtr SharedWorkspace() => Send(GetClass("NSWorkspace"), Sel("sharedWorkspace"));
 
-    /// <summary>Reads NSError.localizedDescription, or <c>null</c> when the error is nil.</summary>
+    /// <summary>
+    /// Reads an NSError as "domain code: localizedDescription", or <c>null</c> when the error
+    /// is nil. The domain and code are included because the localised description alone is not
+    /// enough to tell a refusal from a malformed request when something goes wrong on a user's
+    /// machine, and it arrives in whatever language that machine runs in.
+    /// </summary>
     internal static string? ErrorDescription(IntPtr nsError)
-        => nsError == Nil ? null : ToManaged(Send(nsError, Sel("localizedDescription")));
+    {
+        if (nsError == Nil)
+        {
+            return null;
+        }
+
+        var message = ToManaged(Send(nsError, Sel("localizedDescription")));
+        var domain = ToManaged(Send(nsError, Sel("domain")));
+        var code = SendLong(nsError, Sel("code"));
+        return domain is null
+            ? message
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{domain} {code}: {message}");
+    }
 }

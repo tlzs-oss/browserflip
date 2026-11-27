@@ -231,7 +231,13 @@ public partial class App : Application
                     await File.WriteAllTextAsync(Path.Combine(directory, "capability-report.txt"), table)
                         .ConfigureAwait(true);
                     Console.WriteLine(table);
-                    exitCode = report.Checks.Any(c => c.Result == CheckResult.FAIL) ? 2 : 0;
+                    // 0 all good, 2 something failed, 3 something is still pending. 3 is
+                    // deliberately not folded into either of the others: a run that ends with
+                    // an unanswered OS consent alert has neither succeeded nor failed, and the
+                    // caller must be able to tell those apart.
+                    exitCode = report.Checks.Any(c => c.Result == CheckResult.FAIL) ? 2
+                        : report.Checks.Any(c => c.Result == CheckResult.PENDING) ? 3
+                        : 0;
                 }
 #pragma warning disable CA1031 // The self-test must report rather than crash.
                 catch (Exception ex)
