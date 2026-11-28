@@ -2,7 +2,10 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- A second target on a Windows host lets the shared Avalonia UI compose the Windows
+         adapter. The shipping WPF product is untouched and keeps its own release pipeline. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">net10.0;net10.0-windows</TargetFrameworks>
     <RootNamespace>BrowserFlip.Prototype.Desktop</RootNamespace>
     <AssemblyName>BrowserFlipPrototype</AssemblyName>
     <!-- The prototype runs on macOS first; the same entry point also starts on Windows and Linux. -->
@@ -13,11 +16,17 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Wayland" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
     <ProjectReference Include="..\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\BrowserFlip.Platform.Linux\BrowserFlip.Platform.Linux.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\BrowserFlip.Platform.Windows\BrowserFlip.Platform.Windows.csproj" />
   </ItemGroup>
 
 </Project>

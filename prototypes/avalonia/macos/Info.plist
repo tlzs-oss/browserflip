@@ -16,6 +16,11 @@
   <string>APPL</string>
   <key>CFBundleExecutable</key>
   <string>BrowserFlipPrototype</string>
+  <!-- Contents/Resources/BrowserFlip.icns, built by macos/make-icns.sh from the repository's
+       own PNG icon assets. Without this key, and with an empty Contents/Resources, Finder and
+       the Dock drew the blank generic application page. -->
+  <key>CFBundleIconFile</key>
+  <string>BrowserFlip.icns</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
   <key>NSHighResolutionCapable</key>

@@ -8,6 +8,8 @@
   <Folder Name="/prototype/">
     <Project Path="src/BrowserFlip.UI/BrowserFlip.UI.csproj" />
     <Project Path="src/BrowserFlip.Platform.MacOS/BrowserFlip.Platform.MacOS.csproj" />
+    <Project Path="src/BrowserFlip.Platform.Windows/BrowserFlip.Platform.Windows.csproj" />
+    <Project Path="src/BrowserFlip.Platform.Linux/BrowserFlip.Platform.Linux.csproj" />
     <Project Path="src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">

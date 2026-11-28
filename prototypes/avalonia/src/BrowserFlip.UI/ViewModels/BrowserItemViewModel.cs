@@ -1,5 +1,6 @@
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Core.Detection;
+using BrowserFlip.UI.Localization;
 
 namespace BrowserFlip.UI.ViewModels;
 
@@ -35,6 +36,7 @@ public sealed class BrowserItemViewModel : ObservableObject
             {
                 Raise(nameof(IsDefault));
                 Raise(nameof(IsPartialDefault));
+                Raise(nameof(PartialBadgeLabel));
                 Raise(nameof(CanSetDefault));
             }
         }
@@ -58,4 +60,26 @@ public sealed class BrowserItemViewModel : ObservableObject
     }
 
     public bool CanSetDefault => IsAvailable && !IsDefault && !Busy;
+
+    // Localised text for the row. It lives here rather than on the parent because a DataTemplate
+    // binds against the item, and an ancestor binding for a plain label is needless indirection.
+    // The rows are rebuilt whenever the language changes, so these are read fresh each time.
+
+    /// <summary>Caption of the per-row action button.</summary>
+    public string SetDefaultLabel => Strings.Get("List_SetDefault");
+
+    /// <summary>Badge shown on the browser that is the default for both http and https.</summary>
+    public string DefaultBadgeLabel => Strings.Get("Badge_Default");
+
+    /// <summary>
+    /// Badge shown when a browser handles only one of http / https. It names the protocol it
+    /// does handle, which is both more useful than the word "partial" and needs no translation -
+    /// the product's resources have no badge-sized string for this case.
+    /// </summary>
+    public string PartialBadgeLabel => Role switch
+    {
+        BrowserDefaultRole.HttpOnly => "HTTP",
+        BrowserDefaultRole.HttpsOnly => "HTTPS",
+        _ => string.Empty,
+    };
 }

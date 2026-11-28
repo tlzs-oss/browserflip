@@ -7,6 +7,8 @@ using Avalonia.VisualTree;
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Prototype.Tests;
 using BrowserFlip.UI;
+using BrowserFlip.UI.Localization;
+using BrowserFlip.UI.Platform;
 using BrowserFlip.UI.ViewModels;
 using BrowserFlip.UI.Views;
 
@@ -36,8 +38,10 @@ public class UiTests
         var catalog = new FakeCatalog()
             .Add(Browsers.Mac("com.apple.Safari", "Safari"))
             .Add(Browsers.Mac("org.mozilla.firefox", "Firefox"));
-        var model = new MainViewModel(catalog, new FakeSwitcher(associations), new FakeIcons(),
-            new InMemorySettingsStore(), new DefaultBrowserService(associations));
+        var model = new MainViewModel(
+            catalog, _ => new FakeSwitcher(associations), new FakeIcons(),
+            new InMemorySettingsStore(), new DefaultBrowserService(associations),
+            new FullCapabilities("test platform", osConfirms: true));
         model.Initialize();
         return model;
     }
@@ -75,7 +79,9 @@ public class UiTests
         var window = new MainWindow { DataContext = Model() };
         window.Show();
         var box = window.FindControl<ComboBox>("LanguageBox")!;
-        Assert.Equal<string[]>(["en", "ja", "zh-CN"], [.. box.ItemsSource!.Cast<string>()]);
+        // "Follow the OS" first, then the three product languages.
+        var codes = box.ItemsSource!.Cast<LanguageChoice>().Select(c => c.Code).ToArray();
+        Assert.Equal<string?[]>([null, "en", "ja", "zh-CN"], codes);
     }
 
     [AvaloniaFact]
@@ -127,6 +133,122 @@ public class UiTests
         var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
         Assert.True(frame.PixelSize.Width > 0 && frame.PixelSize.Height > 0);
+    }
+
+    /// <summary>A platform that forbids always-on-top and client-side window positioning.</summary>
+    private sealed class RestrictedCapabilities : PlatformCapabilitiesBase
+    {
+        public override string Description => "Linux (GNOME, Wayland)";
+
+        public override Capability AlwaysOnTop =>
+            Capability.Unsupported("Wayland has no always-on-top request for ordinary applications.");
+
+        public override Capability WindowPositioning =>
+            Capability.Unsupported("Wayland does not let a client place its own windows.");
+
+        public override Capability TrayIcon => Capability.Unavailable("GNOME needs the AppIndicator extension.");
+
+        public override Capability DefaultBrowserSwitch => Capability.Available;
+
+        public override bool OsConfirmsDefaultBrowserChange => false;
+    }
+
+    [AvaloniaFact]
+    public void The_settings_window_builds_and_lists_the_platform_capabilities()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new FullCapabilities("macOS 15", osConfirms: true));
+        var window = new SettingsWindow { DataContext = settings };
+        window.Show();
+
+        Assert.True(window.Bounds.Width > 0);
+        Assert.Equal(4, settings.Capabilities.Count);
+        // The state column is localised now, so the expectation is read from the resources
+        // rather than pinned to the English word; LocalizationTests proves the three languages
+        // really differ.
+        Assert.All(settings.Capabilities, c => Assert.Equal(Strings.Get("Capability_Available"), c.StateText));
+    }
+
+    [AvaloniaFact]
+    public void A_restricted_platform_disables_the_options_it_cannot_honour_and_says_why()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new RestrictedCapabilities());
+
+        Assert.False(settings.CanUseTopmost);
+        Assert.False(settings.CanUseToolbar);
+        Assert.Contains("Wayland", settings.TopmostReason, StringComparison.Ordinal);
+        Assert.Contains("Wayland", settings.ToolbarReason, StringComparison.Ordinal);
+
+        // Setting them must not silently pretend to work.
+        settings.Topmost = true;
+        settings.ShowFloatingToolbar = true;
+        Assert.False(settings.Topmost);
+        Assert.False(settings.ShowFloatingToolbar);
+        Assert.False(model.Topmost);
+        Assert.False(model.ShowFloatingToolbar);
+
+        var unsupported = settings.Capabilities
+            .Where(c => c.StateText != Strings.Get("Capability_Available")).ToList();
+        Assert.Equal(3, unsupported.Count);
+        Assert.All(unsupported, c => Assert.False(string.IsNullOrWhiteSpace(c.Reason)));
+    }
+
+    [AvaloniaFact]
+    public void The_backend_is_read_off_a_real_window_rather_than_the_environment()
+    {
+        // The mechanism the Linux capability model depends on: a live window knows which
+        // Avalonia backend created it, and says so through the public TopLevel.PlatformImpl.
+        // Here that is the headless backend, which is the honest answer for this host.
+        var window = new MainWindow { DataContext = Model() };
+
+        var assembly = WindowingBackend.ImplementationAssemblyName(window);
+
+        Assert.False(string.IsNullOrEmpty(assembly));
+        Assert.StartsWith("Avalonia.", assembly, StringComparison.Ordinal);
+        // The implementation exists before the window is shown, which is why the composition
+        // root can build the capability model straight after constructing the window.
+        Assert.False(window.IsVisible);
+        Assert.Null(WindowingBackend.ImplementationAssemblyName(null));
+    }
+
+    [AvaloniaFact]
+    public void The_real_linux_capability_model_reaches_the_settings_screen_for_both_x11_cases()
+    {
+        // End to end over the production LinuxCapabilities rather than a stand-in: an X11
+        // client under XWayland keeps both options, a native Wayland client has them disabled
+        // with the protocol reason attached.
+        var underXWayland = new SettingsViewModel(Model(), LinuxCapabilityFixtures.XWayland());
+        Assert.True(underXWayland.CanUseTopmost);
+        Assert.True(underXWayland.CanUseToolbar);
+
+        var model = Model();
+        var underWayland = new SettingsViewModel(model, LinuxCapabilityFixtures.NativeWayland());
+        Assert.False(underWayland.CanUseTopmost);
+        Assert.False(underWayland.CanUseToolbar);
+        Assert.Contains("xdg-shell", underWayland.TopmostReason, StringComparison.Ordinal);
+        Assert.Contains("coordinates", underWayland.ToolbarReason, StringComparison.Ordinal);
+
+        // ... and must not be silently applied at runtime either.
+        underWayland.Topmost = true;
+        underWayland.ShowFloatingToolbar = true;
+        Assert.False(underWayland.Topmost);
+        Assert.False(underWayland.ShowFloatingToolbar);
+        Assert.False(model.Topmost);
+        Assert.False(model.ShowFloatingToolbar);
+    }
+
+    [AvaloniaFact]
+    public void Settings_changes_flow_through_to_the_main_view_model()
+    {
+        var model = Model();
+        var settings = new SettingsViewModel(model, new FullCapabilities("macOS 15", osConfirms: true));
+
+        settings.Topmost = true;
+        settings.SelectedLanguage = new LanguageChoice("ja");
+
+        Assert.True(model.Topmost);
+        Assert.Equal("ja", model.Language);
     }
 
     [AvaloniaFact]

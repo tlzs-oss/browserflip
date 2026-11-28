@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 简体中文。键集必须与 PrototypeStrings.resx 完全一致(由一致性测试验证)。 -->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Mech_OpensSystemSettings" xml:space="preserve">
+    <value>将打开 Windows 设置,请在那里确认。</value>
+  </data>
+  <data name="Mech_SystemConsentPrompt" xml:space="preserve">
+    <value>macOS 会显示自己的确认对话框,请在那里确认。</value>
+  </data>
+  <data name="Mech_CommandLineTool" xml:space="preserve">
+    <value>由 xdg-settings 应用更改。</value>
+  </data>
+  <data name="Mech_Unsupported" xml:space="preserve">
+    <value>此系统不支持更改默认浏览器。</value>
+  </data>
+
+  <data name="Status_AwaitingConsent" xml:space="preserve">
+    <value>正在等待你回应系统对话框。确认后,{0} 即成为默认浏览器。</value>
+  </data>
+  <data name="Status_StillPending" xml:space="preserve">
+    <value>系统对话框尚未得到回应,因此没有任何更改。BrowserFlip 仍在监视:确认该对话框后,{0} 就会成为默认浏览器。</value>
+  </data>
+  <data name="Status_PendingUnknown" xml:space="preserve">
+    <value>BrowserFlip 已停止监视。系统对话框可能仍然打开;现在确认,{0} 依旧会成为默认浏览器。目前默认浏览器未发生变化。</value>
+  </data>
+  <data name="Status_Declined" xml:space="preserve">
+    <value>更改被拒绝,默认浏览器没有变化。</value>
+  </data>
+  <data name="Status_RequestFailed" xml:space="preserve">
+    <value>请求失败:{0}</value>
+  </data>
+  <data name="Status_RequestFailedUnknown" xml:space="preserve">
+    <value>请求失败,系统未给出原因。</value>
+  </data>
+  <data name="Status_SecondProtocol" xml:space="preserve">
+    <value>{0} 目前只处理 http / https 其中之一。请确认第二个系统对话框以完成另一个。</value>
+  </data>
+  <data name="Detail_Technical" xml:space="preserve">
+    <value>{0}(技术细节:{1})</value>
+  </data>
+
+  <data name="Confirm_SetDefaultImmediate" xml:space="preserve">
+    <value>要将 {0} 设为默认浏览器吗?
+
+此系统会立即应用该更改,不会再次询问,BrowserFlip 也无法撤销。</value>
+  </data>
+
+  <data name="Settings_Capabilities" xml:space="preserve">
+    <value>平台能力</value>
+  </data>
+  <data name="Settings_CapabilitiesHint" xml:space="preserve">
+    <value>此操作系统和会话实际允许的内容。上面被禁用的选项是因为这些限制,而不是因为执行失败。</value>
+  </data>
+  <data name="Capability_Available" xml:space="preserve">
+    <value>可用</value>
+  </data>
+  <data name="Capability_Unsupported" xml:space="preserve">
+    <value>不支持</value>
+  </data>
+  <data name="Capability_Unavailable" xml:space="preserve">
+    <value>不可用</value>
+  </data>
+  <data name="Capability_AlwaysOnTop" xml:space="preserve">
+    <value>总在最前</value>
+  </data>
+  <data name="Capability_WindowPositioning" xml:space="preserve">
+    <value>窗口定位</value>
+  </data>
+  <data name="Capability_TrayIcon" xml:space="preserve">
+    <value>托盘 / 菜单栏图标</value>
+  </data>
+  <data name="Capability_DefaultBrowserSwitch" xml:space="preserve">
+    <value>切换默认浏览器</value>
+  </data>
+  <data name="Menu_Services" xml:space="preserve">
+    <value>服务</value>
+  </data>
+  <data name="Menu_HideApp" xml:space="preserve">
+    <value>隐藏 {0}</value>
+  </data>
+  <data name="Menu_HideOthers" xml:space="preserve">
+    <value>隐藏其他</value>
+  </data>
+  <data name="Menu_ShowAll" xml:space="preserve">
+    <value>全部显示</value>
+  </data>
+  <data name="Menu_QuitApp" xml:space="preserve">
+    <value>退出 {0}</value>
+  </data>
+</root>

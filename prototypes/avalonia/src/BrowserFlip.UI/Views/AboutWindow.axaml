@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:BrowserFlip.UI.ViewModels"
+        x:Class="BrowserFlip.UI.Views.AboutWindow"
+        x:DataType="vm:AboutViewModel"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="{Binding Title}">
+
+  <!-- The same content as the WPF product's About box, from the same resources. The project
+       URL is shown as selectable text rather than as a link button: opening it would launch a
+       browser, and nothing in this prototype may change or exercise the user's browser without
+       them asking for it. -->
+  <StackPanel Margin="24" Spacing="10">
+
+    <StackPanel Orientation="Horizontal" Spacing="14">
+      <Image Source="avares://BrowserFlip.UI/Assets/trayicon.png" Width="48" Height="48"
+             VerticalAlignment="Center" />
+      <StackPanel VerticalAlignment="Center" Spacing="2">
+        <TextBlock Text="{Binding ProductName}" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock x:Name="VersionText" Text="{Binding VersionLine}" FontSize="12" Opacity="0.6" />
+      </StackPanel>
+    </StackPanel>
+
+    <TextBlock Text="{Binding Tagline}" TextWrapping="Wrap" Margin="0,4,0,0" />
+    <TextBlock Text="{Binding Copyright}" FontSize="12" TextWrapping="Wrap" />
+    <TextBlock Text="{Binding License}" FontSize="12" TextWrapping="Wrap" />
+    <TextBlock Text="{Binding ThirdParty}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+
+    <StackPanel Spacing="2" Margin="0,4,0,0">
+      <TextBlock Text="{Binding WebsiteLabel}" FontSize="11" Opacity="0.6" />
+      <SelectableTextBlock Text="{Binding ProjectUrl}" FontSize="12" />
+    </StackPanel>
+
+    <Button x:Name="CloseButton" Content="{Binding CloseLabel}" HorizontalAlignment="Right"
+            Margin="0,8,0,0" IsDefault="True" />
+  </StackPanel>
+</Window>

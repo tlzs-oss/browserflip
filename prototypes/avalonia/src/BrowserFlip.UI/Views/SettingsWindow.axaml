@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:BrowserFlip.UI.ViewModels"
+        x:Class="BrowserFlip.UI.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Width="520" Height="700" MinHeight="420" CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        Title="{Binding Title}">
+
+  <DockPanel Margin="20">
+
+    <StackPanel DockPanel.Dock="Top" Spacing="4">
+      <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding PlatformDescription}" FontSize="12" Opacity="0.6" />
+      <Separator Margin="0,10" />
+    </StackPanel>
+
+    <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,12,0,0">
+      <Separator />
+      <TextBlock Text="{Binding SettingsFileLabel}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding SettingsLocation}" FontSize="11" Opacity="0.5" TextWrapping="Wrap" />
+      <Button x:Name="CloseButton" Content="{Binding CloseLabel}" HorizontalAlignment="Right" />
+    </StackPanel>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="16">
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding GeneralLabel}" FontWeight="SemiBold" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="{Binding LanguageLabel}" VerticalAlignment="Center" Width="120" />
+            <!-- DisplayMemberBinding already binds each entry's translated label, so the
+                 entry has to raise PropertyChanged for it: a binding is only re-read when the
+                 source says so, and "follow the system" stayed in whatever language it was
+                 first drawn in. See LanguageChoice.NotifyLanguageChanged. -->
+            <ComboBox x:Name="LanguageBox" Width="180"
+                      ItemsSource="{Binding LanguageChoices}" SelectedItem="{Binding SelectedLanguage}"
+                      DisplayMemberBinding="{Binding Display}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding AppearanceLabel}" FontWeight="SemiBold" />
+          <!-- Each toggle is disabled, with the reason shown, when the platform cannot do it. -->
+          <StackPanel Spacing="2">
+            <CheckBox Content="{Binding TopmostLabel}" IsChecked="{Binding Topmost}"
+                      IsEnabled="{Binding CanUseTopmost}" />
+            <TextBlock Text="{Binding TopmostReason}" FontSize="11" Opacity="0.6" Margin="26,0,0,0"
+                       TextWrapping="Wrap" IsVisible="{Binding !CanUseTopmost}" />
+          </StackPanel>
+          <StackPanel Spacing="2">
+            <CheckBox Content="{Binding ToolbarLabel}" IsChecked="{Binding ShowFloatingToolbar}"
+                      IsEnabled="{Binding CanUseToolbar}" />
+            <TextBlock Text="{Binding ToolbarReason}" FontSize="11" Opacity="0.6" Margin="26,0,0,0"
+                       TextWrapping="Wrap" IsVisible="{Binding !CanUseToolbar}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Binding CapabilitiesLabel}" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding CapabilitiesHint}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Capabilities}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:CapabilityRow">
+                <Grid ColumnDefinitions="180,90,*" Margin="0,3">
+                  <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+                  <Border Grid.Column="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
+                          HorizontalAlignment="Left" Background="{Binding StateBrush}">
+                    <TextBlock Text="{Binding StateText}" FontSize="10" Foreground="White" />
+                  </Border>
+                  <TextBlock Grid.Column="2" Text="{Binding Reason}" FontSize="11" Opacity="0.6"
+                             TextWrapping="Wrap" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+  </DockPanel>
+</Window>

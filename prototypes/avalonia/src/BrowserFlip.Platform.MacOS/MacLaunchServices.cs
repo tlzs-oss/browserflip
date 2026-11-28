@@ -10,12 +10,26 @@ namespace BrowserFlip.Platform.MacOS;
 internal sealed record MacApp(string BundlePath, string? BundleIdentifier, string DisplayName);
 
 /// <summary>
+/// Reads the live URL-scheme associations. Separated from <see cref="MacLaunchServices"/> so
+/// the switcher's own logic - how many consent prompts to raise, and what the outcome is - can
+/// be tested without any test being able to raise a real OS consent alert.
+/// </summary>
+internal interface IMacAssociationReader
+{
+    /// <summary>The application currently handling <paramref name="scheme"/>, or <c>null</c>.</summary>
+    MacApp? GetHandlerForScheme(string scheme);
+
+    /// <summary>The application currently handling <c>https</c>, or <c>null</c> when none is set.</summary>
+    MacApp? GetDefaultWebBrowser();
+}
+
+/// <summary>
 /// Thin wrapper over the public LaunchServices surface of <c>NSWorkspace</c>.
 /// Read operations only; changing the default browser lives in
 /// <see cref="MacDefaultBrowserSwitcher"/> because it shows an OS consent prompt.
 /// </summary>
 [SupportedOSPlatform("macos")]
-internal sealed class MacLaunchServices
+internal sealed class MacLaunchServices : IMacAssociationReader
 {
     private const string ProbeUrl = "https://example.invalid/";
 
@@ -48,7 +62,7 @@ internal sealed class MacLaunchServices
     }
 
     /// <summary>The application currently handling <c>https</c>, or <c>null</c> when none is set.</summary>
-    internal MacApp? GetDefaultWebBrowser()
+    public MacApp? GetDefaultWebBrowser()
     {
         if (!IsAvailable)
         {
@@ -61,7 +75,7 @@ internal sealed class MacLaunchServices
     }
 
     /// <summary>The application handling <paramref name="scheme"/> (<c>http</c> / <c>https</c>).</summary>
-    internal MacApp? GetHandlerForScheme(string scheme)
+    public MacApp? GetHandlerForScheme(string scheme)
     {
         if (!IsAvailable || string.IsNullOrWhiteSpace(scheme))
         {

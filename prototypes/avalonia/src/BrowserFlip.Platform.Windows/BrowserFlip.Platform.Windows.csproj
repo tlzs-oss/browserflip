@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net10.0-windows, unlike the macOS adapter's portable net10.0: this assembly consumes
+         Core's Windows-only types (WindowsRegistryReader, ShellUriLauncher, ...), which Core
+         compiles into its net10.0-windows target only. The shared UI stays portable; only this
+         adapter is pinned to the Windows TFM, and only Windows hosts load it. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>BrowserFlip.Platform.Windows</RootNamespace>
+    <!-- No UseWPF/UseWindowsForms: the Avalonia prototype must not pull in a second UI stack,
+         so icons are decoded with Win32 + a self-contained PNG encoder instead of WPF imaging. -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
+    <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
+  </ItemGroup>
+
+</Project>

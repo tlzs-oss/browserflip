@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hardened Runtime entitlements, PREPARED but NOT YET USED.
+
+  docs/macos-signing.md referenced this file before it existed. It exists now so the documented
+  release procedure can be followed as written, but nothing in this repository signs with it:
+  the Owner has deferred joining the Apple Developer Program, so no Developer ID certificate
+  exists, bundle.sh only applies an ad-hoc signature (`codesign --sign -`, which has no
+  Hardened Runtime and no entitlements), and make-dmg.sh does not sign at all.
+
+  Both keys below are the standard requirement for a .NET application under the Hardened
+  Runtime, because CoreCLR JIT-compiles into memory it then executes. They are a prediction
+  from .NET's general requirements and have NOT been verified on a signed build - that cannot
+  be done without a certificate. When one is obtained, start from this pair, then remove each
+  key in turn and keep only what the application actually needs.
+
+  Deliberately absent, and to stay absent unless a measurement proves otherwise:
+    com.apple.security.cs.disable-library-validation
+    com.apple.security.cs.allow-dyld-environment-variables
+  BrowserFlip loads no third-party plug-ins, so weakening library validation would buy nothing.
+
+  No App Sandbox entitlements either: changing the default browser goes through
+  NSWorkspace.setDefaultApplication(at:toOpenURLsWithScheme:), which the system gates with its
+  own consent alert rather than with an entitlement. Nothing here requests a private
+  capability, and nothing here can suppress that alert.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>

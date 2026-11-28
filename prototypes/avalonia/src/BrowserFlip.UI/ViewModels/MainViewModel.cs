@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.Core.Detection;
@@ -16,7 +17,18 @@ namespace BrowserFlip.UI.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private readonly IBrowserCatalog _catalog;
-    private readonly IDefaultBrowserSwitcher _switcher;
+
+    /// <summary>
+    /// Builds a switcher, given whether the user has consented. It is a factory rather than a
+    /// single instance because a platform that applies the change with no OS prompt (Linux)
+    /// must not be able to hold a pre-consented switcher: consent is stated at the moment it is
+    /// obtained, and the type refuses to be constructed without that statement.
+    /// </summary>
+    private readonly Func<bool, IDefaultBrowserSwitcher> _switcherFactory;
+
+    private readonly IPlatformCapabilities _capabilities;
+    private readonly IUserConfirmation _confirmation;
+    private IDefaultBrowserSwitcher? _probe;
     private readonly IAppIconProvider _icons;
     private readonly ISettingsStore _store;
     private readonly DefaultBrowserService _defaults;
@@ -26,19 +38,30 @@ public sealed class MainViewModel : ObservableObject
     private string _statusMessage = string.Empty;
     private bool _busy;
 
+    /// <summary>Incremented per requested change, so a stale background watch stays silent.</summary>
+    private int _switchGeneration;
+
     public MainViewModel(
         IBrowserCatalog catalog,
-        IDefaultBrowserSwitcher switcher,
+        Func<bool, IDefaultBrowserSwitcher> switcherFactory,
         IAppIconProvider icons,
         ISettingsStore store,
-        DefaultBrowserService defaults)
+        DefaultBrowserService defaults,
+        IPlatformCapabilities capabilities,
+        IUserConfirmation? confirmation = null)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-        _switcher = switcher ?? throw new ArgumentNullException(nameof(switcher));
+        _switcherFactory = switcherFactory ?? throw new ArgumentNullException(nameof(switcherFactory));
         _icons = icons ?? throw new ArgumentNullException(nameof(icons));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _defaults = defaults ?? throw new ArgumentNullException(nameof(defaults));
+        _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
+        // Fail closed: with no prompt attached, a platform that needs one can never proceed.
+        _confirmation = confirmation ?? NeverConfirms.Instance;
     }
+
+    /// <summary>An unconsented switcher, safe to hold, used only to read platform metadata.</summary>
+    private IDefaultBrowserSwitcher Probe => _probe ??= _switcherFactory(false);
 
     public ObservableCollection<BrowserItemViewModel> Browsers { get; } = [];
 
@@ -46,18 +69,70 @@ public sealed class MainViewModel : ObservableObject
 
     public string SettingsLocation => _store.Location;
 
-    public IReadOnlyList<string> Languages => Strings.SupportedLanguages;
+    /// <summary>
+    /// Language choices for the UI, with "follow the OS" first. The view binds to these rather
+    /// than to the raw codes, because the stored value for "follow the OS" is null and a null
+    /// SelectedItem shows an empty combo box with no way back to it.
+    /// </summary>
+    /// <remarks>
+    /// Owned by this view model rather than shared through a static, because the entries are
+    /// notified when the language changes and a process-wide instance would be notified by, and
+    /// on behalf of, every view model that ever existed.
+    /// </remarks>
+    public IReadOnlyList<LanguageChoice> LanguageChoices { get; } =
+    [
+        new LanguageChoice(null),
+        .. Strings.SupportedLanguages.Select(code => new LanguageChoice(code)),
+    ];
+
+    /// <summary>The currently selected choice, kept in step with <see cref="Language"/>.</summary>
+    public LanguageChoice SelectedLanguage
+    {
+        get => LanguageChoices.FirstOrDefault(c =>
+                   string.Equals(c.Code, Language, StringComparison.OrdinalIgnoreCase))
+               ?? LanguageChoices[0];
+        set => Language = value?.Code;
+    }
 
     /// <summary>How this platform applies a change, for honest UI wording.</summary>
-    public SwitchMechanism Mechanism => _switcher.Mechanism;
+    public SwitchMechanism Mechanism => Probe.Mechanism;
 
-    public string MechanismDescription => _switcher.Mechanism switch
+    /// <summary>True when BrowserFlip itself must ask, because the OS will not.</summary>
+    public bool RequiresOwnConfirmation => !_capabilities.OsConfirmsDefaultBrowserChange;
+
+    /// <summary>
+    /// Where consent for a change comes from, read off the object that is actually asked rather
+    /// than re-derived, so a diagnostics report cannot claim a dialog that was never shown.
+    /// </summary>
+    public string ConsentSource => RequiresOwnConfirmation
+        ? _confirmation.ConsentSource
+        : "the operating system's own prompt";
+
+    // The whole point of the capability model is that the UI disables what the platform cannot
+    // do, rather than offering a control that silently does nothing. These drive IsEnabled.
+
+    /// <summary>Whether "always on top" can actually work here (Wayland: no).</summary>
+    public bool CanUseTopmost => _capabilities.AlwaysOnTop.IsAvailable;
+
+    /// <summary>Why not, for the tooltip. Empty when it is available.</summary>
+    public string TopmostUnavailableReason => _capabilities.AlwaysOnTop.Reason ?? string.Empty;
+
+    /// <summary>The floating toolbar needs client-side positioning (Wayland: not allowed).</summary>
+    public bool CanUseFloatingToolbar => _capabilities.WindowPositioning.IsAvailable;
+
+    public string ToolbarUnavailableReason => _capabilities.WindowPositioning.Reason ?? string.Empty;
+
+    /// <summary>
+    /// How this platform applies the change, in the UI language. These were English literals,
+    /// which put an English sentence under the heading of an otherwise Japanese window.
+    /// </summary>
+    public string MechanismDescription => Strings.Get(Probe.Mechanism switch
     {
-        SwitchMechanism.OpensSystemSettings => "Windows Settings opens; you confirm there.",
-        SwitchMechanism.SystemConsentPrompt => "macOS shows its own confirmation prompt; you confirm there.",
-        SwitchMechanism.CommandLineTool => "xdg-settings applies the change.",
-        _ => "Changing the default browser is not supported on this system.",
-    };
+        SwitchMechanism.OpensSystemSettings => "Mech_OpensSystemSettings",
+        SwitchMechanism.SystemConsentPrompt => "Mech_SystemConsentPrompt",
+        SwitchMechanism.CommandLineTool => "Mech_CommandLineTool",
+        _ => "Mech_Unsupported",
+    });
 
     public int LaunchCount => _settings.LaunchCount;
 
@@ -87,16 +162,28 @@ public sealed class MainViewModel : ObservableObject
             Strings.UseLanguage(value);
             Persist();
             Raise();
-            RaiseLocalizedText();
+            Raise(nameof(SelectedLanguage));
+            // The picker's own entries are translated too - "follow the system" most obviously -
+            // and nothing else would tell the view to read their labels again.
+            foreach (var choice in LanguageChoices)
+            {
+                choice.NotifyLanguageChanged();
+            }
+
+            // Rebuild the rows: their labels are read at construction, so a language change that
+            // only raised the parent's properties would leave every button in the old language.
+            Refresh();
         }
     }
 
     public bool Topmost
     {
-        get => _settings.Topmost;
+        // Report false where the platform cannot honour it, so the checkbox does not sit ticked
+        // over a window that is not actually on top.
+        get => _settings.Topmost && CanUseTopmost;
         set
         {
-            if (_settings.Topmost == value)
+            if (!CanUseTopmost || _settings.Topmost == value)
             {
                 return;
             }
@@ -109,10 +196,10 @@ public sealed class MainViewModel : ObservableObject
 
     public bool ShowFloatingToolbar
     {
-        get => _settings.ShowFloatingToolbar;
+        get => _settings.ShowFloatingToolbar && CanUseFloatingToolbar;
         set
         {
-            if (_settings.ShowFloatingToolbar == value)
+            if (!CanUseFloatingToolbar || _settings.ShowFloatingToolbar == value)
             {
                 return;
             }
@@ -144,6 +231,9 @@ public sealed class MainViewModel : ObservableObject
     public string LabelEmpty => Strings.Get("Empty_NoBrowsers");
 
     public string LabelSettingsFile => Strings.Get("Settings_SettingsFile");
+
+    /// <summary>The main window's own way into the settings window.</summary>
+    public string LabelSettings => Strings.Get("Menu_Settings");
 
     /// <summary>The headline line, built from the Core status enumeration.</summary>
     public string CurrentDefaultText => _state.Status switch
@@ -209,17 +299,52 @@ public sealed class MainViewModel : ObservableObject
         var before = _state;
         var tracker = new ChangeTracker(item.Browser, before);
 
+        // Where the OS does not ask, BrowserFlip must. Asking BEFORE anything is constructed or
+        // invoked means a declined prompt cannot leave a half-applied change behind.
+        var consented = true;
+        if (RequiresOwnConfirmation)
+        {
+            consented = await _confirmation.ConfirmAsync(
+                Strings.Get("AppTitle"),
+                Strings.Format("Confirm_SetDefaultImmediate", item.DisplayName),
+                cancellationToken).ConfigureAwait(true);
+        }
+
+        if (!consented)
+        {
+            StatusMessage = Strings.Get("Status_NoChange");
+            return;
+        }
+
         item.Busy = true;
         Busy = true;
-        StatusMessage = MechanismDescription;
+        // A watch left over from an earlier request must not speak for this one: it would
+        // overwrite the newer message with an older browser's name minutes later.
+        var generation = ++_switchGeneration;
+        // While the request is outstanding the honest line is that the OS is asking, not that
+        // anything has happened yet.
+        StatusMessage = Probe.Mechanism == SwitchMechanism.SystemConsentPrompt
+            ? Strings.Format("Status_AwaitingConsent", item.DisplayName)
+            : MechanismDescription;
         try
         {
-            var result = await _switcher.RequestSwitchAsync(item.Browser, cancellationToken).ConfigureAwait(true);
+            // The switcher is built only now, with consent stated as a fact.
+            var switcher = _switcherFactory(true);
+            var result = await switcher.RequestSwitchAsync(item.Browser, cancellationToken).ConfigureAwait(true);
+            LastSwitchResult = result;
             Refresh();
 
             // The Core change tracker decides what actually happened, on every platform.
             var outcome = tracker.Evaluate(_state, userReturned: true);
             StatusMessage = Describe(result, outcome, item);
+
+            // A request the OS has not finished with is not over. Keep watching in the
+            // background so the window stops showing "still pending" the moment the user
+            // answers the system dialog - measured at 44 s and at 474 s on this Mac, long
+            // after any wait a button press may block on.
+            PendingChange = result.StillPending && outcome is ChangeOutcome.NoChange or ChangeOutcome.Pending
+                ? WatchPendingChangeAsync(item, generation, cancellationToken)
+                : Task.CompletedTask;
         }
         finally
         {
@@ -228,39 +353,136 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The background watch left running by the last still-pending change, so an unattended
+    /// run (the self-test) can wait for the real answer instead of grading a timeout.
+    /// Completed when nothing is pending.
+    /// </summary>
+    public Task PendingChange { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// What the switcher reported for the last requested change, including what the OS
+    /// answered when the live association was read back. Diagnostics quote this rather than
+    /// re-deriving a verdict of their own.
+    /// </summary>
+    public SwitchResult? LastSwitchResult { get; private set; }
+
+    /// <summary>How long to keep watching an unanswered OS consent dialog.</summary>
+    internal TimeSpan PendingWatchBudget { get; set; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>How often the live association is re-read while watching.</summary>
+    internal TimeSpan PendingWatchInterval { get; set; } = TimeSpan.FromSeconds(2);
+
+    private async Task WatchPendingChangeAsync(
+        BrowserItemViewModel item, int generation, CancellationToken cancellationToken)
+    {
+        var clock = Stopwatch.StartNew();
+        try
+        {
+            while (clock.Elapsed < PendingWatchBudget && generation == _switchGeneration)
+            {
+                await Task.Delay(PendingWatchInterval, cancellationToken).ConfigureAwait(true);
+
+                // Only the two association queries, not a full catalogue re-scan with icons:
+                // this runs every couple of seconds for up to ten minutes.
+                if (_defaults.GetState([.. Browsers.Select(b => b.Browser)]).RoleOf(item.Browser)
+                    != BrowserDefaultRole.Both)
+                {
+                    continue;
+                }
+
+                if (generation != _switchGeneration)
+                {
+                    return;
+                }
+
+                Refresh();
+                StatusMessage = Strings.Format("Status_Applied", item.DisplayName);
+                return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (generation != _switchGeneration)
+        {
+            return;
+        }
+
+        // Still nothing. The dialog may well still be open - it outlives this process - so the
+        // only true statement is that BrowserFlip has stopped looking, not that it failed.
+        StatusMessage = Strings.Format("Status_PendingUnknown", item.DisplayName);
+    }
+
+    /// <summary>
+    /// Turns an outcome into the sentence shown to the user, in the UI language.
+    /// <para>
+    /// Two rules hold everywhere here. A platform's raw <see cref="SwitchResult.Error"/> is
+    /// never the sentence - it is machine text in whatever language the OS produced it, so it
+    /// is attached as a labelled technical detail. And a request the OS has not finished with
+    /// is never worded as a failure or as "not changed": those are different facts.
+    /// </para>
+    /// </summary>
     private string Describe(SwitchResult result, ChangeOutcome outcome, BrowserItemViewModel item)
     {
-        if (result.Outcome == SwitchOutcome.Unsupported)
+        switch (result.Outcome)
         {
-            return result.Error ?? MechanismDescription;
+            case SwitchOutcome.Unsupported:
+                return WithDetail(Strings.Get("Mech_Unsupported"), result.Error);
+            case SwitchOutcome.BrowserUnavailable:
+                return Strings.Format("Error_BrowserMissing", item.DisplayName);
+            case SwitchOutcome.Failed:
+                return string.IsNullOrWhiteSpace(result.Error)
+                    ? Strings.Get("Status_RequestFailedUnknown")
+                    : Strings.Format("Status_RequestFailed", result.Error);
+            case SwitchOutcome.Declined:
+                return WithDetail(Strings.Get("Status_Declined"), result.Error);
+            default:
+                break;
         }
 
-        if (result.Outcome == SwitchOutcome.BrowserUnavailable)
+        // Everything below is decided by what the OS actually holds now, read back by Refresh()
+        // and evaluated by Core's ChangeTracker.
+        if (outcome == ChangeOutcome.AppliedToTarget)
         {
-            return string.Format(CultureInfo.CurrentCulture, Strings.Get("Error_BrowserMissing"), item.DisplayName);
+            return Strings.Format("Status_Applied", item.DisplayName);
         }
 
-        if (result.Outcome == SwitchOutcome.Failed)
+        if (outcome == ChangeOutcome.PartiallyApplied)
         {
-            return result.Error ?? "The request failed.";
+            return result.StillPending
+                ? Strings.Format("Status_SecondProtocol", item.DisplayName)
+                : Strings.Format("Status_Partial", item.DisplayName);
         }
 
-        // The OS accepted the request but had not applied it when we stopped polling: the prompt
-        // may still be open. Saying "not changed" here would be wrong.
-        if (result.Outcome == SwitchOutcome.Requested && outcome is ChangeOutcome.NoChange or ChangeOutcome.Pending)
+        if (result.Outcome == SwitchOutcome.Applied)
         {
-            return result.Error ?? Strings.Get("Guide_AppPage");
+            // The switcher read the live association back and it IS the target. Core saw no
+            // delta only because it already was the default before the request.
+            return Strings.Format("Status_Applied", item.DisplayName);
         }
 
-        return outcome switch
+        if (result.StillPending)
         {
-            ChangeOutcome.AppliedToTarget => string.Format(CultureInfo.CurrentCulture, Strings.Get("Status_Applied"), item.DisplayName),
-            ChangeOutcome.PartiallyApplied => string.Format(CultureInfo.CurrentCulture, Strings.Get("Status_Partial"), item.DisplayName),
-            ChangeOutcome.ChangedToOther => string.Format(
-                CultureInfo.CurrentCulture, Strings.Get("Status_ChangedOther"), _state.HttpsBrowser?.DisplayName ?? "?"),
-            _ => Strings.Get("Status_NoChange"),
-        };
+            return result.Outcome switch
+            {
+                SwitchOutcome.AwaitingConsent => Strings.Format("Status_AwaitingConsent", item.DisplayName),
+                SwitchOutcome.TimedOutPending => Strings.Format("Status_StillPending", item.DisplayName),
+                // Windows: the user was handed off to the Settings app and has not come back.
+                _ => Strings.Format("Guide_AppPage", item.DisplayName),
+            };
+        }
+
+        return outcome == ChangeOutcome.ChangedToOther
+            ? Strings.Format("Status_ChangedOther", _state.HttpsBrowser?.DisplayName ?? "?")
+            : Strings.Get("Status_NoChange");
     }
+
+    /// <summary>Appends platform text as an explicitly labelled technical detail, never as the message.</summary>
+    private static string WithDetail(string message, string? detail)
+        => string.IsNullOrWhiteSpace(detail) ? message : Strings.Format("Detail_Technical", message, detail);
 
     /// <summary>Stores the toolbar position (called when the user drags it).</summary>
     public void SaveToolbarPosition(double x, double y)
@@ -288,5 +510,6 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(LabelBadgeDefault));
         Raise(nameof(LabelEmpty));
         Raise(nameof(LabelSettingsFile));
+        Raise(nameof(LabelSettings));
     }
 }

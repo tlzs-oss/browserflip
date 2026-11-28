@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace BrowserFlip.UI.Diagnostics;
 
-/// <summary>Outcome of one capability check, using the round's four-way vocabulary.</summary>
+/// <summary>Outcome of one capability check, using the round's vocabulary.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<CheckResult>))]
 public enum CheckResult
 {
@@ -18,6 +18,15 @@ public enum CheckResult
 
     /// <summary>Not available on this OS or OS version.</summary>
     UNSUPPORTED,
+
+    /// <summary>
+    /// Started, not finished, and the outcome is genuinely unknown: the OS has not answered
+    /// yet. Distinct from FAIL on purpose. A macOS consent alert belongs to
+    /// <c>CoreServicesUIAgent</c>, stays open until the user answers it, outlives this process
+    /// and the change lands afterwards - measured at 44 s and 474 s on this Mac. Grading that
+    /// FAIL printed the opposite of what the system then did.
+    /// </summary>
+    PENDING,
 }
 
 /// <summary>One line of the self-test report.</summary>
@@ -50,6 +59,18 @@ public sealed class CapabilityReport
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
+    /// <summary>
+    /// The process exit code this report implies: 0 all good, 2 something failed, 3 something is
+    /// still pending. 3 is deliberately not folded into either of the others - a run that ends
+    /// with an unanswered OS consent alert has neither succeeded nor failed, and the caller must
+    /// be able to tell those apart. A failure outranks a pending check, because something is
+    /// definitely wrong; the report itself says what, which is why this rule lives beside the
+    /// checks instead of being restated by each caller.
+    /// </summary>
+    public int ExitCode => Checks.Exists(c => c.Result == CheckResult.FAIL) ? 2
+        : Checks.Exists(c => c.Result == CheckResult.PENDING) ? 3
+        : 0;
+
     /// <summary>A compact table for the terminal, in the round's PASS/FAIL/SKIPPED/UNSUPPORTED form.</summary>
     public string ToTable()
     {
@@ -66,8 +87,12 @@ public sealed class CapabilityReport
 
         lines.Add(new('-', 100));
         var fails = Checks.Count(c => c.Result == CheckResult.FAIL);
-        lines.Add($" RESULT: {(fails == 0 ? "PASS" : $"FAIL ({fails} failing)")}   "
+        var pending = Checks.Count(c => c.Result == CheckResult.PENDING);
+        // A pending check is not a failing one, and it is not a passing one either: the overall
+        // verdict says so rather than rounding it to whichever is convenient.
+        lines.Add($" RESULT: {(fails > 0 ? $"FAIL ({fails} failing)" : pending > 0 ? $"PASS with {pending} PENDING" : "PASS")}   "
                   + $"pass={Checks.Count(c => c.Result == CheckResult.PASS)} "
+                  + $"pending={pending} "
                   + $"skipped={Checks.Count(c => c.Result == CheckResult.SKIPPED)} "
                   + $"unsupported={Checks.Count(c => c.Result == CheckResult.UNSUPPORTED)}");
         lines.Add(new('-', 100));

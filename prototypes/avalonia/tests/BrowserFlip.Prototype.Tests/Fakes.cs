@@ -1,5 +1,6 @@
 using BrowserFlip.Core.Detection;
 using BrowserFlip.Core.Platform;
+using BrowserFlip.Platform.Linux;
 using BrowserFlip.UI.Platform;
 
 namespace BrowserFlip.Prototype.Tests;
@@ -64,6 +65,66 @@ internal sealed class FakeSwitcher : IDefaultBrowserSwitcher
     }
 }
 
+/// <summary>
+/// A switcher whose answer is scripted, including the states that mean "the OS has not
+/// finished": the test decides the outcome and, separately, whether and when the association
+/// actually changes. Nothing here touches the real system.
+/// </summary>
+internal sealed class ScriptedSwitcher : IDefaultBrowserSwitcher
+{
+    private readonly SwitchResult _result;
+
+    public ScriptedSwitcher(SwitchResult result) => _result = result;
+
+    public SwitchMechanism Mechanism { get; set; } = SwitchMechanism.SystemConsentPrompt;
+
+    public List<string> Requested { get; } = [];
+
+    public Task<SwitchResult> RequestSwitchAsync(BrowserInfo browser, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(browser);
+        Requested.Add(browser.Id);
+        return Task.FromResult(_result);
+    }
+}
+
+/// <summary>Records whether it was asked, and answers however the test says.</summary>
+internal sealed class FakeConfirmation : IUserConfirmation
+{
+    private readonly bool _answer;
+
+    public FakeConfirmation(bool answer) => _answer = answer;
+
+    public string ConsentSource => "a test fake standing in for the confirmation dialog";
+
+    public int AskedCount { get; private set; }
+
+    public string? LastMessage { get; private set; }
+
+    public Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
+    {
+        AskedCount++;
+        LastMessage = message;
+        return Task.FromResult(_answer);
+    }
+}
+
+/// <summary>A platform whose OS does NOT confirm, like Linux with xdg-settings.</summary>
+internal sealed class NoOsConfirmCapabilities : PlatformCapabilitiesBase
+{
+    public override string Description => "Linux (test, X11)";
+
+    public override Capability AlwaysOnTop => Capability.Available;
+
+    public override Capability WindowPositioning => Capability.Available;
+
+    public override Capability TrayIcon => Capability.Available;
+
+    public override Capability DefaultBrowserSwitch => Capability.Available;
+
+    public override bool OsConfirmsDefaultBrowserChange => false;
+}
+
 internal sealed class FakeIcons : IAppIconProvider
 {
     public byte[]? GetIconPng(string? applicationPath, int pixelSize = 64)
@@ -85,6 +146,43 @@ internal sealed class InMemorySettingsStore : ISettingsStore
         _settings = settings;
         SaveCount++;
         return true;
+    }
+}
+
+/// <summary>
+/// The production <see cref="LinuxCapabilities"/>, pinned to one of the three Linux display
+/// backends. Used where a test needs the real capability model rather than a stand-in, so the
+/// reasons and states it asserts are the ones a user would be shown.
+/// </summary>
+internal static class LinuxCapabilityFixtures
+{
+    /// <summary>An X11 client inside a Wayland session: the case the old model got wrong.</summary>
+    public static LinuxCapabilities XWayland()
+        => Build(LinuxWindowingBackend.X11, sessionType: "wayland", display: ":0");
+
+    public static LinuxCapabilities NativeWayland()
+        => Build(LinuxWindowingBackend.Wayland, sessionType: "wayland", waylandDisplay: "wayland-0");
+
+    public static LinuxCapabilities NativeX11()
+        => Build(LinuxWindowingBackend.X11, sessionType: "x11", display: ":0");
+
+    private static LinuxCapabilities Build(
+        LinuxWindowingBackend backend, string sessionType, string? waylandDisplay = null, string? display = null)
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["XDG_SESSION_TYPE"] = sessionType,
+            ["XDG_CURRENT_DESKTOP"] = "ubuntu:GNOME",
+            ["WAYLAND_DISPLAY"] = waylandDisplay,
+            ["DISPLAY"] = display,
+            ["DBUS_SESSION_BUS_ADDRESS"] = "unix:path=/run/user/1000/bus",
+        };
+
+        return new LinuxCapabilities(
+            key => environment.TryGetValue(key, out var value) ? value : null,
+            () => true,
+            hasStatusNotifierWatcher: () => true,
+            getWindowingBackend: () => backend);
     }
 }
 

@@ -4,6 +4,13 @@ BrowserFlip を Windows / macOS / Linux の統合デスクトップ アプリケ
 
 関連: [architecture.md](architecture.md)(現行 Windows 製品)/ [cross-platform-dev.md](cross-platform-dev.md)(R1 開発基盤)/ [linux-feasibility.md](linux-feasibility.md) / [../prototypes/avalonia/README.md](../prototypes/avalonia/README.md)
 
+> **R3/R4 は収束済みです。** 三プラットフォームのアダプター実装、能力モデル、実機受入とその修正までが完了し、Owner による macOS 実機受入が承認されました。Windows 物理実機受入は `DEFERRED` です。
+>
+> - 確定記録(受入状態・CI・テスト・成果物・**残存事項**)— **[r3-r4-outcome.md](r3-r4-outcome.md)**
+> - Windows 側への引継ぎ(PR #10 / #13 の統合順序、必要 Review、実機検証チェックリスト)— **[windows-handover.md](windows-handover.md)**
+>
+> 本書の設計は R2 時点の記述です。R3/R4 で実測し直した共有コード比率は本書 7 章にあります。
+
 ---
 
 ## 1. 技術的結論
@@ -146,19 +153,37 @@ Apple の非公開 API は使用していません。
 
 ---
 
-## 7. 共有コード比率
+## 7. 共有コード比率(R3/R4 実測)
 
-実測値(空行を除く `.cs` + `.axaml` 行数):
+空行を除く `.cs` + `.axaml` 行数。
 
 | 区分 | LOC |
 | --- | --- |
-| Core の OS 非依存部分 | 688 |
-| 共有 UI(ViewModel / View / 境界 / 多言語 / 診断) | 1,151 |
-| **共有合計** | **1,839** |
-| Core の Windows 専用部分 | 118 |
-| macOS アダプター | 526 |
-| 合成ルート(OS 判定) | 90 |
-| **プラットフォーム固有合計** | **734** |
-| **共有率** | **71.5%** |
+| Core の OS 非依存ロジック | 688 |
+| 共有 Avalonia UI / ViewModel / 境界契約 | 1,610 |
+| **共有合計** | **2,298** |
+| Core の Windows 専用部分(レジストリ・P/Invoke) | 118 |
+| macOS アダプター | 597 |
+| Windows アダプター | 630 |
+| Linux アダプター | 1,521 |
+| 合成ルート | 126 |
+| **プラットフォーム固有合計** | **2,992** |
+| **共有率** | **43.4%** |
 
-Linux アダプターを macOS と同規模(約 500 行)と見積もると、三プラットフォーム完成時の共有率は **約 60%** に落ち着く見込みです。UI と業務ロジックは全面共有、OS 接点のみが各 2〜3% ずつ増える構造です。
+### R2 の見込み(約 60%)から下振れした理由
+
+**Linux アダプターが macOS / Windows の約 2.5 倍あるため**です。実装の質の問題ではなく、構造的な差です。
+
+| | ブラウザー一覧 | 既定ブラウザー | アイコン |
+| --- | --- | --- | --- |
+| Windows | OS がレジストリで提供 | `AssocQueryStringW` | `SHDefExtractIconW` |
+| macOS | `NSWorkspace` が提供 | `NSWorkspace` | `NSWorkspace` |
+| **Linux** | **仕様を自前実装**(`.desktop` 走査) | **`xdg-settings` をラップ + 出力解析** | **XDG Icon Theme 仕様を自前実装** |
+
+Linux には LaunchServices / レジストリに相当する API がなく、freedesktop の仕様(Desktop Entry、XDG Base Directory、Icon Theme)を BrowserFlip 側で実装する必要があります。`DesktopEntry.cs` だけで 343 行(コメント除く)あり、これは他 OS では OS が担っている部分です。
+
+**この数字が下がったこと自体は問題ではありません。** 重要なのは次の点です。
+
+- **UI・ViewModel・業務ロジックは全面共有**で、プラットフォーム固有コードは**すべて境界インターフェイスの裏**にあります。
+- 画面を 1 つ足すと共有側だけが増え、アダプターは増えません。
+- したがって比率は**今後 UI を作り込むほど再び上昇します**。43.4% は「アダプターを 3 つ書き終えた直後」という、比率が最も低くなる時点の値です。

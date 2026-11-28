@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BrowserFlip.Platform.Linux</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- Unlike the macOS adapter this assembly calls no native API: everything here is portable
+         managed code over the XDG file formats and the xdg-settings / xdg-mime command-line
+         tools. It is therefore deliberately NOT annotated [SupportedOSPlatform("linux")], which
+         keeps the pure parsing and mapping logic unit-testable from a macOS or Windows host.
+         Only the results are Linux-specific, never the API surface used to produce them. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
+    <ProjectReference Include="..\BrowserFlip.UI\BrowserFlip.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
+  </ItemGroup>
+
+</Project>

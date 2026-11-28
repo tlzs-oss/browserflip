@@ -201,16 +201,145 @@ jobs:
           "artifacts/BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" --selftest "$PWD/selftest-out"
           test -s selftest-out/prototype-window.png || { echo "::error::no window was rendered"; exit 1; }
 
-      - name: Linux compile feasibility (compile only - NOT a Linux run)
-        run: >
-          dotnet build src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj
-          -c Release -r linux-x64 --self-contained false -p:RuntimeIdentifiers=linux-x64
-
       - name: Upload prototype evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: prototype-evidence-macos
+          path: |
+            prototypes/avalonia/TestResults/
+            prototypes/avalonia/selftest-out/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Package the .app and a .dmg
+        run: |
+          set -euo pipefail
+          ./macos/make-dmg.sh Release
+          ./macos/verify-bundle.sh | tee selftest-out/bundle-report.txt
+
+      - name: Upload macOS package
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-macos-dmg
+          path: prototypes/avalonia/artifacts/*.dmg
+          retention-days: 14
+          if-no-files-found: warn
+
+  # The Avalonia prototype on Windows. This is a SECOND, parallel front-end: the shipping WPF
+  # product is built and tested by the "Build, test & checks" job above and is unaffected.
+  prototype-windows:
+    name: Windows Avalonia prototype
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: prototypes/avalonia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      # On a Windows host the test and desktop projects add a net10.0-windows target, so this
+      # also compiles the Windows adapter and the Windows composition root.
+      - name: Build (both target frameworks)
+        run: dotnet build BrowserFlip.Prototype.slnx -c Release
+
+      - name: Test (includes the Windows adapter tests)
+        run: >
+          dotnet test tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.csproj
+          -c Release --no-build --logger trx --results-directory TestResults
+
+      # Starts the shared Avalonia UI on Windows with the Windows adapter composed in, and runs
+      # the same capability self-test the macOS and Linux jobs run. It never changes the default
+      # browser: that needs --switch-default, which CI never passes.
+      - name: Run the app and the capability self-test
+        run: |
+          dotnet publish src/BrowserFlip.Prototype.Desktop/BrowserFlip.Prototype.Desktop.csproj `
+            -c Release -f net10.0-windows -o publish-win --nologo
+          # The prototype is a WinExe, so the shell does not wait for it and it writes nothing to
+          # the console. Start-Process -Wait gives both the completion and the exit code, and the
+          # report is printed from the file it produced.
+          $p = Start-Process -FilePath ".\publish-win\BrowserFlipPrototype.exe" `
+                 -ArgumentList '--selftest', "$PWD\selftest-out" -PassThru -Wait
+          if (Test-Path selftest-out/capability-report.txt) {
+            Get-Content selftest-out/capability-report.txt
+          }
+          if ($p.ExitCode -ne 0) {
+            Write-Host "::error::self-test exited with $($p.ExitCode)"; exit $p.ExitCode
+          }
+          if (-not (Test-Path selftest-out/prototype-window.png)) {
+            Write-Host "::error::no window was rendered"; exit 1
+          }
+
+      - name: Upload Windows evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-evidence-windows
+          path: |
+            prototypes/avalonia/TestResults/
+            prototypes/avalonia/selftest-out/
+          retention-days: 14
+          if-no-files-found: warn
+
+  # Linux is verified by actually RUNNING the application against a real X11 server (Xvfb),
+  # not merely by compiling it. Wayland cannot be covered this way and is not claimed.
+  prototype-linux:
+    name: Linux Avalonia prototype
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/avalonia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      # Xvfb is a real X server; the others are the X client libraries Avalonia's X11 backend
+      # needs. Nothing here stubs the toolkit out.
+      - name: Install an X11 session
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb x11-utils libx11-6 libice6 libsm6 libfontconfig1
+
+      - name: Build
+        run: dotnet build BrowserFlip.Prototype.slnx -c Release
+
+      - name: Test (unit + mocked system APIs + Avalonia headless UI)
+        run: >
+          dotnet test tests/BrowserFlip.Prototype.Tests/BrowserFlip.Prototype.Tests.csproj
+          -c Release --no-build --logger trx --results-directory TestResults
+
+      # Installs a browser so the detection path has something real to find. Without this the
+      # runner has no .desktop web browser at all and the check would only prove "nothing found".
+      - name: Install a browser to detect
+        run: sudo apt-get install -y -qq firefox || sudo snap install firefox || true
+
+      - name: Run the app on a real X11 server
+        run: ./linux/run-selftest.sh "$PWD/selftest-out" Release
+
+      - name: Upload Linux evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototype-evidence-linux
           path: |
             prototypes/avalonia/TestResults/
             prototypes/avalonia/selftest-out/

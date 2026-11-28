@@ -40,6 +40,16 @@ cp "$HERE/Info.plist" "$APP/Contents/Info.plist"
 cp -R "$PUBLISH/." "$APP/Contents/MacOS/"
 chmod +x "$APP/Contents/MacOS/BrowserFlipPrototype"
 
+# The product icon. Contents/Resources used to be created and left empty, and Info.plist named
+# no CFBundleIconFile, so Finder and the Dock drew the blank generic application page.
+ICNS="$("$HERE/make-icns.sh" "$ROOT/artifacts/BrowserFlip.icns" | tail -1)"
+cp "$ICNS" "$APP/Contents/Resources/BrowserFlip.icns"
+# Fail the build rather than ship another iconless bundle. Both halves are checked, because
+# either one going missing produces the same blank page.
+ICON_KEY="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+[ "$ICON_KEY" = "BrowserFlip.icns" ] || { echo "ERROR: CFBundleIconFile is '$ICON_KEY', expected BrowserFlip.icns" >&2; exit 1; }
+[ -s "$APP/Contents/Resources/BrowserFlip.icns" ] || { echo "ERROR: the icon was not installed into the bundle" >&2; exit 1; }
+
 # An ad-hoc signature is enough for local running; it is not a distributable signature.
 codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || \
   echo "note: ad-hoc codesign unavailable; the bundle still runs locally" >&2

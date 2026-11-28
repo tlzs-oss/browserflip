@@ -200,6 +200,34 @@ internal static class ObjC
         return result;
     }
 
+    /// <summary>
+    /// A Core Graphics / AppKit rectangle (<c>NSRect</c>). Four CGFloats, which are 64-bit on
+    /// every platform BrowserFlip targets.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NSRect
+    {
+        internal double X;
+        internal double Y;
+        internal double Width;
+        internal double Height;
+    }
+
+    /// <summary>
+    /// A Core Graphics / AppKit point (<c>NSPoint</c>). Two CGFloats, which both macOS
+    /// architectures pass and return in floating-point registers.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NSPoint
+    {
+        internal double X;
+        internal double Y;
+    }
+
+    /// <summary>For selectors taking a struct POINTER, such as CGImageForProposedRect:context:hints:.</summary>
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    internal static extern IntPtr SendWithRectPtr(IntPtr receiver, IntPtr selector, ref NSRect rect, IntPtr b, IntPtr c);
+
     /// <summary>Whether <paramref name="receiver"/> implements <paramref name="selector"/>.</summary>
     internal static bool RespondsTo(IntPtr receiver, IntPtr selector)
         => receiver != Nil && SendBool(receiver, Sel("respondsToSelector:"), selector);
@@ -211,7 +239,24 @@ internal static class ObjC
     /// <summary>[NSWorkspace sharedWorkspace]</summary>
     internal static IntPtr SharedWorkspace() => Send(GetClass("NSWorkspace"), Sel("sharedWorkspace"));
 
-    /// <summary>Reads NSError.localizedDescription, or <c>null</c> when the error is nil.</summary>
+    /// <summary>
+    /// Reads an NSError as "domain code: localizedDescription", or <c>null</c> when the error
+    /// is nil. The domain and code are included because the localised description alone is not
+    /// enough to tell a refusal from a malformed request when something goes wrong on a user's
+    /// machine, and it arrives in whatever language that machine runs in.
+    /// </summary>
     internal static string? ErrorDescription(IntPtr nsError)
-        => nsError == Nil ? null : ToManaged(Send(nsError, Sel("localizedDescription")));
+    {
+        if (nsError == Nil)
+        {
+            return null;
+        }
+
+        var message = ToManaged(Send(nsError, Sel("localizedDescription")));
+        var domain = ToManaged(Send(nsError, Sel("domain")));
+        var code = SendLong(nsError, Sel("code"));
+        return domain is null
+            ? message
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{domain} {code}: {message}");
+    }
 }

@@ -1,7 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- net10.0 everywhere. On a Windows host a second target is added so the Windows adapter
+         (which is net10.0-windows, because it uses Core's Windows-only types) can be referenced
+         and its tests actually run. macOS and Linux keep building the single portable target. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">net10.0;net10.0-windows</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <RootNamespace>BrowserFlip.Prototype.Tests</RootNamespace>
@@ -24,9 +28,16 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- The SDK defines the WINDOWS symbol for net10.0-windows, which is what guards
+       WindowsAdapterTests.cs; under net10.0 that file compiles to nothing. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <ProjectReference Include="..\..\src\BrowserFlip.Platform.Windows\BrowserFlip.Platform.Windows.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\BrowserFlip.UI\BrowserFlip.UI.csproj" />
     <ProjectReference Include="..\..\src\BrowserFlip.Platform.MacOS\BrowserFlip.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\..\src\BrowserFlip.Platform.Linux\BrowserFlip.Platform.Linux.csproj" />
     <ProjectReference Include="..\..\..\..\src\BrowserFlip.Core\BrowserFlip.Core.csproj" />
   </ItemGroup>
 

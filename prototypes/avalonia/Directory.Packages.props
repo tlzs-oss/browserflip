@@ -8,6 +8,10 @@
          third-party runtime dependency, and BrowserFlip.slnx does not reference these. -->
     <PackageVersion Include="Avalonia" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.4" />
+    <!-- Avalonia.Desktop carries X11, Win32 and macOS only. Without this package
+         UsePlatformDetect() has no Wayland path and the app dies with "XOpenDisplay failed"
+         on a Wayland session that has no XWayland. -->
+    <PackageVersion Include="Avalonia.Wayland" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />

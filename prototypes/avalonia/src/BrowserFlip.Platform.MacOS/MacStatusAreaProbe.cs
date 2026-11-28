@@ -1,0 +1,401 @@
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using System.Text;
+using BrowserFlip.Platform.MacOS.Interop;
+using BrowserFlip.UI.Platform;
+
+namespace BrowserFlip.Platform.MacOS;
+
+/// <summary>
+/// Reads BrowserFlip's own <c>NSStatusItem</c> back out of the live menu bar, and delivers a real
+/// left click to it.
+/// <para>
+/// Everything here is documented AppKit: <c>-[NSApplication windows]</c>, <c>-[NSView subviews]</c>,
+/// the public <c>NSStatusBarButton</c> class, <c>+[NSEvent mouseEventWithType:…]</c> and
+/// <c>-[NSApplication postEvent:atStart:]</c>. No private selector, no Accessibility grant, no
+/// Screen Recording grant, and no synthetic <c>CGEvent</c>: the event is posted into this
+/// process's own queue, which is why it needs no permission at all.
+/// </para>
+/// <para>
+/// Why it exists: the menu-bar item was reported as PASS because BrowserFlip had called
+/// <c>TrayIcon.SetIcons</c>. That is a statement about BrowserFlip, not about macOS, and it
+/// survived a defect the Owner found by hand (MAC-D6, the menu not opening on click). This type
+/// replaces that inference with a measurement.
+/// </para>
+/// </summary>
+[SupportedOSPlatform("macos")]
+public sealed class MacStatusAreaProbe : IStatusAreaProbe
+{
+    private const string Libobjc = "/usr/lib/libobjc.A.dylib";
+
+    /// <summary>NSEventTypeLeftMouseDown.</summary>
+    private const ulong LeftMouseDown = 1;
+
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    private static extern IntPtr MouseEvent(
+        IntPtr receiver, IntPtr selector, ulong type, double locationX, double locationY,
+        ulong modifierFlags, double timestamp, long windowNumber, IntPtr context,
+        long eventNumber, long clickCount, float pressure);
+
+    // A 32-byte NSRect return needs two different entry points, because the two macOS
+    // architectures disagree about how such a struct comes back:
+    //   arm64  - four doubles are a homogeneous float aggregate returned in d0-d3, so the
+    //            ordinary objc_msgSend is correct (objc_msgSend_stret does not exist there).
+    //   x86-64 - the same struct is MEMORY class and returns through a hidden pointer, which
+    //            shifts self into rsi and the selector into rdx. Calling plain objc_msgSend
+    //            would then read an isa out of a stack buffer and use the receiver as the
+    //            selector: a message to something that is not an object. osx-x64 is a declared
+    //            RuntimeIdentifier and macos/bundle.sh maps x86_64 to it, so this is a real
+    //            configuration, and CI's arm64 runners would never catch it.
+    // The managed signature is identical; only the symbol differs, and .NET already emits the
+    // hidden-pointer convention on x86-64, which is exactly what objc_msgSend_stret expects.
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    private static extern ObjC.NSRect SendRectArm64(IntPtr receiver, IntPtr selector);
+
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend_stret", ExactSpelling = true)]
+    private static extern ObjC.NSRect SendRectX64(IntPtr receiver, IntPtr selector);
+
+    private static ObjC.NSRect SendRect(IntPtr receiver, IntPtr selector)
+        => RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendRectX64(receiver, selector)
+            : SendRectArm64(receiver, selector);
+
+    /// <summary>
+    /// For <c>-[NSView convertPoint:toView:]</c>. An NSPoint is two doubles, which both
+    /// architectures pass and return in floating-point registers, so one entry point serves.
+    /// </summary>
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    private static extern ObjC.NSPoint ConvertPoint(
+        IntPtr receiver, IntPtr selector, double x, double y, IntPtr toView);
+
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static extern bool SendBool(IntPtr receiver, IntPtr selector);
+
+    /// <inheritdoc />
+    public StatusAreaFacts Inspect(string expectedToolTip)
+    {
+        ArgumentNullException.ThrowIfNull(expectedToolTip);
+        if (!ObjC.EnsureAppKit())
+        {
+            return StatusAreaFacts.NotProbed("AppKit could not be loaded");
+        }
+
+        var detail = new StringBuilder();
+        var buttons = FindStatusButtons(detail);
+        var mine = buttons.Find(b =>
+            string.Equals(ObjC.ToManaged(ObjC.Send(b, ObjC.Sel("toolTip"))), expectedToolTip, StringComparison.Ordinal));
+
+        if (mine == ObjC.Nil)
+        {
+            return StatusAreaFacts.NotProbed(
+                $"no NSStatusBarButton with tooltip \"{expectedToolTip}\"; {buttons.Count} status button(s) in this process; {detail}");
+        }
+
+        var window = ObjC.Send(mine, ObjC.Sel("window"));
+        var hidden = SendBool(mine, ObjC.Sel("isHidden"));
+        var enabled = SendBool(mine, ObjC.Sel("isEnabled"));
+        var windowVisible = SendBool(window, ObjC.Sel("isVisible"));
+        var image = ObjC.Send(mine, ObjC.Sel("image"));
+        var bounds = SendRect(mine, ObjC.Sel("bounds"));
+
+        return new StatusAreaFacts(
+            ItemFound: true,
+            ItemVisible: windowVisible && !hidden,
+            HasImage: image != ObjC.Nil,
+            ToolTip: expectedToolTip,
+            Detail: string.Create(CultureInfo.InvariantCulture,
+                $"NSStatusBarButton in the live menu bar: window visible={windowVisible}, hidden={hidden}, "
+                + $"enabled={enabled}, image={(image != ObjC.Nil ? "present" : "MISSING")}, "
+                + $"size={bounds.Width:F0}x{bounds.Height:F0}; {ApplicationNaming()}"));
+    }
+
+    /// <inheritdoc />
+    public bool TryClick(string expectedToolTip, out string detail)
+    {
+        ArgumentNullException.ThrowIfNull(expectedToolTip);
+        if (!ObjC.EnsureAppKit())
+        {
+            detail = "AppKit could not be loaded";
+            return false;
+        }
+
+        var scan = new StringBuilder();
+        var button = FindStatusButtons(scan).Find(b =>
+            string.Equals(ObjC.ToManaged(ObjC.Send(b, ObjC.Sel("toolTip"))), expectedToolTip, StringComparison.Ordinal));
+        if (button == ObjC.Nil)
+        {
+            detail = $"no NSStatusBarButton with tooltip \"{expectedToolTip}\"; {scan}";
+            return false;
+        }
+
+        var window = ObjC.Send(button, ObjC.Sel("window"));
+        var windowNumber = ObjC.SendLong(window, ObjC.Sel("windowNumber"));
+
+        // The event wants WINDOW coordinates. Taking the centre of the button's own bounds and
+        // asking AppKit to convert it is correct wherever the button sits in the view tree;
+        // adding the button's frame origin to its bounds size, as this first did, only happens
+        // to agree while the button is its window's content view.
+        var bounds = SendRect(button, ObjC.Sel("bounds"));
+        var centre = ConvertPoint(
+            button, ObjC.Sel("convertPoint:toView:"), bounds.Width / 2, bounds.Height / 2, ObjC.Nil);
+
+        var mouseDown = MouseEvent(
+            ObjC.GetClass("NSEvent"),
+            ObjC.Sel("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
+            LeftMouseDown,
+            centre.X,
+            centre.Y,
+            0UL, 0.0, windowNumber, ObjC.Nil, 0, 1, 1.0f);
+
+        if (mouseDown == ObjC.Nil)
+        {
+            detail = "NSEvent could not be built";
+            return false;
+        }
+
+        // Posted, not sent: it goes to the back of this application's own event queue and is
+        // then dispatched by -[NSApplication sendEvent:] exactly as the window server's own
+        // click would be, so the whole routing path is under test and not just the button.
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        ObjC.Send(app, ObjC.Sel("postEvent:atStart:"), mouseDown, IntPtr.Zero);
+
+        detail = string.Create(CultureInfo.InvariantCulture,
+            $"posted a real NSEventTypeLeftMouseDown at ({centre.X:F0},{centre.Y:F0}) "
+            + $"to window {windowNumber} through -[NSApplication postEvent:atStart:]");
+        return true;
+    }
+
+    /// <summary>
+    /// NSEventModifierFlags, as documented: the bits AppKit sets for a key equivalent.
+    /// </summary>
+    private const long ShiftFlag = 1L << 17;
+    private const long ControlFlag = 1L << 18;
+    private const long OptionFlag = 1L << 19;
+    private const long CommandFlag = 1L << 20;
+
+    /// <summary>
+    /// Reads the real application menu out of <c>[NSApp mainMenu]</c>.
+    /// <para>
+    /// Only documented AppKit: <c>-[NSApplication mainMenu]</c>, <c>-[NSMenu numberOfItems]</c>,
+    /// <c>-[NSMenu itemAtIndex:]</c>, <c>-[NSMenuItem title]</c>, <c>-[NSMenuItem submenu]</c>,
+    /// <c>-[NSMenuItem isSeparatorItem]</c>, <c>-[NSMenuItem isEnabled]</c>,
+    /// <c>-[NSMenuItem keyEquivalent]</c> and <c>-[NSMenuItem keyEquivalentModifierMask]</c>.
+    /// </para>
+    /// <para>
+    /// macOS puts the application menu at index 0 of the main menu, which is also where Avalonia's
+    /// native layer inserts it (<c>SetAppMenu</c> in its menu.mm). The menu read here is the one
+    /// the user will open, which is the point: the managed <c>NativeMenu</c> looked correct
+    /// throughout the defect the Owner reported.
+    /// </para>
+    /// </summary>
+    public ApplicationMenuFacts InspectApplicationMenu()
+    {
+        if (!ObjC.EnsureAppKit())
+        {
+            return ApplicationMenuFacts.NotProbed("AppKit could not be loaded in this process.");
+        }
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        if (mainMenu == ObjC.Nil)
+        {
+            return ApplicationMenuFacts.NotProbed("[NSApp mainMenu] is nil: no menu bar exists.");
+        }
+
+        if (ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) <= 0)
+        {
+            return ApplicationMenuFacts.NotProbed("[NSApp mainMenu] holds no items.");
+        }
+
+        var first = ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0);
+        var submenu = ObjC.Send(first, ObjC.Sel("submenu"));
+        if (submenu == ObjC.Nil)
+        {
+            return ApplicationMenuFacts.NotProbed(
+                "the first item of [NSApp mainMenu] has no submenu, so there is no application menu.");
+        }
+
+        var menuTitle = ObjC.ToManaged(ObjC.Send(submenu, ObjC.Sel("title"))) ?? string.Empty;
+        var count = ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+        var items = new List<ApplicationMenuItemFacts>();
+        for (long i = 0; i < count; i++)
+        {
+            var item = ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i);
+            if (SendBool(item, ObjC.Sel("isSeparatorItem")))
+            {
+                items.Add(new ApplicationMenuItemFacts(string.Empty, string.Empty, false, false));
+                continue;
+            }
+
+            items.Add(new ApplicationMenuItemFacts(
+                ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("title"))) ?? string.Empty,
+                Shortcut(item),
+                SendBool(item, ObjC.Sel("isEnabled")),
+                ObjC.Send(item, ObjC.Sel("submenu")) != ObjC.Nil));
+        }
+
+        var detail = new StringBuilder();
+        detail.Append(CultureInfo.InvariantCulture, $"menu \"{menuTitle}\" with {items.Count} item(s): ");
+        detail.Append(string.Join(
+            " | ",
+            items.Select(x => x.Title.Length == 0
+                ? "-"
+                : x.Title + (x.Shortcut.Length == 0 ? string.Empty : " [" + x.Shortcut + "]")
+                          + (x.HasSubmenu ? " >" : string.Empty)
+                          + (x.Enabled ? string.Empty : " (disabled)"))));
+        detail.Append("; ").Append(ApplicationNaming());
+
+        return new ApplicationMenuFacts(true, menuTitle, items, detail.ToString());
+    }
+
+    /// <summary>
+    /// Chooses an application-menu item through <c>-[NSMenu performActionForItemAtIndex:]</c>,
+    /// which is how AppKit itself delivers a chosen item: it validates, sends the item's action
+    /// to its target and tells the menu's delegate. So this exercises the real native item and
+    /// the real wiring to BrowserFlip, not the managed menu model.
+    /// </summary>
+    public bool TryInvokeApplicationMenuItem(string title, out string detail)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        if (!ObjC.EnsureAppKit())
+        {
+            detail = "AppKit could not be loaded in this process.";
+            return false;
+        }
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        var submenu = mainMenu == ObjC.Nil || ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) <= 0
+            ? ObjC.Nil
+            : ObjC.Send(ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0), ObjC.Sel("submenu"));
+        if (submenu == ObjC.Nil)
+        {
+            detail = "there is no application menu to choose from.";
+            return false;
+        }
+
+        var count = ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+        for (long i = 0; i < count; i++)
+        {
+            var item = ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i);
+            if (ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("title"))) != title)
+            {
+                continue;
+            }
+
+            ObjC.SendWithLong(submenu, ObjC.Sel("performActionForItemAtIndex:"), i);
+            detail = string.Create(
+                CultureInfo.InvariantCulture,
+                $"chose \"{title}\" at index {i} via -[NSMenu performActionForItemAtIndex:].");
+            return true;
+        }
+
+        detail = string.Create(
+            CultureInfo.InvariantCulture,
+            $"the application menu has no item titled \"{title}\".");
+        return false;
+    }
+
+    /// <summary>The item's key equivalent as the menu draws it, or empty when it has none.</summary>
+    private static string Shortcut(IntPtr item)
+    {
+        var key = ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("keyEquivalent")));
+        if (string.IsNullOrEmpty(key))
+        {
+            return string.Empty;
+        }
+
+        var mask = ObjC.SendLong(item, ObjC.Sel("keyEquivalentModifierMask"));
+        var text = new StringBuilder();
+        if ((mask & ControlFlag) != 0)
+        {
+            text.Append('⌃');
+        }
+
+        if ((mask & OptionFlag) != 0)
+        {
+            text.Append('⌥');
+        }
+
+        if ((mask & ShiftFlag) != 0)
+        {
+            text.Append('⇧');
+        }
+
+        if ((mask & CommandFlag) != 0)
+        {
+            text.Append('⌘');
+        }
+
+        return text.Append(key.ToUpperInvariant()).ToString();
+    }
+
+    /// <summary>
+    /// How the application names itself to macOS, and what macOS actually put in the application
+    /// menu. Left unset, Avalonia calls itself "Avalonia Application" and macOS repeats that in
+    /// the menu bar and in the crash reporter, so the name is worth measuring rather than assuming.
+    /// </summary>
+    private static string ApplicationNaming()
+    {
+        var running = ObjC.Send(ObjC.GetClass("NSRunningApplication"), ObjC.Sel("currentApplication"));
+        var name = ObjC.ToManaged(ObjC.Send(running, ObjC.Sel("localizedName")));
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        var appMenuTitles = new List<string>();
+        if (mainMenu != ObjC.Nil && ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) > 0)
+        {
+            var submenu = ObjC.Send(ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0), ObjC.Sel("submenu"));
+            var count = submenu == ObjC.Nil ? 0 : ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+            for (long i = 0; i < count && appMenuTitles.Count < 4; i++)
+            {
+                var title = ObjC.ToManaged(ObjC.Send(ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i), ObjC.Sel("title")));
+                if (!string.IsNullOrEmpty(title))
+                {
+                    appMenuTitles.Add(title);
+                }
+            }
+        }
+
+        return $"application names itself \"{name}\"; application menu: " + string.Join(" / ", appMenuTitles);
+    }
+
+    /// <summary>Every <c>NSStatusBarButton</c> this process owns, found through public API.</summary>
+    private static List<IntPtr> FindStatusButtons(StringBuilder detail)
+    {
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var statusButtonClass = ObjC.GetClass("NSStatusBarButton");
+        var found = new List<IntPtr>();
+        var windows = ObjC.ArrayItems(ObjC.Send(app, ObjC.Sel("windows")));
+        detail.Append(CultureInfo.InvariantCulture, $"scanned {windows.Count} NSApp window(s)");
+
+        foreach (var window in windows)
+        {
+            Collect(ObjC.Send(window, ObjC.Sel("contentView")), statusButtonClass, found);
+        }
+
+        return found;
+    }
+
+    /// <summary>Depth-first walk of a view tree, collecting views of <paramref name="cls"/>.</summary>
+    private static void Collect(IntPtr view, IntPtr cls, List<IntPtr> into)
+    {
+        if (view == ObjC.Nil)
+        {
+            return;
+        }
+
+        if (ObjC.IsKindOf(view, cls))
+        {
+            into.Add(view);
+        }
+
+        foreach (var child in ObjC.ArrayItems(ObjC.Send(view, ObjC.Sel("subviews"))))
+        {
+            Collect(child, cls, into);
+        }
+    }
+}

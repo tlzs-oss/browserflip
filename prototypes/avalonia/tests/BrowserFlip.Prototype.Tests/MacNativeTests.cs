@@ -85,6 +85,32 @@ public class MacNativeTests
     }
 
     [MacFact]
+    public void An_icon_is_sized_for_the_request_not_the_1024px_master()
+    {
+        // Regression: the first implementation flattened the whole multi-resolution NSImage
+        // through TIFFRepresentation and produced 1-2 MB per browser. Asking AppKit for a
+        // CGImage at the requested size yields tens of kilobytes instead.
+        var browser = new MacBrowserCatalog().GetBrowsers()[0];
+        var png = new MacAppIconProvider().GetIconPng(browser.IconPath, 64);
+        Assert.NotNull(png);
+        Assert.True(png.Length < 200 * 1024,
+            $"a 64 px icon should be well under 200 KB, got {png.Length} bytes - the oversized path is back");
+    }
+
+    [MacFact]
+    public void A_larger_request_produces_a_larger_icon()
+    {
+        var browser = new MacBrowserCatalog().GetBrowsers()[0];
+        var provider = new MacAppIconProvider();
+        var small = provider.GetIconPng(browser.IconPath, 32);
+        var large = provider.GetIconPng(browser.IconPath, 256);
+        Assert.NotNull(small);
+        Assert.NotNull(large);
+        Assert.True(large.Length > small.Length,
+            $"256 px ({large.Length} B) should be bigger than 32 px ({small.Length} B)");
+    }
+
+    [MacFact]
     public void A_missing_path_yields_no_icon_instead_of_throwing()
         => Assert.Null(new MacAppIconProvider().GetIconPng(null));
 

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日本語。PrototypeStrings.resx と同じキーを過不足なく持つこと(パリティテストで検証)。 -->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <data name="Mech_OpensSystemSettings" xml:space="preserve">
+    <value>Windows の設定が開きます。確認はそこで行います。</value>
+  </data>
+  <data name="Mech_SystemConsentPrompt" xml:space="preserve">
+    <value>macOS 自身の確認ダイアログが表示されます。確認はそこで行います。</value>
+  </data>
+  <data name="Mech_CommandLineTool" xml:space="preserve">
+    <value>xdg-settings が変更を適用します。</value>
+  </data>
+  <data name="Mech_Unsupported" xml:space="preserve">
+    <value>このシステムでは既定のブラウザーの変更に対応していません。</value>
+  </data>
+
+  <data name="Status_AwaitingConsent" xml:space="preserve">
+    <value>システムのダイアログへの応答を待っています。承認すると {0} が既定になります。</value>
+  </data>
+  <data name="Status_StillPending" xml:space="preserve">
+    <value>システムのダイアログにまだ応答がないため、何も変わっていません。BrowserFlip は監視を続けています。承認すれば {0} が既定になります。</value>
+  </data>
+  <data name="Status_PendingUnknown" xml:space="preserve">
+    <value>BrowserFlip は監視を終了しました。システムのダイアログはまだ開いている可能性があり、いま承認すれば {0} が既定になります。現時点では既定のブラウザーは変わっていません。</value>
+  </data>
+  <data name="Status_Declined" xml:space="preserve">
+    <value>変更は拒否されました。既定のブラウザーは変わっていません。</value>
+  </data>
+  <data name="Status_RequestFailed" xml:space="preserve">
+    <value>要求が失敗しました: {0}</value>
+  </data>
+  <data name="Status_RequestFailedUnknown" xml:space="preserve">
+    <value>要求が失敗しました。システムは理由を返しませんでした。</value>
+  </data>
+  <data name="Status_SecondProtocol" xml:space="preserve">
+    <value>{0} は http / https の一方だけを処理しています。もう一方を完了するには、2 回目のシステムダイアログを承認してください。</value>
+  </data>
+  <data name="Detail_Technical" xml:space="preserve">
+    <value>{0}(技術的な詳細: {1})</value>
+  </data>
+
+  <data name="Confirm_SetDefaultImmediate" xml:space="preserve">
+    <value>{0} を既定のブラウザーにしますか?
+
+このシステムでは変更が即時に適用され、改めて確認は行われません。BrowserFlip から元に戻すことはできません。</value>
+  </data>
+
+  <data name="Settings_Capabilities" xml:space="preserve">
+    <value>プラットフォームの機能</value>
+  </data>
+  <data name="Settings_CapabilitiesHint" xml:space="preserve">
+    <value>この OS とセッションで実際に許可されている内容です。上の項目が無効になっているのは、失敗したからではなく、ここに挙げた制約のためです。</value>
+  </data>
+  <data name="Capability_Available" xml:space="preserve">
+    <value>利用可能</value>
+  </data>
+  <data name="Capability_Unsupported" xml:space="preserve">
+    <value>非対応</value>
+  </data>
+  <data name="Capability_Unavailable" xml:space="preserve">
+    <value>利用不可</value>
+  </data>
+  <data name="Capability_AlwaysOnTop" xml:space="preserve">
+    <value>最前面に表示</value>
+  </data>
+  <data name="Capability_WindowPositioning" xml:space="preserve">
+    <value>ウィンドウ位置の指定</value>
+  </data>
+  <data name="Capability_TrayIcon" xml:space="preserve">
+    <value>トレイ / メニューバーアイコン</value>
+  </data>
+  <data name="Capability_DefaultBrowserSwitch" xml:space="preserve">
+    <value>既定のブラウザーの切り替え</value>
+  </data>
+  <data name="Menu_Services" xml:space="preserve">
+    <value>サービス</value>
+  </data>
+  <data name="Menu_HideApp" xml:space="preserve">
+    <value>{0} を隠す</value>
+  </data>
+  <data name="Menu_HideOthers" xml:space="preserve">
+    <value>ほかを隠す</value>
+  </data>
+  <data name="Menu_ShowAll" xml:space="preserve">
+    <value>すべてを表示</value>
+  </data>
+  <data name="Menu_QuitApp" xml:space="preserve">
+    <value>{0} を終了</value>
+  </data>
+</root>

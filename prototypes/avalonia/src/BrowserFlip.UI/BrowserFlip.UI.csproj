@@ -25,6 +25,23 @@
     <EmbeddedResource Include="..\..\..\..\src\BrowserFlip.App\Resources\Strings.zh-CN.resx" LogicalName="BrowserFlip.UI.Localization.Strings.zh-CN.resources" />
   </ItemGroup>
 
+  <!-- Strings that exist only in this prototype: the capability table, the consent wording and
+       the per-platform mechanism description. They are deliberately NOT added to the shipping
+       product's .resx; Strings.Get falls back to this set. Same three languages, so none of
+       this text can be English-only in a Japanese or Chinese UI.
+       Update, not Include: the SDK already globs .resx under the project directory, and the
+       only thing being set here is the manifest name the ResourceManager looks for. -->
+  <ItemGroup>
+    <EmbeddedResource Update="Localization\PrototypeStrings.resx" LogicalName="BrowserFlip.UI.Localization.PrototypeStrings.resources" />
+    <EmbeddedResource Update="Localization\PrototypeStrings.ja.resx" LogicalName="BrowserFlip.UI.Localization.PrototypeStrings.ja.resources" />
+    <EmbeddedResource Update="Localization\PrototypeStrings.zh-CN.resx" LogicalName="BrowserFlip.UI.Localization.PrototypeStrings.zh-CN.resources" />
+  </ItemGroup>
+
+  <!-- The product's own icon, so the tray item is not exported with an empty icon. -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\..\..\assets\icon\png\browserflip-64.png" Link="Assets/trayicon.png" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="BrowserFlip.Prototype.Tests" />
   </ItemGroup>
