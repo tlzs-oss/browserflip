@@ -58,6 +58,7 @@ public partial class App : Application
             // window object exists. Window's constructor creates its platform implementation, so
             // the backend is known here even though the window has not been shown yet.
             var mainWindow = new MainWindow();
+            mainWindow.SettingsRequested += () => ShowSettings(desktop);
             desktop.MainWindow = mainWindow;
 
             _model = (ViewModelFactory ?? throw new InvalidOperationException(

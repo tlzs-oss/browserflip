@@ -30,6 +30,9 @@
         <ComboBox x:Name="LanguageBox" Width="150" ItemsSource="{Binding LanguageChoices}"
                   SelectedItem="{Binding SelectedLanguage}" DisplayMemberBinding="{Binding Display}" />
         <Button x:Name="RefreshButton" Content="{Binding LabelRefresh}" />
+        <!-- The main window's own way into the settings window. The status-area menu used to be
+             the only one, which is why the settings screen was twice reported as not found. -->
+        <Button x:Name="SettingsButton" Content="{Binding LabelSettings}" />
       </StackPanel>
       <!-- Disabled, with the reason as the tooltip, where the platform cannot honour it. -->
       <StackPanel Orientation="Horizontal" Spacing="16">

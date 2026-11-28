@@ -31,6 +31,15 @@ internal static class Program
             {
                 SelfTest.SwitchTargetId = args[i + 1];
             }
+            else if (string.Equals(args[i], "--settings-path", StringComparison.Ordinal) && i + 1 < args.Length)
+            {
+                // Lets an acceptance or regression run use its own settings file, so verifying
+                // the application never reads or writes the user's real one. The settings path is
+                // resolved from the account's home directory, not from $HOME, so an environment
+                // override cannot isolate it - measured: a run under `env -i HOME=<temp>` still
+                // wrote the real file.
+                _settingsPath = args[i + 1];
+            }
             else if (string.Equals(args[i], "--show-settings", StringComparison.Ordinal))
             {
                 // Opens the settings window through the real status-area menu item and keeps
@@ -47,6 +56,9 @@ internal static class Program
         App.AdapterAccessor = () => (_switcherFactory!(false), _icons!, _store!, _capabilities!);
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
+
+    /// <summary>Set by <c>--settings-path</c>; <c>null</c> means the real per-user location.</summary>
+    private static string? _settingsPath;
 
     private static Func<bool, IDefaultBrowserSwitcher>? _switcherFactory;
     private static IAppIconProvider? _icons;
@@ -68,7 +80,7 @@ internal static class Program
     /// <summary>Selects the platform adapters for the current OS.</summary>
     private static MainViewModel Compose()
     {
-        var store = new JsonSettingsStore();
+        var store = _settingsPath is null ? new JsonSettingsStore() : new JsonSettingsStore(_settingsPath);
         _store = store;
 
         if (OperatingSystem.IsMacOS())

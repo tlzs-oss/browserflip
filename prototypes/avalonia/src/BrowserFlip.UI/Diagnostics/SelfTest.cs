@@ -105,8 +105,44 @@ public static class SelfTest
                 + " the settings window is below it ***");
         }
 
+        // The rest of the Owner's regression list, exercised on the real windows rather than
+        // asserted from the code: choosing the item again must not open a second window, closing
+        // it must release it, and choosing it afterwards must open it again.
+        ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+        await Task.Delay(400).ConfigureAwait(true);
+        var afterSecondChoice = lifetime.Windows.OfType<Views.SettingsWindow>().Count();
+        Console.WriteLine($"  choosing it again -> {afterSecondChoice} settings window(s) open"
+            + (afterSecondChoice == 1 ? " (not duplicated)" : " *** DUPLICATED ***"));
+
+        settings.Close();
+        await Task.Delay(400).ConfigureAwait(true);
+        Console.WriteLine($"  after closing    -> {lifetime.Windows.OfType<Views.SettingsWindow>().Count()} settings window(s) open");
+
+        ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+        await Task.Delay(1200).ConfigureAwait(true);
+        var reopened = lifetime.Windows.OfType<Views.SettingsWindow>().FirstOrDefault();
+        Console.WriteLine(reopened is null
+            ? "  reopening        -> *** FAILED to reopen ***"
+            : string.Create(CultureInfo.InvariantCulture,
+                $"  reopening        -> open again, visible={reopened.IsVisible} topmost={reopened.Topmost} active={reopened.IsActive}"));
+
+        // And the button the Owner approved, on the main window, reaching the same single window.
+        if (main is Views.MainWindow mainTyped)
+        {
+            var button = mainTyped.FindControl<Button>("SettingsButton");
+            Console.WriteLine($"  main window's settings button reads \"{button?.Content}\" "
+                + $"(main window title \"{mainTyped.Title}\")");
+
+            var before = lifetime.Windows.OfType<Views.SettingsWindow>().Count();
+            mainTyped.RequestSettingsForAcceptance();
+            await Task.Delay(400).ConfigureAwait(true);
+            var after = lifetime.Windows.OfType<Views.SettingsWindow>().Count();
+            Console.WriteLine($"  main-window \"settings\" button -> {after} settings window(s) open"
+                + (after == before && after == 1 ? " (same single window)" : " *** unexpected ***"));
+        }
+
         Console.Out.Flush();
-        return settings;
+        return reopened ?? settings;
     }
 
     /// <summary>

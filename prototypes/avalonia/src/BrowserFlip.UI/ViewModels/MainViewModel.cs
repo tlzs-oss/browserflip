@@ -232,6 +232,9 @@ public sealed class MainViewModel : ObservableObject
 
     public string LabelSettingsFile => Strings.Get("Settings_SettingsFile");
 
+    /// <summary>The main window's own way into the settings window.</summary>
+    public string LabelSettings => Strings.Get("Menu_Settings");
+
     /// <summary>The headline line, built from the Core status enumeration.</summary>
     public string CurrentDefaultText => _state.Status switch
     {
@@ -507,5 +510,6 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(LabelBadgeDefault));
         Raise(nameof(LabelEmpty));
         Raise(nameof(LabelSettingsFile));
+        Raise(nameof(LabelSettings));
     }
 }

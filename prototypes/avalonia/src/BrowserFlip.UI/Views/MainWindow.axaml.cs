@@ -22,7 +22,25 @@ public partial class MainWindow : Window
         {
             refresh.Click += (_, _) => Model?.Refresh();
         }
+
+        // The window asks; it does not open anything itself. App is the single place that knows
+        // about window lifetimes, so the settings window stays a single instance however it is
+        // reached - from here or from the status-area menu.
+        var settings = this.FindControl<Button>("SettingsButton");
+        if (settings is not null)
+        {
+            settings.Click += (_, _) => SettingsRequested?.Invoke();
+        }
     }
+
+    /// <summary>Raised when the user asks for the settings window from this window.</summary>
+    public event Action? SettingsRequested;
+
+    /// <summary>
+    /// Raises <see cref="SettingsRequested"/> as pressing the button does. Used by the
+    /// acceptance run so the button's route is exercised, not just the menu's.
+    /// </summary>
+    public void RequestSettingsForAcceptance() => SettingsRequested?.Invoke();
 
     private MainViewModel? Model => DataContext as MainViewModel;
 

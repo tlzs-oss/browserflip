@@ -143,8 +143,11 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 ## 受入用の起動オプション
 
 ```sh
-"BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" --show-settings ja
+"BrowserFlip Prototype.app/Contents/MacOS/BrowserFlipPrototype" \
+    --settings-path /tmp/acceptance-settings.json --show-settings ja
 ```
+
+`--settings-path` は、その実行だけで使う設定ファイルを指定します。**検証がユーザーの実設定ファイルを読み書きしないため**に用意しています(設定の保存先はアカウントのホームから解決され、`$HOME` の差し替えでは隔離できません — `env -i HOME=<temp>` で実行しても実ファイルが書かれることを実測しました)。
 
 **ステータス エリア メニューの「設定…」を実際に選んで**設定ウィンドウを開き、画面に出たものを報告して、そのまま起動し続けます(自己診断と違い終了しません)。言語を省略すると切り替えません。自動テストの PASS 行ではなく実画面を確認したいときに使います。
 
@@ -154,6 +157,11 @@ choosing the status-area menu item "設定…" ...
   settings window visible=True topmost=True active=True  pos=496,131 size=520x700 title="BrowserFlip の設定"
   language picker now reads: システムに合わせる | en | ja | zh-CN
   selected: "ja"  (stored language: ja)
+  choosing it again -> 1 settings window(s) open (not duplicated)
+  after closing    -> 0 settings window(s) open
+  reopening        -> open again, visible=True topmost=True active=True
+  main window's settings button reads "設定…"
+  main-window "settings" button -> 1 settings window(s) open (same single window)
 ```
 
 ## 設定画面へのアクセス
@@ -164,7 +172,7 @@ Owner の受入で「設定ウィンドウ:未確認」となったため、設�
 | --- | --- |
 | 独立した設定ウィンドウは存在するか | **存在します。** `Views/SettingsWindow.axaml`。520×700、リサイズ可、オーナー中央配置、**モーダルではありません**。同時に 1 つだけ開き、既に開いていれば前面化します |
 | メニューバーの「設定…」は何を開くか | その `SettingsWindow` です。`App.ShowSettings()` がメイン ウィンドウをオーナーにして `Show()` します |
-| 正確なアクセス方法 | **メニューバー アイコン → 「設定…」。これが唯一の導線です。** メイン ウィンドウにもフローティング ツールバーにも設定ボタンはありません。macOS の画面左上のアプリケーション メニューは Avalonia の既定のままで設定項目を持てません(下記「既知の制限」) |
+| 正確なアクセス方法 | **2 つあります。(1) メイン ウィンドウの「設定…」ボタン**(「状態を更新」の隣)**、(2) メニューバー アイコン → 「設定…」。** どちらも同じ 1 つのウィンドウに到達します。macOS の画面左上のアプリケーション メニューは Avalonia の既定のままで設定項目を持てません(下記「既知の制限」) |
 | 設定画面に何があるか | 言語、常に手前に表示、フローティング ツールバー、能力テーブル(4 行)、設定ファイルの場所 |
 
 > **設定ウィンドウは「常に手前に表示」に追随します。** メイン ウィンドウがオーナーなので、オーナーだけが最前面だと設定ウィンドウはその**真下**に開き、ほぼ完全に重なるため何も起きていないように見えます(実測:メイン 560×620 @476,153 topmost=True、設定 520×700 @496,127 topmost=False)。Owner が設定画面を見つけられなかったのはこれです。初回オープン時に `Activate()` も呼びます(以前は 2 回目以降だけでした)。
