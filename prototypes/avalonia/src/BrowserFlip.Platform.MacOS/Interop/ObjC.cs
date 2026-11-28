@@ -213,6 +213,17 @@ internal static class ObjC
         internal double Height;
     }
 
+    /// <summary>
+    /// A Core Graphics / AppKit point (<c>NSPoint</c>). Two CGFloats, which both macOS
+    /// architectures pass and return in floating-point registers.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct NSPoint
+    {
+        internal double X;
+        internal double Y;
+    }
+
     /// <summary>For selectors taking a struct POINTER, such as CGImageForProposedRect:context:hints:.</summary>
     [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
     internal static extern IntPtr SendWithRectPtr(IntPtr receiver, IntPtr selector, ref NSRect rect, IntPtr b, IntPtr c);

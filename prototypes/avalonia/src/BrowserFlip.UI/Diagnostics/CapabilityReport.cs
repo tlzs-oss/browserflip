@@ -59,6 +59,18 @@ public sealed class CapabilityReport
 
     public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
+    /// <summary>
+    /// The process exit code this report implies: 0 all good, 2 something failed, 3 something is
+    /// still pending. 3 is deliberately not folded into either of the others - a run that ends
+    /// with an unanswered OS consent alert has neither succeeded nor failed, and the caller must
+    /// be able to tell those apart. A failure outranks a pending check, because something is
+    /// definitely wrong; the report itself says what, which is why this rule lives beside the
+    /// checks instead of being restated by each caller.
+    /// </summary>
+    public int ExitCode => Checks.Exists(c => c.Result == CheckResult.FAIL) ? 2
+        : Checks.Exists(c => c.Result == CheckResult.PENDING) ? 3
+        : 0;
+
     /// <summary>A compact table for the terminal, in the round's PASS/FAIL/SKIPPED/UNSUPPORTED form.</summary>
     public string ToTable()
     {

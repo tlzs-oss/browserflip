@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using BrowserFlip.UI.Localization;
 
 namespace BrowserFlip.UI.Menus;
@@ -60,9 +61,71 @@ public static class StatusAreaMenu
     }
 
     /// <summary>
-    /// The resource keys of the application menu bar, for the platforms that can show one. Kept
-    /// beside the status-area menu so one test covers the translations of both.
+    /// The application menu bar, for the platforms that can show one, as top-level entries each
+    /// holding one child. Built from the same kind of definition as the status-area menu so that
+    /// one test covers the labels of both, and so that adding an item cannot quietly escape the
+    /// translation check the way a hand-maintained key list could.
     /// </summary>
-    public static IReadOnlyList<string> ApplicationMenuKeys { get; } =
-        ["MenuBar_File", "MenuBar_View", "MenuBar_Settings", "MenuBar_RefreshBrowsers", "Menu_Settings", "Menu_ShowToolbar"];
+    /// <remarks>
+    /// Not used on macOS: Avalonia exports the application menu before the Application object
+    /// exists, so a later NativeMenu.SetMenu(Application, ...) is ignored there - measured, see
+    /// docs/macos-menu-bar.md.
+    /// </remarks>
+    public static IReadOnlyList<(StatusMenuEntry Parent, StatusMenuEntry Child)> BuildApplicationMenu(
+        Action refresh,
+        Action toggleToolbar,
+        Action showSettings)
+    {
+        ArgumentNullException.ThrowIfNull(refresh);
+        ArgumentNullException.ThrowIfNull(toggleToolbar);
+        ArgumentNullException.ThrowIfNull(showSettings);
+
+        return
+        [
+            (Header("MenuBar_File"), new StatusMenuEntry("MenuBar_RefreshBrowsers", Plain("MenuBar_RefreshBrowsers"), refresh)),
+            (Header("MenuBar_View"), new StatusMenuEntry("Menu_ShowToolbar", Plain("Menu_ShowToolbar"), toggleToolbar)),
+            (Header("MenuBar_Settings"), new StatusMenuEntry("Menu_Settings", Plain("Menu_Settings"), showSettings)),
+        ];
+    }
+
+    /// <summary>
+    /// Turns a definition into the real <see cref="NativeMenu"/> the platform is given. It lives
+    /// here, rather than inline where the tray icon is built, so that a test can assert the order,
+    /// the separator's position and the handler wiring of the menu that is actually handed over -
+    /// otherwise "one definition, no drift" would hold only up to the list and not past it.
+    /// </summary>
+    public static NativeMenu ToNativeMenu(IReadOnlyList<StatusMenuEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        var menu = new NativeMenu();
+        foreach (var entry in entries)
+        {
+            if (entry.IsSeparator)
+            {
+                menu.Items.Add(new NativeMenuItemSeparator());
+                continue;
+            }
+
+            var item = new NativeMenuItem(entry.Label);
+            var invoke = entry.Invoke!;
+            item.Click += (_, _) => invoke();
+            menu.Items.Add(item);
+        }
+
+        return menu;
+    }
+
+    /// <summary>A top-level header, which opens its child menu rather than doing something itself.</summary>
+    private static StatusMenuEntry Header(string key) => new(key, Plain(key), () => { });
+
+    /// <summary>
+    /// A label with the access-key marker removed. The product's menu-bar resources carry them
+    /// ("_File", "ファイル(_F)"), and they are stripped for every native menu item rather than
+    /// for some of them: before this, the three headers were English literals with no marker
+    /// while their children were stripped, and localising the headers without stripping would
+    /// have put a literal underscore on screen beside an already-stripped child.
+    /// </summary>
+    public static string Plain(string key)
+        => Strings.Get(key).Replace("_", string.Empty, StringComparison.Ordinal);
 }

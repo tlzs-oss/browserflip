@@ -161,7 +161,21 @@ SetMenu(appMenu);
 | チェック 3(強化) | メニューバー上の実 `NSStatusBarButton` を読み戻し、表示状態・画像の有無・メニュー項目数とラベルを記録。見つからなければ **FAIL** | 公開 AppKit API のみ |
 | チェック 13(新規) | 実 `NSEvent` のクリックを投入し、`NativeMenu.Opening` の発火を確認 | 権限追加なし |
 
-チェック 13 はレポート書き出し**後**に実行し、結果はバックグラウンド スレッドが `menu-click.txt` と `capability-report.txt` に追記して `Environment.Exit` する。メニューが本当に開くと UI スレッドがネイティブのモーダル ループに入るため、UI スレッド上の継続は信頼できない。
+チェック 13 は他のチェックの**後**に実行し、バックグラウンド スレッドが結果をレポートに追加してから `capability-report.json` と `.txt` を書き直し、`Environment.Exit` する。メニューが本当に開くと UI スレッドがネイティブのモーダル ループに入るため、UI スレッド上の継続は信頼できない。
+
+> 当初はサマリー行の後にテキストを 1 行追記する実装にしていた。**これは誤りで、独立レビューが指摘した。** JSON レポートには入らず、`RESULT:` 行にも数えられないため、メニューが壊れていても機械可読な成果物は「全件合格」と報告してしまう — このラウンドが閉じようとした穴そのものである。現在はレポート本体に入る。
+
+ステータス項目が見つからない場合、チェック 13 は `FAIL` ではなく `SKIPPED` を返す。macOS はメニューバーが混雑するとステータス項目を隠すため、それを製品欠陥として `FAIL` にすると正常なビルドが落ちる。見つからないこと自体はチェック 3 が `FAIL` にするので、何も隠れない。
+
+実証(意図的に壊した版):プローブが探すツールチップだけを誤った値にして実行すると
+
+```
+ FAIL          3. Status-area / menu-bar icon and menu   no NSStatusBarButton with tooltip "NEGATIVE-TEST"; 1 status button(s) ...
+ SKIPPED      13. Status-area menu opens on a real click no NSStatusBarButton with tooltip "NEGATIVE-TEST"; scanned 13 NSApp window(s)
+ RESULT: FAIL (1 failing)   pass=10 pending=0 skipped=2 unsupported=0
+```
+
+となり、JSON も `[(3, 'FAIL'), (13, 'SKIPPED')]`、終了コードは 2 になる。
 
 プローブを持たないプラットフォーム(Linux / Windows)では、チェック 3 は**その旨を明示する**:
 

@@ -38,8 +38,36 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
         ulong modifierFlags, double timestamp, long windowNumber, IntPtr context,
         long eventNumber, long clickCount, float pressure);
 
+    // A 32-byte NSRect return needs two different entry points, because the two macOS
+    // architectures disagree about how such a struct comes back:
+    //   arm64  - four doubles are a homogeneous float aggregate returned in d0-d3, so the
+    //            ordinary objc_msgSend is correct (objc_msgSend_stret does not exist there).
+    //   x86-64 - the same struct is MEMORY class and returns through a hidden pointer, which
+    //            shifts self into rsi and the selector into rdx. Calling plain objc_msgSend
+    //            would then read an isa out of a stack buffer and use the receiver as the
+    //            selector: a message to something that is not an object. osx-x64 is a declared
+    //            RuntimeIdentifier and macos/bundle.sh maps x86_64 to it, so this is a real
+    //            configuration, and CI's arm64 runners would never catch it.
+    // The managed signature is identical; only the symbol differs, and .NET already emits the
+    // hidden-pointer convention on x86-64, which is exactly what objc_msgSend_stret expects.
     [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
-    private static extern ObjC.NSRect SendRect(IntPtr receiver, IntPtr selector);
+    private static extern ObjC.NSRect SendRectArm64(IntPtr receiver, IntPtr selector);
+
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend_stret", ExactSpelling = true)]
+    private static extern ObjC.NSRect SendRectX64(IntPtr receiver, IntPtr selector);
+
+    private static ObjC.NSRect SendRect(IntPtr receiver, IntPtr selector)
+        => RuntimeInformation.ProcessArchitecture == Architecture.X64
+            ? SendRectX64(receiver, selector)
+            : SendRectArm64(receiver, selector);
+
+    /// <summary>
+    /// For <c>-[NSView convertPoint:toView:]</c>. An NSPoint is two doubles, which both
+    /// architectures pass and return in floating-point registers, so one entry point serves.
+    /// </summary>
+    [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
+    private static extern ObjC.NSPoint ConvertPoint(
+        IntPtr receiver, IntPtr selector, double x, double y, IntPtr toView);
 
     [DllImport(Libobjc, EntryPoint = "objc_msgSend", ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.U1)]
@@ -93,26 +121,32 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
             return false;
         }
 
-        var ignored = new StringBuilder();
-        var button = FindStatusButtons(ignored).Find(b =>
+        var scan = new StringBuilder();
+        var button = FindStatusButtons(scan).Find(b =>
             string.Equals(ObjC.ToManaged(ObjC.Send(b, ObjC.Sel("toolTip"))), expectedToolTip, StringComparison.Ordinal));
         if (button == ObjC.Nil)
         {
-            detail = $"no NSStatusBarButton with tooltip \"{expectedToolTip}\"";
+            detail = $"no NSStatusBarButton with tooltip \"{expectedToolTip}\"; {scan}";
             return false;
         }
 
         var window = ObjC.Send(button, ObjC.Sel("window"));
         var windowNumber = ObjC.SendLong(window, ObjC.Sel("windowNumber"));
+
+        // The event wants WINDOW coordinates. Taking the centre of the button's own bounds and
+        // asking AppKit to convert it is correct wherever the button sits in the view tree;
+        // adding the button's frame origin to its bounds size, as this first did, only happens
+        // to agree while the button is its window's content view.
         var bounds = SendRect(button, ObjC.Sel("bounds"));
-        var frame = SendRect(button, ObjC.Sel("frame"));
+        var centre = ConvertPoint(
+            button, ObjC.Sel("convertPoint:toView:"), bounds.Width / 2, bounds.Height / 2, ObjC.Nil);
 
         var mouseDown = MouseEvent(
             ObjC.GetClass("NSEvent"),
             ObjC.Sel("mouseEventWithType:location:modifierFlags:timestamp:windowNumber:context:eventNumber:clickCount:pressure:"),
             LeftMouseDown,
-            frame.X + (bounds.Width / 2),
-            frame.Y + (bounds.Height / 2),
+            centre.X,
+            centre.Y,
             0UL, 0.0, windowNumber, ObjC.Nil, 0, 1, 1.0f);
 
         if (mouseDown == ObjC.Nil)
@@ -128,7 +162,7 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
         ObjC.Send(app, ObjC.Sel("postEvent:atStart:"), mouseDown, IntPtr.Zero);
 
         detail = string.Create(CultureInfo.InvariantCulture,
-            $"posted a real NSEventTypeLeftMouseDown at ({frame.X + (bounds.Width / 2):F0},{frame.Y + (bounds.Height / 2):F0}) "
+            $"posted a real NSEventTypeLeftMouseDown at ({centre.X:F0},{centre.Y:F0}) "
             + $"to window {windowNumber} through -[NSApplication postEvent:atStart:]");
         return true;
     }

@@ -286,8 +286,8 @@ public static class SelfTest
     }
 
     /// <summary>
-    /// Delivers a real click to the status-area item and records whether the menu actually
-    /// opened, then ends the process.
+    /// Delivers a real click to the status-area item, records in the report whether the menu
+    /// actually opened, rewrites the report files, and ends the process.
     /// <para>
     /// This is the check that the Owner's menu-bar acceptance needed and the report did not have:
     /// the icon was present and the menu never opened (MAC-D6), and nothing in the automated run
@@ -295,60 +295,77 @@ public static class SelfTest
     /// menu that is attached but unreachable fails here.
     /// </para>
     /// <para>
-    /// It runs last, after the report is on disk, and finishes on a background thread: an open
-    /// native menu runs its own modal tracking loop on the UI thread, so nothing scheduled there
-    /// could be relied on to write the result or to shut the application down.
+    /// It runs last, after the other checks, and finishes on a background thread: an open native
+    /// menu runs its own modal tracking loop on the UI thread, so nothing scheduled there could
+    /// be relied on to write the result or to shut the application down. Because of that it also
+    /// owns the final write of both report files - appending a line after the summary, as this
+    /// first did, left the JSON report and the RESULT line claiming a clean run while the menu
+    /// was broken.
     /// </para>
     /// </summary>
     public static void VerifyMenuOpensThenExit(
-        IStatusAreaProbe probe, NativeMenu trayMenu, string trayToolTip, string outputDirectory, int exitCode)
+        IStatusAreaProbe probe, NativeMenu trayMenu, string trayToolTip, CapabilityReport report, string outputDirectory)
     {
         ArgumentNullException.ThrowIfNull(probe);
         ArgumentNullException.ThrowIfNull(trayMenu);
+        ArgumentNullException.ThrowIfNull(report);
 
         var opened = 0;
         var closed = 0;
-        trayMenu.Opening += (_, _) => Interlocked.Exchange(ref opened, 1);
-        trayMenu.Closed += (_, _) => Interlocked.Exchange(ref closed, 1);
+        void OnOpening(object? sender, EventArgs e) => Interlocked.Exchange(ref opened, 1);
+        void OnClosed(object? sender, EventArgs e) => Interlocked.Exchange(ref closed, 1);
+        trayMenu.Opening += OnOpening;
+        trayMenu.Closed += OnClosed;
 
         var posted = probe.TryClick(trayToolTip, out var clickDetail);
 
         _ = Task.Run(async () =>
         {
-            // The platform raises "opening" synchronously while it builds the menu, so a short
-            // wait is enough; it is generous rather than tight because a slow machine must not
-            // turn a working menu into a failure.
-            for (var waited = 0; waited < 50 && Volatile.Read(ref opened) == 0; waited++)
-            {
-                await Task.Delay(100).ConfigureAwait(false);
-            }
-
-            var fired = Volatile.Read(ref opened) == 1;
-            var result = !posted ? CheckResult.FAIL : fired ? CheckResult.PASS : CheckResult.FAIL;
-            var line = string.Create(CultureInfo.InvariantCulture,
-                $"13  {result,-11} Status-area menu opens on a real click\n"
-                + $"    {clickDetail}; NativeMenu.Opening raised={fired}; NativeMenu.Closed raised={Volatile.Read(ref closed) == 1}\n");
-
             try
             {
+                if (posted)
+                {
+                    // The platform raises "opening" synchronously while it builds the menu, so a
+                    // short wait is enough; it is generous rather than tight because a slow
+                    // machine must not turn a working menu into a failure.
+                    for (var waited = 0; waited < 50 && Volatile.Read(ref opened) == 0; waited++)
+                    {
+                        await Task.Delay(100).ConfigureAwait(false);
+                    }
+                }
+
+                var fired = Volatile.Read(ref opened) == 1;
+                // Not being able to deliver the click is not the same as delivering it and
+                // getting nothing. macOS hides status items when the menu bar is crowded, and
+                // grading that as a product defect would fail a working build; check 3 already
+                // FAILs when the item cannot be found, so nothing is hidden by saying so here.
+                var result = !posted ? CheckResult.SKIPPED : fired ? CheckResult.PASS : CheckResult.FAIL;
+                report.Add(13, "Status-area menu opens on a real click", result,
+                    $"{clickDetail}; NativeMenu.Opening raised={fired}; NativeMenu.Closed raised={Volatile.Read(ref closed) == 1}");
+
+                trayMenu.Opening -= OnOpening;
+                trayMenu.Closed -= OnClosed;
+
                 Directory.CreateDirectory(outputDirectory);
-                await File.WriteAllTextAsync(Path.Combine(outputDirectory, "menu-click.txt"), line).ConfigureAwait(false);
-                await File.AppendAllTextAsync(Path.Combine(outputDirectory, "capability-report.txt"), "\n" + line)
+                await File.WriteAllTextAsync(Path.Combine(outputDirectory, "capability-report.json"), report.ToJson())
                     .ConfigureAwait(false);
+                var table = report.ToTable();
+                await File.WriteAllTextAsync(Path.Combine(outputDirectory, "capability-report.txt"), table)
+                    .ConfigureAwait(false);
+                Console.WriteLine(table);
+                Console.Out.Flush();
             }
-#pragma warning disable CA1031 // The result must still be printed and the process must still end.
+#pragma warning disable CA1031 // The process must still end, with a code that says it went wrong.
             catch (Exception ex)
 #pragma warning restore CA1031
             {
-                Console.Error.WriteLine("menu-click evidence could not be written: " + ex.Message);
+                Console.Error.WriteLine("the menu-click check could not be completed: " + ex);
+                Environment.Exit(2);
             }
-
-            Console.Write(line);
-            Console.Out.Flush();
 
             // Environment.Exit, not the application lifetime: if the menu really did open, the
             // UI thread is inside the platform's modal menu loop and will not run anything.
-            Environment.Exit(result == CheckResult.PASS ? exitCode : 2);
+            Environment.Exit(report.ExitCode);
         });
     }
 

@@ -34,6 +34,7 @@ public partial class App : Application
     private FloatingToolbar? _toolbar;
     private bool _trayIconCreated;
     private NativeMenu? _trayMenu;
+    private string? _trayToolTip;
 
     public override void Initialize()
     {
@@ -115,28 +116,25 @@ public partial class App : Application
     /// </summary>
     private void CreateApplicationMenu(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var refresh = new NativeMenuItem(Strings.Get("MenuBar_RefreshBrowsers").Replace("_", string.Empty, StringComparison.Ordinal));
-        refresh.Click += (_, _) => _model?.Refresh();
-
-        var settings = new NativeMenuItem(Strings.Get("Menu_Settings"));
-        settings.Click += (_, _) => ShowSettings(desktop);
-
-        var toolbar = new NativeMenuItem(Strings.Get("Menu_ShowToolbar"));
-        toolbar.Click += (_, _) =>
+        var top = new List<NativeMenuItem>();
+        foreach (var (parent, child) in Menus.StatusAreaMenu.BuildApplicationMenu(
+                     refresh: () => _model?.Refresh(),
+                     toggleToolbar: () =>
+                     {
+                         if (_model is not null && Capabilities is null or { WindowPositioning.IsAvailable: true })
+                         {
+                             _model.ShowFloatingToolbar = !_model.ShowFloatingToolbar;
+                         }
+                     },
+                     showSettings: () => ShowSettings(desktop)))
         {
-            if (_model is not null && Capabilities is null or { WindowPositioning.IsAvailable: true })
-            {
-                _model.ShowFloatingToolbar = !_model.ShowFloatingToolbar;
-            }
-        };
+            var item = new NativeMenuItem(child.Label);
+            var invoke = child.Invoke!;
+            item.Click += (_, _) => invoke();
+            top.Add(new NativeMenuItem(parent.Label) { Menu = [item] });
+        }
 
-        // The access-key markers are left in place: Avalonia renders them as access keys on the
-        // platforms where this menu is actually used, and the macOS exporter strips them itself.
-        var file = new NativeMenuItem(Strings.Get("MenuBar_File")) { Menu = [refresh] };
-        var view = new NativeMenuItem(Strings.Get("MenuBar_View")) { Menu = [toolbar] };
-        var tools = new NativeMenuItem(Strings.Get("MenuBar_Settings")) { Menu = [settings] };
-
-        NativeMenu.SetMenu(this, [file, view, tools]);
+        NativeMenu.SetMenu(this, [.. top]);
     }
 
     /// <summary>Opens the single settings window, or focuses it when it is already open.</summary>
@@ -193,26 +191,18 @@ public partial class App : Application
             showSettings: () => ShowSettings(desktop),
             quit: () => desktop.Shutdown());
 
-        var menu = new NativeMenu();
-        foreach (var entry in entries)
-        {
-            if (entry.IsSeparator)
-            {
-                menu.Items.Add(new NativeMenuItemSeparator());
-                continue;
-            }
-
-            var item = new NativeMenuItem(entry.Label);
-            var invoke = entry.Invoke!;
-            item.Click += (_, _) => invoke();
-            menu.Items.Add(item);
-        }
+        var menu = Menus.StatusAreaMenu.ToNativeMenu(entries);
 
         // Avalonia owns and disposes the TrayIcon once it is registered with SetIcons,
         // so the application does not keep a disposable field of its own.
+        // Remembered, not looked up a second time: the probe identifies the live status item by
+        // this tooltip, and a fresh Strings.Get could return a different string if the UI culture
+        // has moved on since the item was created - which would fail checks 3 and 13 on a
+        // working product.
+        _trayToolTip = Strings.Get("AppTitle");
         var trayIcon = new TrayIcon
         {
-            ToolTipText = Strings.Get("AppTitle"),
+            ToolTipText = _trayToolTip,
             Menu = menu,
             IsVisible = true,
             // Without this the StatusNotifierItem goes onto the bus with IconName="" and a 0x0
@@ -236,6 +226,7 @@ public partial class App : Application
             async () =>
             {
                 var exitCode = 1;
+                CapabilityReport? finished = null;
                 var adapters = (AdapterAccessor ?? throw new InvalidOperationException(
                     "App.AdapterAccessor must be set when running the self-test."))();
 
@@ -254,7 +245,7 @@ public partial class App : Application
                     var report = await SelfTest.RunAsync(
                         _model!, desktop.MainWindow!, _toolbar, _trayIconCreated,
                         adapters.Switcher, adapters.Icons, adapters.Store, adapters.Capabilities,
-                        StatusAreaProbe, _trayMenu, Strings.Get("AppTitle")).ConfigureAwait(true);
+                        StatusAreaProbe, _trayMenu, _trayToolTip).ConfigureAwait(true);
 
                     var directory = SelfTest.OutputDirectory!;
                     Directory.CreateDirectory(directory);
@@ -264,13 +255,8 @@ public partial class App : Application
                     await File.WriteAllTextAsync(Path.Combine(directory, "capability-report.txt"), table)
                         .ConfigureAwait(true);
                     Console.WriteLine(table);
-                    // 0 all good, 2 something failed, 3 something is still pending. 3 is
-                    // deliberately not folded into either of the others: a run that ends with
-                    // an unanswered OS consent alert has neither succeeded nor failed, and the
-                    // caller must be able to tell those apart.
-                    exitCode = report.Checks.Any(c => c.Result == CheckResult.FAIL) ? 2
-                        : report.Checks.Any(c => c.Result == CheckResult.PENDING) ? 3
-                        : 0;
+                    exitCode = report.ExitCode;
+                    finished = report;
                 }
 #pragma warning disable CA1031 // The self-test must report rather than crash.
                 catch (Exception ex)
@@ -289,10 +275,11 @@ public partial class App : Application
                 // that really opens blocks the UI thread in the platform's modal tracking loop.
                 // It ends the process itself; only when there is nothing to click do we shut
                 // down the ordinary way.
-                if (StatusAreaProbe is not null && _trayMenu is not null && SelfTest.OutputDirectory is not null)
+                if (StatusAreaProbe is not null && _trayMenu is not null
+                    && finished is not null && SelfTest.OutputDirectory is not null)
                 {
                     SelfTest.VerifyMenuOpensThenExit(
-                        StatusAreaProbe, _trayMenu, Strings.Get("AppTitle"), SelfTest.OutputDirectory, exitCode);
+                        StatusAreaProbe, _trayMenu, _trayToolTip ?? string.Empty, finished, SelfTest.OutputDirectory);
                     return;
                 }
 

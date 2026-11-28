@@ -145,7 +145,9 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 macOS では自己診断が**実際の `NSStatusItem` を OS から読み戻します**。「`TrayIcon.SetIcons` を呼んだ」ことは BrowserFlip についての主張であって macOS についての主張ではなく、それを根拠に PASS を出していたために、クリックしてもメニューが開かない欠陥(MAC-D6)を見逃しました。
 
 - **チェック 3** — メニューバー上の実 `NSStatusBarButton` の表示状態・画像・メニュー項目のラベルを記録します。見つからなければ `FAIL` です。
-- **チェック 13** — `+[NSEvent mouseEventWithType:…]` で作った実イベントを `-[NSApplication postEvent:atStart:]` でこのプロセスのキューに投入し、`NativeMenu.Opening` が発火するかを確認します。**合成 CGEvent を使わないため、Accessibility も Screen Recording も不要です。** 結果は `menu-click.txt` にも残ります。
+- **チェック 13** — `+[NSEvent mouseEventWithType:…]` で作った実イベントを `-[NSApplication postEvent:atStart:]` でこのプロセスのキューに投入し、`NativeMenu.Opening` が発火するかを確認します。**合成 CGEvent を使わないため、Accessibility も Screen Recording も不要です。** 結果はレポート本体(`capability-report.json` と `.txt` の `RESULT:` 行)に入るので、メニューが壊れていればレポート全体が `FAIL` になります。
+
+  ステータス項目がメニューバーの混雑などで見つからなかった場合は `FAIL` ではなく `SKIPPED` です(測れなかったことと、押したのに開かなかったことは別)。見つからないこと自体はチェック 3 が `FAIL` にします。
 
 プローブを持たない Linux / Windows では、チェック 3 は「このプラットフォームでは読み戻せないので実表示とクリック動作はこのチェックでは未検証」と明記します。
 

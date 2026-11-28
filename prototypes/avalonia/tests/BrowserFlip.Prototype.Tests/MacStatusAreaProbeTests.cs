@@ -9,6 +9,7 @@ namespace BrowserFlip.Prototype.Tests;
 /// "not found" rather than an optimistic PASS: the defect the Owner found (MAC-D6) survived
 /// precisely because the report inferred success from BrowserFlip's own intent.
 /// </summary>
+[Collection(SerialAppKit.Name)]
 [System.Runtime.Versioning.SupportedOSPlatform("macos")]
 public class MacStatusAreaProbeTests
 {

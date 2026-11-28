@@ -20,3 +20,22 @@ public sealed class SerialUiCulture
 {
     public const string Name = "ui-culture";
 }
+
+/// <summary>
+/// Serialises every test that touches AppKit.
+///
+/// <c>+[NSApplication sharedApplication]</c> is documented as main-thread-only and it
+/// instantiates process-global AppKit state; walking <c>-[NSView subviews]</c> is likewise
+/// not thread-safe. xUnit runs test classes in parallel, and this assembly also builds the
+/// real <see cref="BrowserFlip.UI.App"/> on Avalonia's headless platform, so an AppKit
+/// test and a UI test can otherwise overlap inside one process.
+///
+/// No crash was reproduced - three full runs of the suite passed - so this is closing an
+/// unsupported call pattern rather than a demonstrated failure. It is the kind that becomes
+/// flaky later, under a different test order, and is cheap to rule out now.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SerialAppKit
+{
+    public const string Name = "appkit";
+}
