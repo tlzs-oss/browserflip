@@ -116,6 +116,33 @@ public static class StatusAreaMenu
         return menu;
     }
 
+    /// <summary>
+    /// Re-reads the labels of a menu that has already been handed to the platform, in the order
+    /// the definition produced them.
+    /// <para>
+    /// The labels are resource lookups made when the menu was built, so until this is called the
+    /// status-area menu keeps the language it started in. Measured: after switching the UI to
+    /// Japanese, the menu item still read the Chinese 设置…. The items are relabelled in place
+    /// rather than rebuilt, because replacing the menu would mean re-registering the status item
+    /// with the shell.
+    /// </para>
+    /// </summary>
+    public static void Relabel(NativeMenu menu, IReadOnlyList<StatusMenuEntry> entries)
+    {
+        ArgumentNullException.ThrowIfNull(menu);
+        ArgumentNullException.ThrowIfNull(entries);
+
+        var count = Math.Min(menu.Items.Count, entries.Count);
+        for (var i = 0; i < count; i++)
+        {
+            if (!entries[i].IsSeparator && menu.Items[i] is NativeMenuItem item
+                and not NativeMenuItemSeparator)
+            {
+                item.Header = entries[i].Label;
+            }
+        }
+    }
+
     /// <summary>A top-level header, which opens its child menu rather than doing something itself.</summary>
     private static StatusMenuEntry Header(string key) => new(key, Plain(key), () => { });
 

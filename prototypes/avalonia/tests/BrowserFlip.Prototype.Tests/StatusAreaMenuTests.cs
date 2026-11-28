@@ -1,3 +1,4 @@
+using Avalonia.Headless.XUnit;
 using BrowserFlip.UI.Localization;
 using BrowserFlip.UI.Menus;
 
@@ -229,5 +230,62 @@ public class StatusAreaMenuTests
         Assert.True(((Avalonia.Controls.NativeMenuItem)menu.Items[1]).HasClickHandlers);
         ((Avalonia.Controls.INativeMenuItemExporterEventsImplBridge)menu.Items[1]).RaiseClicked();
         Assert.Equal(["refresh"], log);
+    }
+}
+
+/// <summary>
+/// The status-area menu's labels are resource lookups made when the menu was built, so they have
+/// to be re-read when the user changes the UI language. Measured before this: after switching to
+/// Japanese, the live menu-bar menu still read the Chinese 设置…. Separate class because these
+/// mutate the process-wide UI culture.
+/// </summary>
+[Collection(SerialUiCulture.Name)]
+public class StatusAreaMenuRelabelTests
+{
+    private static IReadOnlyList<StatusMenuEntry> Entries()
+        => StatusAreaMenu.Build(() => { }, () => { }, () => { }, () => { }, () => { });
+
+    [AvaloniaFact]
+    public void Relabelling_rewrites_every_label_into_the_new_language()
+    {
+        try
+        {
+            Strings.UseLanguage("zh-CN");
+            var menu = StatusAreaMenu.ToNativeMenu(Entries());
+            var chinese = menu.Items
+                .Where(i => i is Avalonia.Controls.NativeMenuItem and not Avalonia.Controls.NativeMenuItemSeparator)
+                .Cast<Avalonia.Controls.NativeMenuItem>().Select(i => i.Header).ToList();
+
+            Strings.UseLanguage("ja");
+            StatusAreaMenu.Relabel(menu, Entries());
+
+            var japanese = menu.Items
+                .Where(i => i is Avalonia.Controls.NativeMenuItem and not Avalonia.Controls.NativeMenuItemSeparator)
+                .Cast<Avalonia.Controls.NativeMenuItem>().Select(i => i.Header).ToList();
+
+            Assert.Equal(chinese.Count, japanese.Count);
+            Assert.Contains("設定…", japanese);
+            Assert.DoesNotContain("设置…", japanese);
+        }
+        finally
+        {
+            Strings.UseLanguage(null);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Relabelling_leaves_the_separator_and_the_handlers_alone()
+    {
+        var log = new List<string>();
+        var entries = StatusAreaMenu.Build(
+            () => log.Add("show"), () => log.Add("refresh"), () => log.Add("toolbar"),
+            () => log.Add("settings"), () => log.Add("quit"));
+        var menu = StatusAreaMenu.ToNativeMenu(entries);
+
+        StatusAreaMenu.Relabel(menu, Entries());
+
+        Assert.IsType<Avalonia.Controls.NativeMenuItemSeparator>(menu.Items[4]);
+        ((Avalonia.Controls.INativeMenuItemExporterEventsImplBridge)menu.Items[3]).RaiseClicked();
+        Assert.Equal(["settings"], log);
     }
 }

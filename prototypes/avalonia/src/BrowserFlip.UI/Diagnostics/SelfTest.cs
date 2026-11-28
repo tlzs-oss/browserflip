@@ -25,6 +25,91 @@ public static class SelfTest
     public static string? SwitchTargetId { get; set; }
 
     /// <summary>
+    /// Set by <c>--show-settings [language]</c>: open the settings window the way the user does,
+    /// report what actually landed on screen, and then stay running so it can be looked at.
+    /// <para>
+    /// This exists because the Owner could not find the settings screen and an automated PASS is
+    /// not an answer to that. It chooses the real status-area menu item rather than constructing
+    /// a window, so what appears is what choosing the menu item appears.
+    /// </para>
+    /// </summary>
+    public static bool ShowSettingsRequested { get; set; }
+
+    /// <summary>The language to switch to first, or <c>null</c> to leave it alone.</summary>
+    public static string? ShowSettingsLanguage { get; set; }
+
+    /// <summary>
+    /// Opens the settings window through the status-area menu item and prints what is on screen.
+    /// Returns the window, or <c>null</c> when the item opened nothing.
+    /// </summary>
+    public static async Task<Window?> ShowSettingsThroughTheMenuAsync(
+        MainViewModel model, NativeMenu? trayMenu, IReadOnlyList<Menus.StatusMenuEntry>? trayEntries)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var index = trayEntries is null
+            ? -1
+            : trayEntries.ToList().FindIndex(e => string.Equals(e.Key, "Menu_Settings", StringComparison.Ordinal));
+        var item = trayMenu is not null && index >= 0 && index < trayMenu.Items.Count
+            ? trayMenu.Items[index] as NativeMenuItem
+            : null;
+
+        if (lifetime is null || item is null)
+        {
+            Console.WriteLine("there is no status-area menu on this platform, so there is no item to choose");
+            return null;
+        }
+
+        Console.WriteLine($"choosing the status-area menu item \"{item.Header}\" ...");
+        ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+
+        // Activation is asynchronous, so measuring in the same dispatcher callback that asked
+        // for it reports active=False whatever happens. An earlier version of this did exactly
+        // that and the reading was worthless.
+        await Task.Delay(1200).ConfigureAwait(true);
+
+        var settings = lifetime.Windows.OfType<Views.SettingsWindow>().FirstOrDefault();
+        var main = lifetime.MainWindow;
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"  main window     visible={main?.IsVisible} topmost={main?.Topmost} active={main?.IsActive} "
+            + $"pos={main?.Position.X},{main?.Position.Y} size={main?.Bounds.Width:F0}x{main?.Bounds.Height:F0}"));
+        if (settings is null)
+        {
+            Console.WriteLine("  settings window DID NOT OPEN; open windows: "
+                + string.Join(", ", lifetime.Windows.Select(w => w.GetType().Name)));
+            return null;
+        }
+
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"  settings window visible={settings.IsVisible} topmost={settings.Topmost} active={settings.IsActive} "
+            + $"pos={settings.Position.X},{settings.Position.Y} size={settings.Bounds.Width:F0}x{settings.Bounds.Height:F0} "
+            + $"title=\"{settings.Title}\""));
+
+        // What the language picker is actually showing, read off the live window's own view
+        // model: the Owner's screenshot had a Japanese window whose "follow the system" entry
+        // still read Chinese.
+        if (settings.DataContext is SettingsViewModel vm)
+        {
+            Console.WriteLine("  language picker now reads: "
+                + string.Join(" | ", vm.LanguageChoices.Select(c => c.Display)));
+            Console.WriteLine($"  selected: \"{vm.SelectedLanguage.Display}\"  (stored language: {model.Language ?? "follow the OS"})");
+        }
+
+        // The question the Owner's report raises: if the main window is kept above everything and
+        // the settings window is not, the settings window opens behind it and nothing appears to
+        // have happened.
+        if (main?.Topmost == true && !settings.Topmost)
+        {
+            Console.WriteLine("  *** the main window is always-on-top and the settings window is NOT:"
+                + " the settings window is below it ***");
+        }
+
+        Console.Out.Flush();
+        return settings;
+    }
+
+    /// <summary>
     /// True only for the unattended, Owner-triggered real change: an automated self-test run
     /// that also names a browser to switch to.
     /// <para>

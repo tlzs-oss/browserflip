@@ -86,7 +86,27 @@ public partial class App : Application
                 {
                     ApplyToolbarVisibility();
                 }
+                else if (e.PropertyName == nameof(MainViewModel.Language))
+                {
+                    RelabelTrayMenu();
+                }
             };
+
+            if (SelfTest.ShowSettingsRequested)
+            {
+                DispatcherTimer.RunOnce(
+                    () =>
+                    {
+                        if (SelfTest.ShowSettingsLanguage is { } language && _model is not null)
+                        {
+                            Console.WriteLine($"switching the UI language to \"{language}\" ...");
+                            _model.Language = language;
+                        }
+
+                        _ = SelfTest.ShowSettingsThroughTheMenuAsync(_model!, _trayMenu, _trayEntries);
+                    },
+                    TimeSpan.FromSeconds(2));
+            }
 
             if (SelfTest.OutputDirectory is not null)
             {
@@ -166,6 +186,13 @@ public partial class App : Application
         {
             _settings.Show();
         }
+
+        // Showing is not enough. The item is chosen from the status-area menu, which does not
+        // bring the application forward, so the window appeared behind whatever the user was
+        // looking at - measured as visible=True active=False - and choosing "Settings..." looked
+        // like it did nothing. Re-opening an already-open window did activate it; the first open
+        // did not. The Owner failed to find the settings screen twice because of this.
+        _settings.Activate();
     }
 
     private void CreateTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
@@ -315,6 +342,27 @@ public partial class App : Application
 
         desktop.MainWindow.Show();
         desktop.MainWindow.Activate();
+    }
+
+    /// <summary>
+    /// Re-reads the status-area menu's labels after a language change. They are resource lookups
+    /// made when the menu was built, so without this the menu-bar menu keeps the language the
+    /// application started in - measured: a Japanese UI whose menu item still read 设置….
+    /// </summary>
+    private void RelabelTrayMenu()
+    {
+        if (_trayMenu is null || _trayEntries is null || _model is null)
+        {
+            return;
+        }
+
+        // Built only to re-read the labels in the current language. The handlers already
+        // attached to the live menu items are left alone, and _trayEntries keeps the real
+        // definition - a list of no-op actions must not be allowed to replace it.
+        var relabelled = Menus.StatusAreaMenu.Build(
+            showMainWindow: () => { }, refresh: () => { }, toggleToolbar: () => { },
+            showSettings: () => { }, quit: () => { });
+        Menus.StatusAreaMenu.Relabel(_trayMenu, relabelled);
     }
 
     private void ApplyToolbarVisibility()

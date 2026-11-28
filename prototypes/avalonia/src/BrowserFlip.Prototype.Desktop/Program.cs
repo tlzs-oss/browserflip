@@ -31,6 +31,16 @@ internal static class Program
             {
                 SelfTest.SwitchTargetId = args[i + 1];
             }
+            else if (string.Equals(args[i], "--show-settings", StringComparison.Ordinal))
+            {
+                // Opens the settings window through the real status-area menu item and keeps
+                // running, so the screen can be looked at rather than a PASS line read.
+                SelfTest.ShowSettingsRequested = true;
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                {
+                    SelfTest.ShowSettingsLanguage = args[i + 1];
+                }
+            }
         }
 
         App.ViewModelFactory = Compose;
