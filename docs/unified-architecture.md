@@ -4,6 +4,13 @@ BrowserFlip を Windows / macOS / Linux の統合デスクトップ アプリケ
 
 関連: [architecture.md](architecture.md)(現行 Windows 製品)/ [cross-platform-dev.md](cross-platform-dev.md)(R1 開発基盤)/ [linux-feasibility.md](linux-feasibility.md) / [../prototypes/avalonia/README.md](../prototypes/avalonia/README.md)
 
+> **R3/R4 は収束済みです。** 三プラットフォームのアダプター実装、能力モデル、実機受入とその修正までが完了し、Owner による macOS 実機受入が承認されました。Windows 物理実機受入は `DEFERRED` です。
+>
+> - 確定記録(受入状態・CI・テスト・成果物・**残存事項**)— **[r3-r4-outcome.md](r3-r4-outcome.md)**
+> - Windows 側への引継ぎ(PR #10 / #13 の統合順序、必要 Review、実機検証チェックリスト)— **[windows-handover.md](windows-handover.md)**
+>
+> 本書の設計は R2 時点の記述です。R3/R4 で実測し直した共有コード比率は本書 7 章にあります。
+
 ---
 
 ## 1. 技術的結論

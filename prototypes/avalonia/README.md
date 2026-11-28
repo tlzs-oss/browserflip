@@ -2,6 +2,8 @@
 
 Windows / macOS / Linux 統合に向けた**技術検証用プロトタイプ**です。製品ではありません。
 
+> **R3/R4 は収束済みです。** 受入状態・CI・テスト・成果物・残存事項の確定記録は [../../docs/r3-r4-outcome.md](../../docs/r3-r4-outcome.md)、Windows 側への引継ぎは [../../docs/windows-handover.md](../../docs/windows-handover.md) にあります。
+
 - **出荷中の Windows 製品には一切影響しません。** `BrowserFlip.slnx` には含まれず、ルートの `Directory.Build.props` / `Directory.Packages.props` も変更していません。製品の「第三者ランタイム依存ゼロ」は維持されています。
 - **macOS・Windows・Linux の 3 アダプターすべて実装済み**です。macOS と Linux ARM64 は実機/実コンテナで動作確認済み、Windows は CI(windows-latest)で動作確認済みです。
 
