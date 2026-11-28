@@ -51,16 +51,17 @@ public class SettingsButtonTests
         window.Show();
         var asked = 0;
         window.SettingsRequested += () => asked++;
+        var button = window.FindControl<Button>("SettingsButton")!;
 
-        // The window must not open anything itself: App owns window lifetimes, which is what
-        // keeps the settings window a single instance however it is reached.
-        var raised = window.GetType()
-            .GetField(nameof(MainWindow.SettingsRequested), BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(raised);
-
-        ((Action?)raised.GetValue(window))!.Invoke();
+        // A real click, routed through the button. An earlier version of this test reached the
+        // event's backing field and invoked the delegate, which only asserted that Action.Invoke
+        // works: deleting the button's whole Click handler left the suite green.
+        button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent) { Source = button });
 
         Assert.Equal(1, asked);
+        // The window must not open anything itself: App owns window lifetimes, which is what
+        // keeps the settings window a single instance however it is reached.
+        Assert.Empty(window.OwnedWindows);
     }
 
     [AvaloniaFact]
@@ -121,5 +122,91 @@ public class SettingsButtonTests
         {
             Strings.UseLanguage(null);
         }
+    }
+}
+
+/// <summary>
+/// The settings window has to follow "always on top" however the toggle is reached. It is owned
+/// by the main window, which it almost exactly overlaps, so an always-on-top owner above a
+/// normal-level settings window hides it completely - the defect the Owner reported as "the
+/// settings screen does not appear".
+/// </summary>
+[Collection(SerialUiCulture.Name)]
+public class SettingsWindowTopmostTests
+{
+    private static (MainViewModel Main, SettingsViewModel Settings) Models()
+    {
+        var associations = new FakeAssociations().With("http", "com.apple.Safari").With("https", "com.apple.Safari");
+        var catalog = new FakeCatalog().Add(Browsers.Mac("com.apple.Safari", "Safari"));
+        var capabilities = new BrowserFlip.UI.Platform.FullCapabilities("test platform", osConfirms: true);
+        var main = new MainViewModel(
+            catalog, _ => new FakeSwitcher(associations), new FakeIcons(),
+            new InMemorySettingsStore(), new BrowserFlip.Core.Defaults.DefaultBrowserService(associations),
+            capabilities);
+        main.Initialize();
+        return (main, new SettingsViewModel(main, capabilities));
+    }
+
+    [AvaloniaFact]
+    public void It_opens_at_the_same_level_as_an_always_on_top_owner()
+    {
+        var (main, settings) = Models();
+        main.Topmost = true;
+
+        var window = new SettingsWindow { DataContext = settings };
+        window.Show();
+
+        Assert.True(window.Topmost);
+    }
+
+    [AvaloniaFact]
+    public void It_rises_when_always_on_top_is_switched_on_from_the_main_window()
+    {
+        var (main, settings) = Models();
+        var window = new SettingsWindow { DataContext = settings };
+        window.Show();
+        Assert.False(window.Topmost);
+
+        // Not through this window's own toggle: the main window's. Before this the settings view
+        // model only raised from its own setter, so the owner rose and this window did not.
+        main.Topmost = true;
+
+        Assert.True(window.Topmost);
+        Assert.True(settings.Topmost);
+    }
+
+    [AvaloniaFact]
+    public void Its_labels_follow_a_language_change_made_on_the_main_window()
+    {
+        try
+        {
+            var (main, settings) = Models();
+            var window = new SettingsWindow { DataContext = settings };
+            window.Show();
+
+            main.Language = "ja";
+
+            Assert.Equal(Strings.Get("Settings_Title"), window.Title);
+            Assert.Equal("設定…", Strings.Get("Menu_Settings"));
+        }
+        finally
+        {
+            Strings.UseLanguage(null);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Closing_it_stops_it_following_the_main_view_model()
+    {
+        var (main, settings) = Models();
+        var window = new SettingsWindow { DataContext = settings };
+        window.Show();
+        window.Close();
+
+        // The main view model is the application's and outlives every settings window, so a
+        // window that has gone must not still be listening to it.
+        main.Topmost = true;
+
+        Assert.False(window.Topmost);
     }
 }

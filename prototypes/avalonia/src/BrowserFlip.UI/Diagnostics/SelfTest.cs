@@ -523,21 +523,42 @@ public static class SelfTest
                 ? trayMenu.Items[index] as NativeMenuItem
                 : null;
 
-            if (lifetime is null || item is null)
+            if (lifetime is null)
             {
-                report.Add(12, Name, CheckResult.SKIPPED,
-                    "no status-area menu on this platform, so there is no menu item to choose here");
+                report.Add(12, Name, CheckResult.SKIPPED, "there is no desktop lifetime to open a window from");
                 return;
             }
 
-            ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+            // Where there is no status area - a Linux session with no StatusNotifierWatcher, for
+            // instance - the menu item does not exist, but the main window's button does, and it
+            // is the same route to the same window. Falling back keeps the check meaningful on
+            // exactly the session the capability model exists to describe; before this it
+            // degraded to SKIPPED and produced no settings screenshot at all.
+            string route;
+            if (item is not null)
+            {
+                route = $"the status-area menu item \"{item.Header}\"";
+                ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
+            }
+            else if (lifetime.MainWindow is Views.MainWindow fallback)
+            {
+                route = "the main window's settings button (no status area in this session)";
+                fallback.RequestSettingsForAcceptance();
+            }
+            else
+            {
+                report.Add(12, Name, CheckResult.SKIPPED,
+                    "there is neither a status-area menu nor a main window to open the settings window from");
+                return;
+            }
+
             await Task.Delay(400).ConfigureAwait(true);
 
             var window = lifetime.Windows.OfType<Views.SettingsWindow>().FirstOrDefault();
             if (window is null)
             {
                 report.Add(12, Name, CheckResult.FAIL,
-                    $"choosing \"{item.Header}\" opened no settings window; "
+                    $"choosing {route} opened no settings window; "
                     + $"open windows: {string.Join(", ", lifetime.Windows.Select(w => w.GetType().Name))}");
                 return;
             }
@@ -555,7 +576,7 @@ public static class SelfTest
             // failure even though the window opened.
             var listed = (window.DataContext as SettingsViewModel)?.Capabilities.Count ?? 0;
             report.Add(12, Name, listed > 0 ? CheckResult.PASS : CheckResult.FAIL,
-                $"choosing \"{item.Header}\" opened {window.GetType().Name} \"{window.Title}\", "
+                $"choosing {route} opened {window.GetType().Name} \"{window.Title}\", "
                 + $"{width}x{height}, visible={window.IsVisible}; {listed} capabilities listed; {path}");
             window.Close();
         }

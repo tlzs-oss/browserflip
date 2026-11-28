@@ -31,8 +31,19 @@ internal static class Program
             {
                 SelfTest.SwitchTargetId = args[i + 1];
             }
-            else if (string.Equals(args[i], "--settings-path", StringComparison.Ordinal) && i + 1 < args.Length)
+            else if (string.Equals(args[i], "--settings-path", StringComparison.Ordinal))
             {
+                // Fails CLOSED. A flag whose whole purpose is to keep a verification run away
+                // from the user's real settings file must not quietly fall back to it when its
+                // value is missing or is the next flag: the run would then rewrite the file it
+                // was invoked to protect, with no warning and a zero exit code.
+                if (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
+                {
+                    Console.Error.WriteLine("--settings-path needs a file path. Refusing to run: "
+                        + "without one this would read and write the real per-user settings file.");
+                    return 2;
+                }
+
                 // Lets an acceptance or regression run use its own settings file, so verifying
                 // the application never reads or writes the user's real one. The settings path is
                 // resolved from the account's home directory, not from $HOME, so an environment
@@ -47,7 +58,19 @@ internal static class Program
                 SelfTest.ShowSettingsRequested = true;
                 if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
                 {
-                    SelfTest.ShowSettingsLanguage = args[i + 1];
+                    // Checked here, not on the UI thread. An unknown culture made
+                    // Strings.UseLanguage throw inside the dispatcher callback, where the
+                    // exception was swallowed: the process sat there forever having printed one
+                    // line and never opened the window it exists to show.
+                    var language = args[i + 1];
+                    if (!BrowserFlip.UI.Localization.Strings.SupportedLanguages.Contains(language, StringComparer.OrdinalIgnoreCase))
+                    {
+                        Console.Error.WriteLine($"--show-settings: \"{language}\" is not one of "
+                            + string.Join(", ", BrowserFlip.UI.Localization.Strings.SupportedLanguages));
+                        return 2;
+                    }
+
+                    SelfTest.ShowSettingsLanguage = language;
                 }
             }
         }

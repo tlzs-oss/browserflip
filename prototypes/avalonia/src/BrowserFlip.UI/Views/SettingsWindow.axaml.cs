@@ -53,6 +53,9 @@ public partial class SettingsWindow : Window
         if (_bound is not null)
         {
             _bound.PropertyChanged -= OnModelPropertyChanged;
+            // The view model follows the application's main view model, which outlives both of
+            // them, so it has to be told when this window is finished with it.
+            _bound.Detach();
             _bound = null;
         }
     }

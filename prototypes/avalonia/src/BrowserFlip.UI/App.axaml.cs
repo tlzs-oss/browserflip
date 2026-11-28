@@ -37,6 +37,14 @@ public partial class App : Application
     private string? _trayToolTip;
     private IReadOnlyList<Menus.StatusMenuEntry>? _trayEntries;
 
+    /// <summary>
+    /// The application menu's live items, kept so a language change can re-read their labels.
+    /// Empty on macOS, where the menu is not ours to set. Without this, switching language on
+    /// Windows or Linux left File / View / Settings in the old language beside a status-area menu
+    /// that had updated - the same defect, on the platforms that cannot be measured from here.
+    /// </summary>
+    private readonly List<(NativeMenuItem Header, NativeMenuItem Child)> _applicationMenuItems = [];
+
     public override void Initialize()
     {
         // The product name, not Avalonia's default. Left unset, Avalonia reports itself as
@@ -90,6 +98,7 @@ public partial class App : Application
                 else if (e.PropertyName == nameof(MainViewModel.Language))
                 {
                     RelabelTrayMenu();
+                    RelabelApplicationMenu();
                 }
             };
 
@@ -104,7 +113,7 @@ public partial class App : Application
                             _model.Language = language;
                         }
 
-                        _ = SelfTest.ShowSettingsThroughTheMenuAsync(_model!, _trayMenu, _trayEntries);
+                        _ = ShowSettingsForAcceptanceAsync();
                     },
                     TimeSpan.FromSeconds(2));
             }
@@ -153,7 +162,9 @@ public partial class App : Application
             var item = new NativeMenuItem(child.Label);
             var invoke = child.Invoke!;
             item.Click += (_, _) => invoke();
-            top.Add(new NativeMenuItem(parent.Label) { Menu = [item] });
+            var header = new NativeMenuItem(parent.Label) { Menu = [item] };
+            top.Add(header);
+            _applicationMenuItems.Add((header, item));
         }
 
         NativeMenu.SetMenu(this, [.. top]);
@@ -173,20 +184,29 @@ public partial class App : Application
             return;
         }
 
-        _settings = new SettingsWindow
+        var window = new SettingsWindow
         {
             DataContext = new SettingsViewModel(_model, Capabilities ?? new FullCapabilities("Unknown", osConfirms: true)),
         };
-        _settings.Closed += (_, _) => _settings = null;
+        window.Closed += (_, _) => _settings = null;
 
-        if (desktop.MainWindow is not null)
+        // Owned only by a main window that is still open. Avalonia throws "Cannot show a window
+        // with a closed owner", and with the floating toolbar up the application outlives its
+        // main window being closed while desktop.MainWindow still points at it. The field is
+        // assigned only after the window is really showing: assigning first left it pointing at
+        // a window that had never been shown, and every later attempt just activated that
+        // invisible window, so "Settings..." was dead for the rest of the session.
+        var owner = desktop.MainWindow is { IsVisible: true } visible ? visible : null;
+        if (owner is not null)
         {
-            _settings.Show(desktop.MainWindow);
+            window.Show(owner);
         }
         else
         {
-            _settings.Show();
+            window.Show();
         }
+
+        _settings = window;
 
         // Showing is not enough. The item is chosen from the status-area menu, which does not
         // bring the application forward, so the window appeared behind whatever the user was
@@ -364,6 +384,42 @@ public partial class App : Application
             showMainWindow: () => { }, refresh: () => { }, toggleToolbar: () => { },
             showSettings: () => { }, quit: () => { });
         Menus.StatusAreaMenu.Relabel(_trayMenu, relabelled);
+    }
+
+    /// <summary>Re-reads the application menu's labels. See <see cref="_applicationMenuItems"/>.</summary>
+    private void RelabelApplicationMenu()
+    {
+        if (_applicationMenuItems.Count == 0)
+        {
+            return;
+        }
+
+        var definition = Menus.StatusAreaMenu.BuildApplicationMenu(() => { }, () => { }, () => { });
+        var count = Math.Min(_applicationMenuItems.Count, definition.Count);
+        for (var i = 0; i < count; i++)
+        {
+            _applicationMenuItems[i].Header.Header = definition[i].Parent.Label;
+            _applicationMenuItems[i].Child.Header = definition[i].Child.Label;
+        }
+    }
+
+    /// <summary>
+    /// Runs the acceptance routine and reports a failure instead of swallowing it. It is started
+    /// without being awaited, so without this an exception inside it would fault the task
+    /// silently: the output simply stopped at whatever line it had reached.
+    /// </summary>
+    private async Task ShowSettingsForAcceptanceAsync()
+    {
+        try
+        {
+            await SelfTest.ShowSettingsThroughTheMenuAsync(_model!, _trayMenu, _trayEntries).ConfigureAwait(true);
+        }
+#pragma warning disable CA1031 // It has to be reported, whatever it is.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            Console.Error.WriteLine("the acceptance run failed: " + ex);
+        }
     }
 
     private void ApplyToolbarVisibility()

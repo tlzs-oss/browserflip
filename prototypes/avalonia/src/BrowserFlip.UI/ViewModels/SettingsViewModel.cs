@@ -48,6 +48,13 @@ public sealed class SettingsViewModel : ObservableObject
         _main = main ?? throw new ArgumentNullException(nameof(main));
         _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
         Capabilities = BuildCapabilityRows();
+
+        // Everything this view model shows is a view onto the main view model, so a change made
+        // ANYWHERE has to reach it. Without this it only ever raised from its own setters, which
+        // left two defects of the same shape: ticking "always on top" on the main window raised
+        // the main window above this one again - the exact symptom this round set out to fix -
+        // and changing the language on the main window left this whole window in the old one.
+        _main.PropertyChanged += OnMainPropertyChanged;
     }
 
     /// <summary>
@@ -127,6 +134,31 @@ public sealed class SettingsViewModel : ObservableObject
                 _main.ShowFloatingToolbar = value;
                 Raise();
             }
+        }
+    }
+
+    /// <summary>
+    /// Stops following the main view model. The main view model outlives this one - it is the
+    /// application's - so the window that owns this must say when it is finished with it.
+    /// </summary>
+    public void Detach() => _main.PropertyChanged -= OnMainPropertyChanged;
+
+    private void OnMainPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(MainViewModel.Topmost):
+                Raise(nameof(Topmost));
+                break;
+            case nameof(MainViewModel.ShowFloatingToolbar):
+                Raise(nameof(ShowFloatingToolbar));
+                break;
+            case nameof(MainViewModel.Language):
+                RaiseLabels();
+                Raise(nameof(SelectedLanguage));
+                break;
+            default:
+                break;
         }
     }
 

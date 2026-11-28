@@ -42,15 +42,20 @@ public class LanguagePickerTests
         {
             var model = Model();
             var followSystem = model.LanguageChoices.Single(c => c.Code is null);
+            var notified = new List<string?>();
+            ((INotifyPropertyChanged)followSystem).PropertyChanged += (_, e) => notified.Add(e.PropertyName);
 
             model.Language = "zh-CN";
             var chinese = followSystem.Display;
             model.Language = "ja";
             var japanese = followSystem.Display;
 
-            // This is the Owner's sequence: pick Chinese, then pick Japanese. The entry must not
-            // still be reading 跟随系统 once the window is Japanese.
+            // This is the Owner's sequence: pick Chinese, then pick Japanese. Display itself is
+            // computed and so always current - it passed even with the defect present - so the
+            // notification is asserted alongside it; a binding that is never told to re-read is
+            // exactly as stale as no binding at all.
             Assert.NotEqual(chinese, japanese);
+            Assert.Contains(nameof(LanguageChoice.Display), notified);
             Assert.Equal("システムに合わせる", japanese);
             Assert.Equal("跟随系统", chinese);
         }
