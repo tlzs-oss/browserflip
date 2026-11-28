@@ -38,6 +38,10 @@ public class AboutWindowTests
         // The version comes from the assembly, so it cannot disagree with what was built.
         Assert.NotEqual("?", model.DisplayVersion);
         Assert.Contains(model.DisplayVersion, model.VersionLine, StringComparison.Ordinal);
+        // The copyright comes from an assembly attribute set in Directory.Build.props; if that
+        // stopped reaching this assembly the About box would quietly show a blank line.
+        Assert.Contains("BrowserFlip", model.Copyright, StringComparison.Ordinal);
+        Assert.StartsWith("https://", model.ProjectUrl, StringComparison.Ordinal);
     }
 
     [Theory]

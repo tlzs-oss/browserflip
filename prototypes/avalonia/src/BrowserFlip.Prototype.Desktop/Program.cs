@@ -50,6 +50,9 @@ internal static class Program
                 // override cannot isolate it - measured: a run under `env -i HOME=<temp>` still
                 // wrote the real file.
                 _settingsPath = args[i + 1];
+                // Diagnostics that persist a change may only run against this file, never
+                // against the user's own. See SelfTest.SettingsAreIsolated.
+                SelfTest.SettingsAreIsolated = true;
             }
             else if (string.Equals(args[i], "--show-settings", StringComparison.Ordinal))
             {

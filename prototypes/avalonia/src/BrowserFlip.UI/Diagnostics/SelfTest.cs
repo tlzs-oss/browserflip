@@ -25,6 +25,12 @@ public static class SelfTest
     public static string? SwitchTargetId { get; set; }
 
     /// <summary>
+    /// Set by the entry point when <c>--settings-path</c> replaced the real per-user settings
+    /// file. Diagnostics that persist a change may only run when this is true.
+    /// </summary>
+    public static bool SettingsAreIsolated { get; set; }
+
+    /// <summary>
     /// Set by <c>--show-settings [language]</c>: open the settings window the way the user does,
     /// report what actually landed on screen, and then stay running so it can be looked at.
     /// <para>
@@ -42,6 +48,23 @@ public static class SelfTest
     /// Opens the settings window through the status-area menu item and prints what is on screen.
     /// Returns the window, or <c>null</c> when the item opened nothing.
     /// </summary>
+    /// <summary>
+    /// Whether a window of this kind is open, closing every one that is. The check opens them
+    /// only to prove the native menu items are wired to this application, so it must not leave
+    /// any behind for the checks that follow.
+    /// </summary>
+    private static bool CloseAll<T>(IClassicDesktopStyleApplicationLifetime? lifetime)
+        where T : Window
+    {
+        var windows = lifetime?.Windows.OfType<T>().ToList() ?? [];
+        foreach (var window in windows)
+        {
+            window.Close();
+        }
+
+        return windows.Count > 0;
+    }
+
     /// <summary>
     /// Prints what the real macOS menu bar holds for each UI language in turn, switching the
     /// language live rather than restarting.
@@ -61,6 +84,20 @@ public static class SelfTest
         if (probe is null || !OperatingSystem.IsMacOS())
         {
             Console.WriteLine("the application menu cannot be read back on this platform");
+            return;
+        }
+
+        // Setting Language persists it, so cycling through the languages writes the settings file
+        // once per language. Against the real per-user file that would rewrite the user's own
+        // choice to prove a point about a menu, so it only runs when --settings-path has put an
+        // isolated file in its place. Without one, the menu is read once and left alone.
+        if (!SettingsAreIsolated)
+        {
+            var current = probe.InspectApplicationMenu();
+            Console.WriteLine($"  [{model.Language ?? "follow the OS"}] " + string.Join(
+                " | ", current.Items.Where(i => i.Title.Length > 0).Select(i => i.Title)));
+            Console.WriteLine("  (not switching language: that would rewrite the real settings file. "
+                + "Pass --settings-path to see every language.)");
             return;
         }
 
@@ -538,24 +575,26 @@ public static class SelfTest
         var settingsShortcut = facts.Items.FirstOrDefault(i =>
             string.Equals(i.Title, settingsLabel, StringComparison.Ordinal))?.Shortcut ?? string.Empty;
 
-        // The item is chosen through AppKit, and the window it is supposed to open is looked for.
-        var aboutLabel = Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.AboutKey, applicationName);
-        var invoked = statusArea.TryInvokeApplicationMenuItem(aboutLabel, out var invokeDetail);
+        // Both of BrowserFlip's own items are chosen through AppKit, and the window each is
+        // supposed to open is looked for. Reading the labels back is not enough: the whole defect
+        // was a menu that looked right and was not connected to this application. The settings
+        // item needs this as much as About does - it is a third route to the settings window, and
+        // the other two are covered by their own checks.
         var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-        var aboutWindows = lifetime?.Windows.OfType<Views.AboutWindow>().ToList() ?? [];
-        var aboutOpened = aboutWindows.Count > 0;
-        foreach (var window in aboutWindows)
-        {
-            // Opened only to prove the wiring; the self-test must not leave windows behind.
-            window.Close();
-        }
+        var aboutLabel = Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.AboutKey, applicationName);
+        var aboutInvoked = statusArea.TryInvokeApplicationMenuItem(aboutLabel, out var aboutDetail);
+        var aboutOpened = CloseAll<Views.AboutWindow>(lifetime);
+        var settingsInvoked = statusArea.TryInvokeApplicationMenuItem(settingsLabel, out var settingsDetail);
+        var settingsOpened = CloseAll<Views.SettingsWindow>(lifetime);
 
         var ok = missing.Count == 0
             && notTranslated.Count == 0
             && toolkitNamed.Count == 0
             && settingsShortcut == "\u2318,"
-            && invoked
-            && aboutOpened;
+            && aboutInvoked
+            && aboutOpened
+            && settingsInvoked
+            && settingsOpened;
 
         var evidence = new System.Text.StringBuilder(facts.Detail);
         evidence.Append(CultureInfo.InvariantCulture,
@@ -575,10 +614,14 @@ public static class SelfTest
             evidence.Append("; NAMES THE TOOLKIT: ").Append(string.Join(" | ", toolkitNamed));
         }
 
-        evidence.Append(CultureInfo.InvariantCulture, $"; chose \"{aboutLabel}\": {invokeDetail} ")
+        evidence.Append(CultureInfo.InvariantCulture, $"; chose \"{aboutLabel}\": {aboutDetail} ")
             .Append(aboutOpened
                 ? "BrowserFlip's own About window opened."
                 : "NO About window opened, so the native item is not wired to this application.");
+        evidence.Append(CultureInfo.InvariantCulture, $" chose \"{settingsLabel}\": {settingsDetail} ")
+            .Append(settingsOpened
+                ? "the settings window opened."
+                : "NO settings window opened, so the native item is not wired to this application.");
 
         report.Add(14, Name, ok ? CheckResult.PASS : CheckResult.FAIL, evidence.ToString());
     }
