@@ -191,3 +191,136 @@ Linux の実表示と dbusmenu 経由のメニュー操作は別途 R3 で証跡
 - **Owner による実機クリックでの各メニュー項目の動作**(メイン画面表示 / 状態を更新 / フローティング ツールバー / 設定 / 終了)。メニューが開くことは自動検証したが、AppKit が項目を dispatch してから先は Owner の操作でのみ確認できる。項目のハンドラー自体は単体テスト済み。
 - **MAC-D6 の原因**。再現しないため未確定。
 - **アドホック署名のみ**。正式署名・公証は未実施。
+
+---
+
+# MAC-D7:異常終了の調査
+
+Owner の報告:macOS のクラッシュ ダイアログ「**Avalonia Application が予期しない理由で終了しました。**」
+
+## 7.1 証跡の保全
+
+修正前に保全した。保存先 `~/workspace/30_test/browserflip-macos-d7/diagnostic-reports/`:
+
+| ファイル | 起動 | クラッシュ | 間隔 |
+| --- | --- | --- | --- |
+| `BrowserFlipPrototype-2026-11-28-081935.ips` | 08:19:30.71 | 08:19:35 | 4.3 s |
+| `BrowserFlipPrototype-2026-11-28-082003.ips` | 08:19:59.93 | 08:20:03 | 3.1 s |
+| `BrowserFlipPrototype-2026-11-28-082014.ips` | 08:20:10.32 | 08:20:14 | 3.7 s |
+
+**この機体に存在する BrowserFlipPrototype のクラッシュ レポートはこの 3 件だけ**である。`~/Library/Logs/DiagnosticReports/`、同 `Retired/`、`/Library/Logs/DiagnosticReports/` を確認し、他に該当するものは無い(`Avalonia` 名義のものも無い)。
+
+## 7.2 内容
+
+3 件すべて同一シグネチャ。
+
+| 項目 | 値 |
+| --- | --- |
+| Exception Type | `EXC_BAD_ACCESS` (`SIGSEGV`) |
+| Exception Subtype | `KERN_INVALID_ADDRESS` at `0x3d28` / `0x0` / `0x0` |
+| Termination Reason | `SIGNAL 11` — `Segmentation fault: 11`、`byProc: exc handler` |
+| Crashed Thread | **0**(`com.apple.main-thread`) |
+| OS | macOS 27.0 (26A428) |
+| 実行ファイル | レポート上は `/Users/USER/*/BrowserFlipPrototype`(Apple による自動マスク)。`bundleID` は **null** = **バンドルではなく素のバイナリ**として起動されている |
+
+スタック(スレッド 0、上から):
+
+```
+ 0 libobjc.A.dylib         objc_lookUpImpOrForward
+ 1 libobjcMsgSend.dylib    _objc_msgSend_uncached
+ 2 .. 21                   (JIT されたマネージド フレーム:シンボル無し)
+22 libAvaloniaNative.dylib __26-[Signaler createObserver]_block_invoke
+23 CoreFoundation          __CFRUNLOOP_IS_CALLING_OUT_TO_AN_OBSERVER_CALLBACK_FUNCTION__
+25 CoreFoundation          __CFRunLoopRun
+34 AppKit                  -[NSApplication run]
+35 libAvaloniaNative.dylib PlatformThreadingInterface::RunLoop(IAvnLoopCancellation*)
+```
+
+読み方:**Avalonia のディスパッチャー(CFRunLoop オブザーバー)から呼ばれたマネージド コードが、無効な Objective-C オブジェクトに `objc_msgSend` した。** 障害アドレスが `0x3d28` や `0x0` という極小値なのは、isa ポインターがオブジェクトでないものを指していたことを意味する。
+
+全 28 スレッドを確認したが、**シャットダウン中のスレッドは無く、ファイナライザー スレッドは待機中**だった。したがって `Environment.Exit` との競合ではない。**メニュー トラッキングのフレームも無い**ため、メニュー表示中でもない(= MAC-D6 とは別事象)。
+
+## 7.3 原因:私が書いた一時調査コード
+
+08:19〜08:20 に私が実行していたのは、**推測したメモリ オフセットから生ポインターを読む調査コード**である。ネイティブの `AvnTrayIcon` が保持する `NSStatusItem` を得ようとして、オブジェクト先頭から 16〜24 スロットを `Marshal.ReadIntPtr` で読み、各候補に `isKindOfClass:` を送っていた。**オブジェクトでない値に `objc_msgSend` を送る**という、上のスタックそのものである。
+
+時刻の対応:
+
+| クラッシュ | 対応する私の実行 |
+| --- | --- |
+| 08:19:30 → 08:19:35 | スロット ダンプ版の初回実行(**出力が一切出なかった**回) |
+| 08:19:59 → 08:20:03 | 同版の再実行 |
+| 08:20:10 → 08:20:14 | `p5` として記録した実行。**終了コード 139(SIGSEGV)** をその場で記録済み |
+
+この手法は危険だと判断してその場で放棄し、公開ランタイム API(`class_copyIvarList` / `object_getIvar`)に切り替えた。**当該コードはコミットされていない**(リポジトリ履歴に存在しない)。
+
+## 7.4 修正後の再発確認
+
+最終 Self-contained `.app` で:
+
+| 実行 | 回数 | 結果 |
+| --- | --- | --- |
+| `--selftest`(環境変数を `env -i` で除去) | 5 | 全て exit=0 |
+| 通常起動 → SIGTERM で終了 | 3 | 異常なし |
+| LaunchServices 起動(Finder ダブルクリック相当) | 1 | 正常 |
+| `/Applications` から LaunchServices 起動 | 1 | 正常 |
+
+**クラッシュ レポート件数:実行前 3 件 → 実行後 3 件(増加なし)。**
+
+## 7.5 正直に言うべき限界
+
+- この機体のクラッシュ レポート 3 件は、**時刻・シグネチャ・終了コードの一致により私の一時調査コードに帰属する**。
+- **Owner が見たダイアログがこの 3 件のいずれかであれば、原因は上記であり、製品の欠陥ではない。** ダイアログ名が「Avalonia Application」だったことは、バンドルではない素のバイナリであったこと(`bundleID = null`)とも整合する。
+- **もし Owner のクラッシュがこの 3 件以外であれば、対応するレポートが存在しないため解析できない。** その場合は再現時のレポートが必要である。推測で原因を確定しない。
+- あわせて製品名の申告を修正した(§8.3)。これにより今後のクラッシュ ダイアログは「Avalonia Application」ではなく **BrowserFlip** と表示される。
+
+---
+
+# MAC-D8:直接起動時の .NET Runtime 検出失敗
+
+Owner の報告どおり、`prototypes/avalonia/src/BrowserFlip.Prototype.Desktop/bin/Release/net10.0/BrowserFlipPrototype` は .NET を見つけられない。**私もこのセッションの冒頭で同じエラーを踏んでいる。**
+
+## 8.1 事実(新規インストールは一切していない)
+
+```
+which -a dotnet                      /Users/sxrsing/.dotnet/dotnet   ← ユーザー ローカル 1 つだけ
+/usr/local/share/dotnet              absent
+/usr/share/dotnet                    absent
+/etc/dotnet/install_location         absent
+/etc/dotnet/install_location_arm64   absent
+dotnet --list-sdks                   10.0.404 [/Users/sxrsing/.dotnet/sdk]
+dotnet --list-runtimes               Microsoft.NETCore.App 10.0.15 [/Users/sxrsing/.dotnet/shared/...]
+Host                                 10.0.15 / arm64
+```
+
+全文は `~/workspace/30_test/browserflip-macos-d7/dotnet-environment.txt`。
+
+## 8.2 原因(確定)
+
+`bin/Release/net10.0/` の実行ファイルは **framework-dependent apphost** である:
+
+```json
+"framework": { "name": "Microsoft.NETCore.App", "version": "10.0.0" }
+```
+
+apphost はランタイムを「実行ファイルと同じディレクトリ → `DOTNET_ROOT_ARM64` → `DOTNET_ROOT` → `/etc/dotnet/install_location_arm64` → `/usr/local/share/dotnet`」の順に探す。**この機体ではその全てが存在しない**(SDK は `~/.dotnet` にユーザー ローカル導入されている)ため「`.NET location: Not found`」になる。`scripts/dev.sh` が `DOTNET_ROOT` を自分で解決しているので、ビルドとテストは成功する。
+
+**これは製品の欠陥ではなく、開発用出力を直接起動したことによるもの**である。環境変数の追加設定、グローバル設定の変更、sudo、重複インストールはいずれも**行っていない**。
+
+## 8.3 正式配布用成果物(Self-contained)
+
+`macos/bundle.sh` は以前から `-r osx-arm64 --self-contained true` で publish している。検証結果:
+
+| 項目 | 実測 |
+| --- | --- |
+| `runtimeconfig.json` | `"includedFrameworks": [{ "name": "Microsoft.NETCore.App", "version": "10.0.15" }]` |
+| ランタイム同梱 | `libcoreclr.dylib`、`System.Private.CoreLib.dll` あり(`Contents/MacOS` に 233 ファイル、計 113 MB) |
+| `DOTNET_ROOT` 依存 | **なし。** `env -i HOME=… PATH=/usr/bin:/bin` で起動して成功 |
+| `CFBundleName` / `CFBundleDisplayName` | `BrowserFlip Prototype` |
+| `CFBundleIdentifier` | `co.jp.tlzs.browserflip.prototype` |
+| `CFBundleExecutable` / `CFBundleIconFile` | `BrowserFlipPrototype` / `BrowserFlip.icns` |
+| アプリ自身の申告名 | **`BrowserFlip`**(修正前は Avalonia 既定の `Avalonia Application`) |
+
+**開発用 `bin/Release` の直接起動は、動作保証の対象ではない。** 配布・受入はすべて `.app` で行う。
+
+> アプリケーション メニュー(画面左上)は Avalonia の既定のままで、`About Avalonia` などが出る。これは §4 D6-b の上流制限によるもので、差し替えられない。製品名は自己申告名・バンドル名・メニューバー アイコンのメニューで `BrowserFlip` と表示される。

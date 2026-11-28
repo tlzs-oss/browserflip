@@ -35,7 +35,16 @@ public partial class App : Application
     private bool _trayIconCreated;
     private NativeMenu? _trayMenu;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        // The product name, not Avalonia's default. Left unset, Avalonia reports itself as
+        // "Avalonia Application", and macOS then uses that everywhere the application names
+        // itself: the menu-bar application menu read "Hide Avalonia Application", and the
+        // crash reporter dialog said "Avalonia Application quit unexpectedly" - measured.
+        // The product is called BrowserFlip, so it has to say BrowserFlip.
+        Name = "BrowserFlip";
+        AvaloniaXamlLoader.Load(this);
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {

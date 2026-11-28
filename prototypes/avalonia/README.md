@@ -120,6 +120,26 @@ http / https を同時に更新するため(実測)、要求も 1 回にして�
 
 ---
 
+## 開発用ビルドと配布用 `.app` は別物です
+
+| | 開発用 | 配布用 |
+| --- | --- | --- |
+| 場所 | `src/BrowserFlip.Prototype.Desktop/bin/Release/net10.0/BrowserFlipPrototype` | `artifacts/BrowserFlip Prototype.app` |
+| 構成 | **framework-dependent** | **self-contained**(`osx-arm64`) |
+| .NET ランタイム | **外部に必要** | **同梱**(`libcoreclr.dylib` ほか) |
+| 起動方法 | `./scripts/dev.sh` 経由、または `DOTNET_ROOT` を自分で設定 | ダブルクリック / `open` / 直接実行 |
+
+**開発用の実行ファイルを直接ダブルクリックしても動きません。** .NET SDK が `/usr/local/share/dotnet` ではなくユーザー ローカル(`~/.dotnet` など)に入っている機体では、apphost がランタイムを見つけられず次のように出ます。
+
+```
+.NET location: Not found
+  Environment variable:
+    DOTNET_ROOT_ARM64 = <not set>
+    DOTNET_ROOT = <not set>
+```
+
+これは製品の欠陥ではありません。**受入・配布は必ず `.app` で行ってください。** 配布用 `.app` は `DOTNET_ROOT` に依存せず、`env -i` で環境変数を全て取り除いても起動することを確認しています。詳細は [../../docs/macos-menu-bar.md](../../docs/macos-menu-bar.md) の MAC-D8。
+
 ## メニューバー項目の検証
 
 macOS では自己診断が**実際の `NSStatusItem` を OS から読み戻します**。「`TrayIcon.SetIcons` を呼んだ」ことは BrowserFlip についての主張であって macOS についての主張ではなく、それを根拠に PASS を出していたために、クリックしてもメニューが開かない欠陥(MAC-D6)を見逃しました。

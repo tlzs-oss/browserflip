@@ -80,7 +80,7 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
             Detail: string.Create(CultureInfo.InvariantCulture,
                 $"NSStatusBarButton in the live menu bar: window visible={windowVisible}, hidden={hidden}, "
                 + $"enabled={enabled}, image={(image != ObjC.Nil ? "present" : "MISSING")}, "
-                + $"size={bounds.Width:F0}x{bounds.Height:F0}"));
+                + $"size={bounds.Width:F0}x{bounds.Height:F0}; {ApplicationNaming()}"));
     }
 
     /// <inheritdoc />
@@ -131,6 +131,36 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
             $"posted a real NSEventTypeLeftMouseDown at ({frame.X + (bounds.Width / 2):F0},{frame.Y + (bounds.Height / 2):F0}) "
             + $"to window {windowNumber} through -[NSApplication postEvent:atStart:]");
         return true;
+    }
+
+    /// <summary>
+    /// How the application names itself to macOS, and what macOS actually put in the application
+    /// menu. Left unset, Avalonia calls itself "Avalonia Application" and macOS repeats that in
+    /// the menu bar and in the crash reporter, so the name is worth measuring rather than assuming.
+    /// </summary>
+    private static string ApplicationNaming()
+    {
+        var running = ObjC.Send(ObjC.GetClass("NSRunningApplication"), ObjC.Sel("currentApplication"));
+        var name = ObjC.ToManaged(ObjC.Send(running, ObjC.Sel("localizedName")));
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        var appMenuTitles = new List<string>();
+        if (mainMenu != ObjC.Nil && ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) > 0)
+        {
+            var submenu = ObjC.Send(ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0), ObjC.Sel("submenu"));
+            var count = submenu == ObjC.Nil ? 0 : ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+            for (long i = 0; i < count && appMenuTitles.Count < 4; i++)
+            {
+                var title = ObjC.ToManaged(ObjC.Send(ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i), ObjC.Sel("title")));
+                if (!string.IsNullOrEmpty(title))
+                {
+                    appMenuTitles.Add(title);
+                }
+            }
+        }
+
+        return $"application names itself \"{name}\"; application menu: " + string.Join(" / ", appMenuTitles);
     }
 
     /// <summary>Every <c>NSStatusBarButton</c> this process owns, found through public API.</summary>
