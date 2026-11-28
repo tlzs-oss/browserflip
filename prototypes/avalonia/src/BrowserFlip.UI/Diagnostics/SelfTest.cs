@@ -1,6 +1,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using BrowserFlip.Core.Defaults;
 using BrowserFlip.UI.Localization;
@@ -47,7 +48,8 @@ public static class SelfTest
         IPlatformCapabilities capabilities,
         IStatusAreaProbe? statusArea = null,
         NativeMenu? trayMenu = null,
-        string? trayToolTip = null)
+        string? trayToolTip = null,
+        IReadOnlyList<Menus.StatusMenuEntry>? trayEntries = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(mainWindow);
@@ -281,7 +283,7 @@ public static class SelfTest
             + $"; OS confirms default-browser change={capabilities.OsConfirmsDefaultBrowserChange}");
 
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
-        await CaptureSettingsAsync(model, capabilities, report).ConfigureAwait(true);
+        await CaptureSettingsAsync(model, capabilities, report, trayMenu, trayEntries).ConfigureAwait(true);
         return report;
     }
 
@@ -375,21 +377,49 @@ public static class SelfTest
     /// self-test constructs and renders the same window the menu would open.
     /// </summary>
     private static async Task CaptureSettingsAsync(
-        MainViewModel model, IPlatformCapabilities capabilities, CapabilityReport report)
+        MainViewModel model, IPlatformCapabilities capabilities, CapabilityReport report,
+        NativeMenu? trayMenu, IReadOnlyList<Menus.StatusMenuEntry>? trayEntries)
     {
         if (string.IsNullOrEmpty(OutputDirectory))
         {
             return;
         }
 
+        const string Name = "Settings window opens from the status-area menu";
         try
         {
-            var window = new Views.SettingsWindow
+            // Opened the way the user opens it - by choosing the item in the status-area menu -
+            // rather than by constructing the window here. The Owner's acceptance could not
+            // confirm the settings screen, and "the self-test built a SettingsWindow" says
+            // nothing about whether the menu item reaches one. There is no other route to it:
+            // no button on the main window or the toolbar, and on macOS the application menu
+            // cannot carry one (see docs/macos-menu-bar.md).
+            var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            var index = trayEntries is null
+                ? -1
+                : trayEntries.ToList().FindIndex(e => string.Equals(e.Key, "Menu_Settings", StringComparison.Ordinal));
+            var item = trayMenu is not null && index >= 0 && index < trayMenu.Items.Count
+                ? trayMenu.Items[index] as NativeMenuItem
+                : null;
+
+            if (lifetime is null || item is null)
             {
-                DataContext = new SettingsViewModel(model, capabilities),
-            };
-            window.Show();
+                report.Add(12, Name, CheckResult.SKIPPED,
+                    "no status-area menu on this platform, so there is no menu item to choose here");
+                return;
+            }
+
+            ((INativeMenuItemExporterEventsImplBridge)item).RaiseClicked();
             await Task.Delay(400).ConfigureAwait(true);
+
+            var window = lifetime.Windows.OfType<Views.SettingsWindow>().FirstOrDefault();
+            if (window is null)
+            {
+                report.Add(12, Name, CheckResult.FAIL,
+                    $"choosing \"{item.Header}\" opened no settings window; "
+                    + $"open windows: {string.Join(", ", lifetime.Windows.Select(w => w.GetType().Name))}");
+                return;
+            }
 
             var path = Path.Combine(OutputDirectory, "settings-window.png");
             var width = (int)Math.Max(1, window.Bounds.Width);
@@ -400,15 +430,19 @@ public static class SelfTest
                 bitmap.Save(path, new PngBitmapEncoderOptions());
             }
 
+            // The capability table is what the window exists to show, so an empty one is a
+            // failure even though the window opened.
+            var listed = (window.DataContext as SettingsViewModel)?.Capabilities.Count ?? 0;
+            report.Add(12, Name, listed > 0 ? CheckResult.PASS : CheckResult.FAIL,
+                $"choosing \"{item.Header}\" opened {window.GetType().Name} \"{window.Title}\", "
+                + $"{width}x{height}, visible={window.IsVisible}; {listed} capabilities listed; {path}");
             window.Close();
-            report.Add(12, "Settings window renders with the capability table", CheckResult.PASS,
-                $"{width}x{height}; {capabilities.All().Count} capabilities listed; {path}");
         }
 #pragma warning disable CA1031 // A diagnostic capture must never fail the run.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            report.Add(12, "Settings window renders with the capability table", CheckResult.FAIL, ex.Message);
+            report.Add(12, Name, CheckResult.FAIL, ex.Message);
         }
     }
 

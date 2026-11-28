@@ -74,9 +74,14 @@ public sealed class MainViewModel : ObservableObject
     /// than to the raw codes, because the stored value for "follow the OS" is null and a null
     /// SelectedItem shows an empty combo box with no way back to it.
     /// </summary>
+    /// <remarks>
+    /// Owned by this view model rather than shared through a static, because the entries are
+    /// notified when the language changes and a process-wide instance would be notified by, and
+    /// on behalf of, every view model that ever existed.
+    /// </remarks>
     public IReadOnlyList<LanguageChoice> LanguageChoices { get; } =
     [
-        LanguageChoice.FollowSystem,
+        new LanguageChoice(null),
         .. Strings.SupportedLanguages.Select(code => new LanguageChoice(code)),
     ];
 
@@ -85,7 +90,7 @@ public sealed class MainViewModel : ObservableObject
     {
         get => LanguageChoices.FirstOrDefault(c =>
                    string.Equals(c.Code, Language, StringComparison.OrdinalIgnoreCase))
-               ?? LanguageChoice.FollowSystem;
+               ?? LanguageChoices[0];
         set => Language = value?.Code;
     }
 
@@ -158,6 +163,13 @@ public sealed class MainViewModel : ObservableObject
             Persist();
             Raise();
             Raise(nameof(SelectedLanguage));
+            // The picker's own entries are translated too - "follow the system" most obviously -
+            // and nothing else would tell the view to read their labels again.
+            foreach (var choice in LanguageChoices)
+            {
+                choice.NotifyLanguageChanged();
+            }
+
             // Rebuild the rows: their labels are read at construction, so a language change that
             // only raised the parent's properties would leave every button in the old language.
             Refresh();

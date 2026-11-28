@@ -35,6 +35,7 @@ public partial class App : Application
     private bool _trayIconCreated;
     private NativeMenu? _trayMenu;
     private string? _trayToolTip;
+    private IReadOnlyList<Menus.StatusMenuEntry>? _trayEntries;
 
     public override void Initialize()
     {
@@ -191,6 +192,7 @@ public partial class App : Application
             showSettings: () => ShowSettings(desktop),
             quit: () => desktop.Shutdown());
 
+        _trayEntries = entries;
         var menu = Menus.StatusAreaMenu.ToNativeMenu(entries);
 
         // Avalonia owns and disposes the TrayIcon once it is registered with SetIcons,
@@ -245,7 +247,7 @@ public partial class App : Application
                     var report = await SelfTest.RunAsync(
                         _model!, desktop.MainWindow!, _toolbar, _trayIconCreated,
                         adapters.Switcher, adapters.Icons, adapters.Store, adapters.Capabilities,
-                        StatusAreaProbe, _trayMenu, _trayToolTip).ConfigureAwait(true);
+                        StatusAreaProbe, _trayMenu, _trayToolTip, _trayEntries).ConfigureAwait(true);
 
                     var directory = SelfTest.OutputDirectory!;
                     Directory.CreateDirectory(directory);

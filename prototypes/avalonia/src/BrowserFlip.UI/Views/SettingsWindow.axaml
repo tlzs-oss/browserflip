@@ -29,6 +29,10 @@
           <TextBlock Text="{Binding GeneralLabel}" FontWeight="SemiBold" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="{Binding LanguageLabel}" VerticalAlignment="Center" Width="120" />
+            <!-- DisplayMemberBinding already binds each entry's translated label, so the
+                 entry has to raise PropertyChanged for it: a binding is only re-read when the
+                 source says so, and "follow the system" stayed in whatever language it was
+                 first drawn in. See LanguageChoice.NotifyLanguageChanged. -->
             <ComboBox x:Name="LanguageBox" Width="180"
                       ItemsSource="{Binding LanguageChoices}" SelectedItem="{Binding SelectedLanguage}"
                       DisplayMemberBinding="{Binding Display}" />
