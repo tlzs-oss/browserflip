@@ -42,6 +42,58 @@ public static class SelfTest
     /// Opens the settings window through the status-area menu item and prints what is on screen.
     /// Returns the window, or <c>null</c> when the item opened nothing.
     /// </summary>
+    /// <summary>
+    /// Prints what the real macOS menu bar holds for each UI language in turn, switching the
+    /// language live rather than restarting.
+    /// <para>
+    /// The Owner's third complaint about this menu was that it stayed in English after the UI was
+    /// switched to Japanese. A startup-language check cannot show that is fixed, because the
+    /// defect is in the switch: the labels are resource lookups made when the menu was built, so
+    /// without a relabel the menu keeps whatever language it started in. This reads the titles
+    /// back out of <c>[NSApp mainMenu]</c> after each switch, so what is printed is what macOS
+    /// would draw.
+    /// </para>
+    /// </summary>
+    public static async Task ReportApplicationMenuAsync(IStatusAreaProbe? probe, MainViewModel model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+
+        if (probe is null || !OperatingSystem.IsMacOS())
+        {
+            Console.WriteLine("the application menu cannot be read back on this platform");
+            return;
+        }
+
+        var original = model.Language;
+        try
+        {
+            foreach (var language in Strings.SupportedLanguages)
+            {
+                model.Language = language;
+
+                // The relabel runs on this same dispatcher, and AppKit is told item by item, so
+                // let it settle before reading the menu back.
+                await Task.Delay(250).ConfigureAwait(true);
+
+                var facts = probe.InspectApplicationMenu();
+                Console.WriteLine($"  [{language}] " + (facts.Found
+                    ? string.Join(" | ", facts.Items.Select(i => i.Title.Length == 0
+                        ? "-"
+                        : i.Title + (i.Shortcut.Length == 0 ? string.Empty : " " + i.Shortcut)))
+                    : "NOT FOUND: " + facts.Detail));
+            }
+        }
+        finally
+        {
+            model.Language = original;
+            await Task.Delay(250).ConfigureAwait(true);
+        }
+
+        var restored = probe.InspectApplicationMenu();
+        Console.WriteLine($"  [restored to {original ?? "follow the OS"}] " + string.Join(
+            " | ", restored.Items.Where(i => i.Title.Length > 0).Select(i => i.Title)));
+    }
+
     public static async Task<Window?> ShowSettingsThroughTheMenuAsync(
         MainViewModel model, NativeMenu? trayMenu, IReadOnlyList<Menus.StatusMenuEntry>? trayEntries)
     {
@@ -403,11 +455,133 @@ public static class SelfTest
                 $"{c.Name}={c.Capability.State}{(c.Capability.Reason is null ? "" : $" ({c.Capability.Reason})")}"))
             + $"; OS confirms default-browser change={capabilities.OsConfirmsDefaultBrowserChange}");
 
+        // 14. The macOS application menu, read back out of the live menu bar.
+        AddApplicationMenuCheck(report, statusArea);
+
         await CaptureWindowAsync(mainWindow, report).ConfigureAwait(true);
         await CaptureSettingsAsync(model, capabilities, report, trayMenu, trayEntries).ConfigureAwait(true);
         return report;
     }
 
+
+    /// <summary>
+    /// Check 14: the application menu macOS is really showing.
+    /// <para>
+    /// The Owner reported this menu as wrong three times - Avalonia's "About Avalonia", no
+    /// settings item, English text in a Japanese UI - while every automated run passed, because
+    /// nothing read the menu back. The managed <c>NativeMenu</c> could not have caught it either:
+    /// the defect was that Avalonia accepted the managed menu and never exported it, so the model
+    /// looked right and the menu bar was wrong. This check reads <c>[NSApp mainMenu]</c>.
+    /// </para>
+    /// <para>
+    /// It then chooses the About item through AppKit's own
+    /// <c>-[NSMenu performActionForItemAtIndex:]</c> and confirms BrowserFlip's own About window
+    /// opened, which is the only evidence that the native item is wired to this application and
+    /// not merely present with the right text.
+    /// </para>
+    /// </summary>
+    private static void AddApplicationMenuCheck(CapabilityReport report, IStatusAreaProbe? statusArea)
+    {
+        const string Name = "Application menu (macOS menu bar)";
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            report.Add(14, Name, CheckResult.UNSUPPORTED,
+                "only macOS has an application-level menu bar; on Windows and Linux the same "
+                + "commands are the window's own menu and the status-area menu.");
+            return;
+        }
+
+        if (statusArea is null)
+        {
+            report.Add(14, Name, CheckResult.SKIPPED, "no probe was supplied, so the menu cannot be read back.");
+            return;
+        }
+
+        var facts = statusArea.InspectApplicationMenu();
+        if (!facts.Found)
+        {
+            report.Add(14, Name, CheckResult.FAIL, facts.Detail);
+            return;
+        }
+
+        var applicationName = Application.Current?.Name ?? "BrowserFlip";
+        var titles = facts.Items.Where(i => i.Title.Length > 0).Select(i => i.Title).ToList();
+
+        var expected = new List<string>
+        {
+            Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.AboutKey, applicationName),
+            Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.SettingsKey, applicationName),
+        };
+        expected.AddRange(Menus.MacApplicationMenu.StandardItems(applicationName)
+            .Select(s => Menus.MacApplicationMenu.Label(s.Key, applicationName)));
+
+        var missing = expected.Where(e => !titles.Contains(e, StringComparer.Ordinal)).ToList();
+
+        // An item still carrying the English header Avalonia gave it, in a UI that is not in
+        // English, is the third defect the Owner reported. Only counted where the localised
+        // label actually differs, so this stays silent on an English UI.
+        var notTranslated = Menus.MacApplicationMenu.StandardItems(applicationName)
+            .Where(s => titles.Contains(s.EnglishHeader, StringComparer.Ordinal)
+                && !string.Equals(
+                    s.EnglishHeader,
+                    Menus.MacApplicationMenu.Label(s.Key, applicationName),
+                    StringComparison.Ordinal))
+            .Select(s => s.EnglishHeader)
+            .ToList();
+
+        // "About Avalonia" is the exact item the Owner saw. The product's menu must not name the
+        // toolkit at all, so any Avalonia-titled item here is a failure.
+        var toolkitNamed = titles.Where(x => x.Contains("Avalonia", StringComparison.Ordinal)).ToList();
+
+        var settingsLabel = Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.SettingsKey, applicationName);
+        var settingsShortcut = facts.Items.FirstOrDefault(i =>
+            string.Equals(i.Title, settingsLabel, StringComparison.Ordinal))?.Shortcut ?? string.Empty;
+
+        // The item is chosen through AppKit, and the window it is supposed to open is looked for.
+        var aboutLabel = Menus.MacApplicationMenu.Label(Menus.MacApplicationMenu.AboutKey, applicationName);
+        var invoked = statusArea.TryInvokeApplicationMenuItem(aboutLabel, out var invokeDetail);
+        var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var aboutWindows = lifetime?.Windows.OfType<Views.AboutWindow>().ToList() ?? [];
+        var aboutOpened = aboutWindows.Count > 0;
+        foreach (var window in aboutWindows)
+        {
+            // Opened only to prove the wiring; the self-test must not leave windows behind.
+            window.Close();
+        }
+
+        var ok = missing.Count == 0
+            && notTranslated.Count == 0
+            && toolkitNamed.Count == 0
+            && settingsShortcut == "\u2318,"
+            && invoked
+            && aboutOpened;
+
+        var evidence = new System.Text.StringBuilder(facts.Detail);
+        evidence.Append(CultureInfo.InvariantCulture,
+            $"; UI culture={CultureInfo.CurrentUICulture.Name}; settings shortcut=\"{settingsShortcut}\"");
+        if (missing.Count > 0)
+        {
+            evidence.Append("; MISSING: ").Append(string.Join(" | ", missing));
+        }
+
+        if (notTranslated.Count > 0)
+        {
+            evidence.Append("; NOT TRANSLATED: ").Append(string.Join(" | ", notTranslated));
+        }
+
+        if (toolkitNamed.Count > 0)
+        {
+            evidence.Append("; NAMES THE TOOLKIT: ").Append(string.Join(" | ", toolkitNamed));
+        }
+
+        evidence.Append(CultureInfo.InvariantCulture, $"; chose \"{aboutLabel}\": {invokeDetail} ")
+            .Append(aboutOpened
+                ? "BrowserFlip's own About window opened."
+                : "NO About window opened, so the native item is not wired to this application.");
+
+        report.Add(14, Name, ok ? CheckResult.PASS : CheckResult.FAIL, evidence.ToString());
+    }
     /// <summary>
     /// Delivers a real click to the status-area item, records in the report whether the menu
     /// actually opened, rewrites the report files, and ends the process.
@@ -512,9 +686,9 @@ public static class SelfTest
             // Opened the way the user opens it - by choosing the item in the status-area menu -
             // rather than by constructing the window here. The Owner's acceptance could not
             // confirm the settings screen, and "the self-test built a SettingsWindow" says
-            // nothing about whether the menu item reaches one. There is no other route to it:
-            // no button on the main window or the toolbar, and on macOS the application menu
-            // cannot carry one (see docs/macos-menu-bar.md).
+            // nothing about whether the menu item reaches one. The other two routes - the main
+            // window's button and, on macOS, the application menu's "Settings..." - are covered
+            // by their own checks, and all three must reach the same single window.
             var lifetime = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             var index = trayEntries is null
                 ? -1

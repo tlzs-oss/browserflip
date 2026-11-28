@@ -38,12 +38,25 @@ public partial class App : Application
     private IReadOnlyList<Menus.StatusMenuEntry>? _trayEntries;
 
     /// <summary>
-    /// The application menu's live items, kept so a language change can re-read their labels.
-    /// Empty on macOS, where the menu is not ours to set. Without this, switching language on
-    /// Windows or Linux left File / View / Settings in the old language beside a status-area menu
-    /// that had updated - the same defect, on the platforms that cannot be measured from here.
+    /// The window menu's live items, kept so a language change can re-read their labels. Empty on
+    /// macOS, which gets <see cref="_macApplicationMenu"/> instead. Without this, switching
+    /// language on Windows or Linux left File / View / Settings in the old language beside a
+    /// status-area menu that had updated.
     /// </summary>
     private readonly List<(NativeMenuItem Header, NativeMenuItem Child)> _applicationMenuItems = [];
+
+    /// <summary>
+    /// The macOS application menu - the one under the product's name at the left of the system
+    /// menu bar. Null off macOS, where there is no such thing. See
+    /// <see cref="Menus.MacApplicationMenu"/>.
+    /// </summary>
+    private Menus.MacApplicationMenuDefinition? _macApplicationMenu;
+
+    /// <summary>
+    /// Its items with the resource key each label comes from: BrowserFlip's own two, plus the
+    /// standard macOS items Avalonia appends and this application relabels.
+    /// </summary>
+    private readonly List<(NativeMenuItem Item, string Key)> _macApplicationMenuItems = [];
 
     public override void Initialize()
     {
@@ -54,6 +67,28 @@ public partial class App : Application
         // The product is called BrowserFlip, so it has to say BrowserFlip.
         Name = "BrowserFlip";
         AvaloniaXamlLoader.Load(this);
+
+        // The macOS application menu has to be attached HERE, from Initialize, and nowhere later.
+        // AppBuilder.SetupUnsafe runs Initialize() and only AFTERWARDS the AfterSetup callback in
+        // which Avalonia's macOS backend exports the application menu; that export reads
+        // NativeMenu.GetMenu(Application.Current) exactly once and binds the native menu to
+        // whatever it finds. Attaching from OnFrameworkInitializationCompleted - where the
+        // previous round attached it - is one step too late: the backend found nothing, installed
+        // its own "About Avalonia" default and ignored everything afterwards. That is why the
+        // Owner kept seeing Avalonia's menu, and why the earlier conclusion that this could not
+        // be done at all was wrong.
+        //
+        // Not off macOS: Windows and Linux have no application-level native menu, and an
+        // Application-attached NativeMenu there is read by nothing. Theirs is built below.
+        if (OperatingSystem.IsMacOS())
+        {
+            _macApplicationMenu = Menus.MacApplicationMenu.Create(
+                showAbout: ShowAbout,
+                showSettings: ShowSettingsFromApplicationMenu,
+                applicationName: Name);
+            _macApplicationMenuItems.AddRange(_macApplicationMenu.Items);
+            NativeMenu.SetMenu(this, _macApplicationMenu.Menu);
+        }
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -74,19 +109,26 @@ public partial class App : Application
             _model.Initialize();
             mainWindow.DataContext = _model;
 
-            // Not on macOS. Measured on macOS 27 with Avalonia 12.1.4: Avalonia exports the
-            // application menu from its windowing-subsystem initialiser, which AppBuilder runs
-            // BEFORE the Application object exists, so its exporter reads Application.Current as
-            // null, installs its own default menu ("About Avalonia", "Hide", "Quit") and binds
-            // its native menu to that one for good. A later NativeMenu.SetMenu(Application, ...)
-            // is therefore silently dropped - the menu bar still showed Avalonia's defaults, with
-            // no File/View/Settings - and replacing an exported menu is the upstream crash of
-            // AvaloniaUI/Avalonia#22287. Calling it anyway would only pretend to have a menu bar.
-            // Everything in it is reachable from the status-area menu below.
-            if (!OperatingSystem.IsMacOS())
+            if (_macApplicationMenu is not null)
+            {
+                // By now Avalonia has exported the menu attached in Initialize and appended the
+                // standard macOS items to it, so they exist and can be taken over. This runs
+                // before the relabel below, because they are recognised by the English header
+                // Avalonia gave them and the relabel is what replaces it.
+                _macApplicationMenuItems.AddRange(
+                    Menus.MacApplicationMenu.Adopt(_macApplicationMenu.Menu, Name ?? "BrowserFlip"));
+            }
+            else
             {
                 CreateApplicationMenu(desktop);
             }
+
+            // Once, now, because the menu above was built before the stored language was loaded:
+            // _model.Initialize() applies it, and it does so before the subscription below
+            // exists, so nothing else would re-read these labels until the user changed language
+            // by hand. Without this a Japanese user's menu bar opened in English.
+            RelabelApplicationMenu();
+
             CreateTrayIcon(desktop);
             ApplyToolbarVisibility();
             _model.PropertyChanged += (_, e) =>
@@ -140,6 +182,8 @@ public partial class App : Application
 
     private SettingsWindow? _settings;
 
+    private AboutWindow? _about;
+
     /// <summary>
     /// Builds the application menu. On macOS Avalonia puts this in the system menu bar at the
     /// top of the screen, which is where a Mac user expects it; on Windows and Linux the same
@@ -168,6 +212,56 @@ public partial class App : Application
         }
 
         NativeMenu.SetMenu(this, [.. top]);
+    }
+
+    /// <summary>
+    /// The macOS application menu's settings item. It is built in <see cref="Initialize"/>,
+    /// before the lifetime has a main window, so the lifetime is resolved when the item is
+    /// chosen rather than captured when it is built.
+    /// </summary>
+    private void ShowSettingsFromApplicationMenu()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            ShowSettings(desktop);
+        }
+    }
+
+    /// <summary>
+    /// Opens the single About window, or focuses it when it is already open. Reached from the
+    /// macOS application menu, where it replaces Avalonia's "About Avalonia".
+    /// </summary>
+    private void ShowAbout()
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        if (_about is not null)
+        {
+            _about.Activate();
+            return;
+        }
+
+        var window = new AboutWindow { DataContext = new AboutViewModel(_model) };
+        window.Closed += (_, _) => _about = null;
+
+        // Same two hazards as the settings window, and the same answer: own it only to a main
+        // window that is still open, and activate it, because the application menu does not
+        // bring the application forward by itself.
+        var owner = (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (owner is { IsVisible: true })
+        {
+            window.Show(owner);
+        }
+        else
+        {
+            window.Show();
+        }
+
+        _about = window;
+        _about.Activate();
     }
 
     /// <summary>Opens the single settings window, or focuses it when it is already open.</summary>
@@ -389,6 +483,12 @@ public partial class App : Application
     /// <summary>Re-reads the application menu's labels. See <see cref="_applicationMenuItems"/>.</summary>
     private void RelabelApplicationMenu()
     {
+        if (_macApplicationMenuItems.Count > 0)
+        {
+            Menus.MacApplicationMenu.Relabel(_macApplicationMenuItems, Name ?? "BrowserFlip");
+            return;
+        }
+
         if (_applicationMenuItems.Count == 0)
         {
             return;
@@ -412,6 +512,8 @@ public partial class App : Application
     {
         try
         {
+            Console.WriteLine("the application menu, read back from the live macOS menu bar:");
+            await SelfTest.ReportApplicationMenuAsync(StatusAreaProbe, _model!).ConfigureAwait(true);
             await SelfTest.ShowSettingsThroughTheMenuAsync(_model!, _trayMenu, _trayEntries).ConfigureAwait(true);
         }
 #pragma warning disable CA1031 // It has to be reported, whatever it is.

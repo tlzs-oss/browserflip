@@ -16,21 +16,28 @@ R3/R4 の受入で挙がったが、**R3/R4 の範囲外として意図的に実
 | 設定ファイルの絶対パスを常時表示 | 検証時に実際の保存先を確認するため |
 | 起動回数(launch counter)を常時表示 | 設定の永続化が効いていることを目視するため |
 | 言語選択欄が言語コード(`en` / `ja` / `zh-CN`)を表示 | 曖昧さは無いが、製品なら `English` / `日本語` / `中文` が妥当 |
-| 設定が独立ウィンドウのみ(メイン画面内にタブ等が無い) | メイン画面の「設定…」ボタンとメニューバー メニューの 2 経路がある。[導線](../prototypes/avalonia/README.md#設定画面へのアクセス)を参照 |
+| 設定が独立ウィンドウのみ(メイン画面内にタブ等が無い) | メイン画面の「設定…」ボタン、メニューバー アイコンのメニュー、アプリケーション メニューの `設定…`(`⌘,`)の 3 経路がある。[導線](../prototypes/avalonia/README.md#設定画面へのアクセス)を参照 |
 
-## 2. アプリケーション メニューの製品化
+## 2. アプリケーション メニューの製品化 — **R5 候補から外した(実施済み)**
 
-macOS の画面左上のメニューは Avalonia の既定のままで、`About Avalonia` が出る。設定項目も無い。
+Owner の再指摘により本ラウンドで修正した。[macos-menu-bar.md §9](macos-menu-bar.md) を参照。
 
-**原因は上流の制限で、回避策が無いことを実測で確認済み**(`AppBuilder` が `Application` 生成前にメニューを書き出す。[macos-menu-bar.md §4 D6-b](macos-menu-bar.md) と [AvaloniaUI/Avalonia#22287](https://github.com/AvaloniaUI/Avalonia/issues/22287))。
+当初この項目は「上流の制限で回避策が無いことを実測で確認済み」として R5 候補に記録していた。**この判断の根拠は誤っていた**(呼び出し順をソースで確認せず推測した)。現在のメニューは次のとおりで、3 言語で切り替わる:
 
-R5 で検討しうる方向:
+```
+BrowserFlip について
+設定…                 ⌘,
+──────────
+サービス              ▸
+──────────
+BrowserFlip を隠す    ⌘H
+ほかを隠す            ⌥⌘H
+すべてを表示
+──────────
+BrowserFlip を終了    ⌘Q
+```
 
-- 上流の修正([#22813](https://github.com/AvaloniaUI/Avalonia/pull/22813) 系)が入った Avalonia への更新を待つ
-- `About BrowserFlip` / `設定…` / `BrowserFlip を終了` を製品として整えたメニューに差し替える
-- 併せて `Application.Name`(現在 `BrowserFlip`)と `CFBundleName`(現在 `BrowserFlip Prototype`)の関係を決める
-
-> R3/R4 では**呼び出し自体を行わない**ことにした。黙って無視される呼び出しを残すと「メニューバーがある」と偽ることになるため。メニューの内容はすべてメニューバー アイコンのメニューから到達できる。
+R5 に残る関連事項は 1 点のみ:`Application.Name`(`BrowserFlip`)と `CFBundleName`(`BrowserFlip Prototype`)の関係を製品化時に決めること。
 
 ## 3. デバッグ表示の整理
 

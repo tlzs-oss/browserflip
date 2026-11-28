@@ -10,8 +10,9 @@ namespace BrowserFlip.Prototype.Tests;
 
 /// <summary>
 /// The main window's own way into the settings window, approved by the Owner after the settings
-/// screen was twice reported as not found: until now the status-area menu was the only route to
-/// it, and on macOS the application menu cannot carry one.
+/// screen was twice reported as not found: at the time the status-area menu was the only route
+/// to it. There are now three - this button, that menu, and the macOS application menu's
+/// "Settings..." - and they all reach the same single window.
 /// </summary>
 [Collection(SerialUiCulture.Name)]
 public class SettingsButtonTests

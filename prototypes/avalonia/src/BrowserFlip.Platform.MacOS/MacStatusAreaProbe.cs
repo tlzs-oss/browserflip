@@ -168,6 +168,172 @@ public sealed class MacStatusAreaProbe : IStatusAreaProbe
     }
 
     /// <summary>
+    /// NSEventModifierFlags, as documented: the bits AppKit sets for a key equivalent.
+    /// </summary>
+    private const long ShiftFlag = 1L << 17;
+    private const long ControlFlag = 1L << 18;
+    private const long OptionFlag = 1L << 19;
+    private const long CommandFlag = 1L << 20;
+
+    /// <summary>
+    /// Reads the real application menu out of <c>[NSApp mainMenu]</c>.
+    /// <para>
+    /// Only documented AppKit: <c>-[NSApplication mainMenu]</c>, <c>-[NSMenu numberOfItems]</c>,
+    /// <c>-[NSMenu itemAtIndex:]</c>, <c>-[NSMenuItem title]</c>, <c>-[NSMenuItem submenu]</c>,
+    /// <c>-[NSMenuItem isSeparatorItem]</c>, <c>-[NSMenuItem isEnabled]</c>,
+    /// <c>-[NSMenuItem keyEquivalent]</c> and <c>-[NSMenuItem keyEquivalentModifierMask]</c>.
+    /// </para>
+    /// <para>
+    /// macOS puts the application menu at index 0 of the main menu, which is also where Avalonia's
+    /// native layer inserts it (<c>SetAppMenu</c> in its menu.mm). The menu read here is the one
+    /// the user will open, which is the point: the managed <c>NativeMenu</c> looked correct
+    /// throughout the defect the Owner reported.
+    /// </para>
+    /// </summary>
+    public ApplicationMenuFacts InspectApplicationMenu()
+    {
+        if (!ObjC.EnsureAppKit())
+        {
+            return ApplicationMenuFacts.NotProbed("AppKit could not be loaded in this process.");
+        }
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        if (mainMenu == ObjC.Nil)
+        {
+            return ApplicationMenuFacts.NotProbed("[NSApp mainMenu] is nil: no menu bar exists.");
+        }
+
+        if (ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) <= 0)
+        {
+            return ApplicationMenuFacts.NotProbed("[NSApp mainMenu] holds no items.");
+        }
+
+        var first = ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0);
+        var submenu = ObjC.Send(first, ObjC.Sel("submenu"));
+        if (submenu == ObjC.Nil)
+        {
+            return ApplicationMenuFacts.NotProbed(
+                "the first item of [NSApp mainMenu] has no submenu, so there is no application menu.");
+        }
+
+        var menuTitle = ObjC.ToManaged(ObjC.Send(submenu, ObjC.Sel("title"))) ?? string.Empty;
+        var count = ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+        var items = new List<ApplicationMenuItemFacts>();
+        for (long i = 0; i < count; i++)
+        {
+            var item = ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i);
+            if (SendBool(item, ObjC.Sel("isSeparatorItem")))
+            {
+                items.Add(new ApplicationMenuItemFacts(string.Empty, string.Empty, false, false));
+                continue;
+            }
+
+            items.Add(new ApplicationMenuItemFacts(
+                ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("title"))) ?? string.Empty,
+                Shortcut(item),
+                SendBool(item, ObjC.Sel("isEnabled")),
+                ObjC.Send(item, ObjC.Sel("submenu")) != ObjC.Nil));
+        }
+
+        var detail = new StringBuilder();
+        detail.Append(CultureInfo.InvariantCulture, $"menu \"{menuTitle}\" with {items.Count} item(s): ");
+        detail.Append(string.Join(
+            " | ",
+            items.Select(x => x.Title.Length == 0
+                ? "-"
+                : x.Title + (x.Shortcut.Length == 0 ? string.Empty : " [" + x.Shortcut + "]")
+                          + (x.HasSubmenu ? " >" : string.Empty)
+                          + (x.Enabled ? string.Empty : " (disabled)"))));
+        detail.Append("; ").Append(ApplicationNaming());
+
+        return new ApplicationMenuFacts(true, menuTitle, items, detail.ToString());
+    }
+
+    /// <summary>
+    /// Chooses an application-menu item through <c>-[NSMenu performActionForItemAtIndex:]</c>,
+    /// which is how AppKit itself delivers a chosen item: it validates, sends the item's action
+    /// to its target and tells the menu's delegate. So this exercises the real native item and
+    /// the real wiring to BrowserFlip, not the managed menu model.
+    /// </summary>
+    public bool TryInvokeApplicationMenuItem(string title, out string detail)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        if (!ObjC.EnsureAppKit())
+        {
+            detail = "AppKit could not be loaded in this process.";
+            return false;
+        }
+
+        var app = ObjC.Send(ObjC.GetClass("NSApplication"), ObjC.Sel("sharedApplication"));
+        var mainMenu = ObjC.Send(app, ObjC.Sel("mainMenu"));
+        var submenu = mainMenu == ObjC.Nil || ObjC.SendLong(mainMenu, ObjC.Sel("numberOfItems")) <= 0
+            ? ObjC.Nil
+            : ObjC.Send(ObjC.SendWithLong(mainMenu, ObjC.Sel("itemAtIndex:"), 0), ObjC.Sel("submenu"));
+        if (submenu == ObjC.Nil)
+        {
+            detail = "there is no application menu to choose from.";
+            return false;
+        }
+
+        var count = ObjC.SendLong(submenu, ObjC.Sel("numberOfItems"));
+        for (long i = 0; i < count; i++)
+        {
+            var item = ObjC.SendWithLong(submenu, ObjC.Sel("itemAtIndex:"), i);
+            if (ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("title"))) != title)
+            {
+                continue;
+            }
+
+            ObjC.SendWithLong(submenu, ObjC.Sel("performActionForItemAtIndex:"), i);
+            detail = string.Create(
+                CultureInfo.InvariantCulture,
+                $"chose \"{title}\" at index {i} via -[NSMenu performActionForItemAtIndex:].");
+            return true;
+        }
+
+        detail = string.Create(
+            CultureInfo.InvariantCulture,
+            $"the application menu has no item titled \"{title}\".");
+        return false;
+    }
+
+    /// <summary>The item's key equivalent as the menu draws it, or empty when it has none.</summary>
+    private static string Shortcut(IntPtr item)
+    {
+        var key = ObjC.ToManaged(ObjC.Send(item, ObjC.Sel("keyEquivalent")));
+        if (string.IsNullOrEmpty(key))
+        {
+            return string.Empty;
+        }
+
+        var mask = ObjC.SendLong(item, ObjC.Sel("keyEquivalentModifierMask"));
+        var text = new StringBuilder();
+        if ((mask & ControlFlag) != 0)
+        {
+            text.Append('⌃');
+        }
+
+        if ((mask & OptionFlag) != 0)
+        {
+            text.Append('⌥');
+        }
+
+        if ((mask & ShiftFlag) != 0)
+        {
+            text.Append('⇧');
+        }
+
+        if ((mask & CommandFlag) != 0)
+        {
+            text.Append('⌘');
+        }
+
+        return text.Append(key.ToUpperInvariant()).ToString();
+    }
+
+    /// <summary>
     /// How the application names itself to macOS, and what macOS actually put in the application
     /// menu. Left unset, Avalonia calls itself "Avalonia Application" and macOS repeats that in
     /// the menu bar and in the crash reporter, so the name is worth measuring rather than assuming.

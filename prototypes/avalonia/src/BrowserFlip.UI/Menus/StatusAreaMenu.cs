@@ -67,9 +67,9 @@ public static class StatusAreaMenu
     /// translation check the way a hand-maintained key list could.
     /// </summary>
     /// <remarks>
-    /// Not used on macOS: Avalonia exports the application menu before the Application object
-    /// exists, so a later NativeMenu.SetMenu(Application, ...) is ignored there - measured, see
-    /// docs/macos-menu-bar.md.
+    /// Not used on macOS, which has a real application menu bar of its own shape - About,
+    /// Settings, Services, Hide, Quit - rather than File / View / Settings. That one is
+    /// <see cref="MacApplicationMenu"/>.
     /// </remarks>
     public static IReadOnlyList<(StatusMenuEntry Parent, StatusMenuEntry Child)> BuildApplicationMenu(
         Action refresh,

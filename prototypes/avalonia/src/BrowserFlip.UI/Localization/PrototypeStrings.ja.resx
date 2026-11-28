@@ -77,4 +77,19 @@
   <data name="Capability_DefaultBrowserSwitch" xml:space="preserve">
     <value>既定のブラウザーの切り替え</value>
   </data>
+  <data name="Menu_Services" xml:space="preserve">
+    <value>サービス</value>
+  </data>
+  <data name="Menu_HideApp" xml:space="preserve">
+    <value>{0} を隠す</value>
+  </data>
+  <data name="Menu_HideOthers" xml:space="preserve">
+    <value>ほかを隠す</value>
+  </data>
+  <data name="Menu_ShowAll" xml:space="preserve">
+    <value>すべてを表示</value>
+  </data>
+  <data name="Menu_QuitApp" xml:space="preserve">
+    <value>{0} を終了</value>
+  </data>
 </root>

@@ -77,4 +77,19 @@
   <data name="Capability_DefaultBrowserSwitch" xml:space="preserve">
     <value>切换默认浏览器</value>
   </data>
+  <data name="Menu_Services" xml:space="preserve">
+    <value>服务</value>
+  </data>
+  <data name="Menu_HideApp" xml:space="preserve">
+    <value>隐藏 {0}</value>
+  </data>
+  <data name="Menu_HideOthers" xml:space="preserve">
+    <value>隐藏其他</value>
+  </data>
+  <data name="Menu_ShowAll" xml:space="preserve">
+    <value>全部显示</value>
+  </data>
+  <data name="Menu_QuitApp" xml:space="preserve">
+    <value>退出 {0}</value>
+  </data>
 </root>

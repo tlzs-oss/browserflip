@@ -21,6 +21,39 @@ public sealed record StatusAreaFacts(
 }
 
 /// <summary>
+/// One item of the live application menu, as the operating system holds it.
+/// </summary>
+/// <param name="Title">The text macOS will draw. A separator is reported as an empty title.</param>
+/// <param name="Shortcut">The key equivalent, rendered the way the menu shows it (e.g. "\u2318,").</param>
+/// <param name="Enabled">Whether macOS considers the item choosable.</param>
+/// <param name="HasSubmenu">Whether it opens a submenu, as Services does.</param>
+public sealed record ApplicationMenuItemFacts(string Title, string Shortcut, bool Enabled, bool HasSubmenu);
+
+/// <summary>
+/// What the operating system holds for the application menu - on macOS the menu under the
+/// product's name at the left of the system menu bar.
+/// <para>
+/// Measured, not inferred. The Owner reported this menu as wrong three times (Avalonia's "About
+/// Avalonia", no settings item, English in a Japanese UI) while the automated run said nothing
+/// about it at all, because nothing read it back. The managed <c>NativeMenu</c> is not evidence:
+/// the whole defect was that Avalonia accepted the managed menu and never exported it.
+/// </para>
+/// </summary>
+/// <param name="Found">An application menu belonging to this process was located.</param>
+/// <param name="MenuTitle">The title macOS gives the menu itself.</param>
+/// <param name="Items">Its items, in display order.</param>
+/// <param name="Detail">Everything measured, for the evidence line in the report.</param>
+public sealed record ApplicationMenuFacts(
+    bool Found,
+    string MenuTitle,
+    IReadOnlyList<ApplicationMenuItemFacts> Items,
+    string Detail)
+{
+    /// <summary>Nothing could be measured on this platform.</summary>
+    public static ApplicationMenuFacts NotProbed(string reason) => new(false, string.Empty, [], reason);
+}
+
+/// <summary>
 /// Reads the real status-area item back from the platform, and can deliver a real click to it.
 /// <para>
 /// This interface exists because "we created a <c>TrayIcon</c> and handed it to the toolkit" is
@@ -41,4 +74,17 @@ public interface IStatusAreaProbe
     /// the item could not be found; <paramref name="detail"/> always explains the outcome.
     /// </summary>
     bool TryClick(string expectedToolTip, out string detail);
+
+    /// <summary>
+    /// Reads the live application menu back from the platform. See <see cref="ApplicationMenuFacts"/>.
+    /// </summary>
+    ApplicationMenuFacts InspectApplicationMenu();
+
+    /// <summary>
+    /// Chooses the application-menu item whose title is <paramref name="title"/> through the
+    /// platform's own menu machinery, so the native item's wiring to BrowserFlip's handler is
+    /// what gets exercised. Returns <c>false</c> when there is no such item;
+    /// <paramref name="detail"/> always explains the outcome.
+    /// </summary>
+    bool TryInvokeApplicationMenuItem(string title, out string detail);
 }

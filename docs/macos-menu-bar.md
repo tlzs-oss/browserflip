@@ -18,6 +18,7 @@ Owner による実機目視受入の結果:
 | MAC-D6(クリックでメニューが開かない) | **再現せず。** 下記 7 条件すべてで、実イベントによるクリックはメニューを開いた。修正版では **Owner の実機操作でも再現せず**(メニューバー アイコン及びメニュー表示:PASS)。**原因は未確定のまま**とする |
 | MAC-D6 と同じ画面で見つかった実欠陥 | **3 件。すべて修正済み**(§4) |
 | Owner の指摘の扱い | **取り下げない。** 自動検証を追加し、再受入で証跡が残るようにした(§5) |
+| アプリケーション メニュー(MAC-D9) | **修正済み**(§9)。`BrowserFlip について` / `設定… ⌘,` / `サービス` / `隠す` / `ほかを隠す` / `すべてを表示` / `BrowserFlip を終了 ⌘Q` を 3 言語で表示。**前ラウンドの「上流制限で対応不可」という結論は誤りだった** |
 
 **私は「Owner の観測が誤り」とは主張しない。** 再現できていない以上、原因未確定である。原因未確定のまま「修正した」と報告することもしない。
 
@@ -133,18 +134,9 @@ ITEM tooltip=BrowserFlip -> NSKVONotifying_NSSceneStatusItem menu=AvnMenu menuIt
 
 `NativeMenu.SetMenu(this, [File, View, Settings])` が**メニューバーに一切反映されていなかった**。実測:メニューバーは Avalonia の既定(`About Avalonia` / `Services` / `Hide Avalonia Application` / `Quit`)のままで、`File` / `View` / `Settings` は存在しない。
 
-**原因(確定):** `AppBuilder.SetupUnsafe()` は `WindowingSubsystemInitializer` を `Instance = _appFactory()` より**前**に実行する。macOS バックエンドはその初期化中にアプリケーション メニューを書き出すが、その時点で `Application.Current` は null なので、`AvaloniaNativeMenuExporter.DoLayoutReset` は
+> **この節の当初の原因記述は誤りだった。** 当時「`AppBuilder.SetupUnsafe()` は `WindowingSubsystemInitializer` を `Instance = _appFactory()` より前に実行するため、アプリケーション メニューの書き出し時点で `Application.Current` が null になる」と書き、**「原因(確定)」と断定して `UNSUPPORTED_UPSTREAM` と結論付けた。** Avalonia 12.1.4 の実ソースを読んだ結果、観測(反映されない)は正しいが**機構の説明が誤っており、したがって「対応不可」という結論も誤りだった。** 正しい内容は [§9](#9-mac-d9-アプリケーション-メニューの修正) に記す。この誤りは、ソースを読まずに呼び出し順を推測したために生じた。
 
-```csharp
-var app = Application.Current;                              // null
-var appMenu = app is null ? null : NativeMenu.GetMenu(app);  // null
-if (appMenu == null) { appMenu = CreateDefaultAppMenu(); if (app is not null) ... }
-SetMenu(appMenu);
-```
-
-で自前の既定メニューを作って書き出し、ネイティブ メニューをそれに固定する。`Application` に保存されないため managed 側からその実体に触る手段もなく、後から `NativeMenu.SetMenu(Application, …)` を呼んでも無視される。置換を試みれば上流の [#22287](https://github.com/AvaloniaUI/Avalonia/issues/22287) のクラッシュになる。
-
-**対応:** macOS では呼ばない(`UNSUPPORTED_UPSTREAM`)。黙って無視される呼び出しを残せば「メニューバーがある」と偽ることになる。内容(状態更新・ツールバー・設定)はすべてステータス エリア メニューから到達できる。他プラットフォームでは従来どおり。あわせて `File` / `View` / `Settings` のリテラルも製品既存の `MenuBar_File` / `MenuBar_View` / `MenuBar_Settings` に置き換えた。
+**対応(当時):** macOS では呼ばない。あわせて `File` / `View` / `Settings` のリテラルも製品既存の `MenuBar_File` / `MenuBar_View` / `MenuBar_Settings` に置き換えた。他プラットフォームでは従来どおり。**この対応は §9 で差し替えた。**
 
 ### D6-c 受入チェック 3 が「意図」を根拠に PASS していた
 
@@ -338,3 +330,145 @@ apphost はランタイムを「実行ファイルと同じディレクトリ �
 **開発用 `bin/Release` の直接起動は、動作保証の対象ではない。** 配布・受入はすべて `.app` で行う。
 
 > アプリケーション メニュー(画面左上)は Avalonia の既定のままで、`About Avalonia` などが出る。これは §4 D6-b の上流制限によるもので、差し替えられない。製品名は自己申告名・バンドル名・メニューバー アイコンのメニューで `BrowserFlip` と表示される。
+
+---
+
+# 9. MAC-D9 アプリケーション メニューの修正
+
+Owner の再確認による指摘(3 件):
+
+- `About Avalonia` が表示される
+- 設定メニューが存在しない
+- 日本語選択時にも英語メニューが表示される
+
+いずれも**本ラウンドで修正した。** R5 に延期しない。
+
+## 9.1 §4 D6-b の結論が誤りだった理由(実ソースで確認)
+
+Avalonia 12.1.4 のタグ付きソース(`AvaloniaUI/Avalonia` の `12.1.4`)を取得して確認した。
+
+`src/Avalonia.Controls/AppBuilder.cs` の `SetupUnsafe()`:
+
+```csharp
+WindowingSubsystemInitializer?.Invoke();      // ← ここで macOS バックエンドを初期化
+AfterPlatformServicesSetupCallback?.Invoke(Self);
+Instance = _appFactory!();                    // ← Application 生成
+Instance.ApplicationLifetime = _lifetime;
+Instance.RegisterServices();
+Instance.Initialize();                        // ← App.axaml / App.Initialize()
+AfterApplicationSetupCallback?.Invoke(Self);
+AfterSetupCallback?.Invoke(Self);             // ← ここでメニューを書き出す
+Instance.OnFrameworkInitializationCompleted();// ← 従来の実装はここで SetMenu していた
+```
+
+`src/Avalonia.Native/AvaloniaNativePlatformExtensions.cs`:
+
+```csharp
+.UseWindowingSubsystem(() =>
+{
+    var platform = AvaloniaNativePlatform.Initialize(...);
+    builder.AfterSetup(x =>            // ← 即時実行ではなく AfterSetup に登録している
+    {
+        platform.SetupApplicationName();
+        platform.SetupApplicationMenuExporter();
+        platform.SetupApplicationDockMenuExporter();
+    });
+});
+```
+
+**つまりメニューの書き出しは windowing 初期化中ではなく `AfterSetup` で行われる。** その時点で `Application.Current` は生成済みであり、`SetupApplicationName()` が `Application.Current!.Name` を `!` 付きで参照していること自体がその証拠である。
+
+従って真の原因は「`Application.Current` が null」ではなく、**`SetMenu` の呼び出し位置が 1 段遅かった**ことである。`AvaloniaNativeMenuExporter.DoLayoutReset`(`MenuTarget.Application`)は
+
+```csharp
+var app = Application.Current;
+var appMenu = app is null ? null : NativeMenu.GetMenu(app);
+if (appMenu == null) { appMenu = CreateDefaultAppMenu(); /* "About Avalonia" */ ... }
+SetMenu(appMenu);
+```
+
+を **1 回だけ**実行し、以後 `_nativeMenu` が非 null になるため `_factory.SetAppMenu` は再呼び出しされない。`OnFrameworkInitializationCompleted` での `SetMenu` は `AfterSetup` より後なので、既定メニューが固定された後に到着して無視されていた。
+
+**修正:`App.Initialize()` で `NativeMenu.SetMenu(this, …)` する。** これは Avalonia の公式な方法であり、非公開 API もポインター操作も使わない。
+
+## 9.2 標準項目は Avalonia に作らせて、ラベルだけ差し替える
+
+`AvaloniaNativeMenuExporter.SetMenu` は、書き出すメニューに対して `PopulateStandardOSXMenuItems(menu)` を呼び、**Services / Hide / Hide Others / Show All / Quit を追記する**(`MacOSPlatformOptions.DisableDefaultApplicationMenuItems` が false のとき)。追記先は BrowserFlip が渡したメニュー自身である。
+
+これらを自前で実装する選択肢は**採らなかった**。理由:
+
+| 必要なもの | 可視性 | 結果 |
+| --- | --- | --- |
+| Hide / Hide Others / Show All | `INativeApplicationCommands` は **internal** | managed からは呼べない |
+| Services サブメニュー | `MacOSNativeMenuCommands.IsServicesSubmenuProperty` は **internal** | 設定できない。空の「サービス」項目は偽装になる |
+
+自前実装は AppKit の `[NSApp hide:]` 等を直接叩くことになり、`NSApp.servicesMenu` を正しく設定するにはネイティブ メニュー ポインターに触る必要がある。Owner の制約(危険なネイティブ ポインター操作を行わない)に反する。
+
+採った方法:**Avalonia に項目の生成・配線・ショートカット設定をさせ、BrowserFlip は `NativeMenuItem.Header` を書き換えるだけにする。** `IAvnMenuItem.cs` は `NativeMenuItem.HeaderProperty` を購読して `SetTitle` をネイティブへ伝えるため、項目を**差し替えずに**ラベルだけ更新できる。差し替えは上流の [#22287](https://github.com/AvaloniaUI/Avalonia/issues/22287) のクラッシュ経路であり、通らない。
+
+項目の同定は**英語ラベルの一致**で行う(位置ではない)。上流が順序を変えた場合に位置照合では別の項目を誤って書き換えるが、ラベル照合なら**その項目だけが英語のまま残り、チェック 14 が FAIL する**。
+
+### 併せて修正した上流の不具合
+
+Avalonia は Hide Others に `⌥⌘Q` を割り当てている(`AvaloniaNativeMenuExporter.cs` の `new KeyGesture(Key.Q, Meta | Alt)`)。macOS の標準は `⌥⌘H` であり、`⌥⌘Q` は Quit の `⌘Q` と 1 打鍵差である。`Adopt` で `⌥⌘H` に直した。
+
+## 9.3 実機で読み出した結果
+
+`[NSApp mainMenu]` の index 0 のサブメニューを公開 AppKit API だけで読み出した(`-[NSMenu itemAtIndex:]` / `-[NSMenuItem title]` / `-[NSMenuItem keyEquivalent]` / `-[NSMenuItem keyEquivalentModifierMask]` / `-[NSMenuItem submenu]`)。
+
+| 言語 | メニューバーから読み出した 10 要素 |
+| --- | --- |
+| ja | `BrowserFlip について \| 設定… ⌘, \| - \| サービス > \| - \| BrowserFlip を隠す ⌘H \| ほかを隠す ⌥⌘H \| すべてを表示 \| - \| BrowserFlip を終了 ⌘Q` |
+| en | `About BrowserFlip \| Settings… ⌘, \| - \| Services > \| - \| Hide BrowserFlip ⌘H \| Hide Others ⌥⌘H \| Show All \| - \| Quit BrowserFlip ⌘Q` |
+| zh-CN | `关于 BrowserFlip \| 设置… ⌘, \| - \| 服务 > \| - \| 隐藏 BrowserFlip ⌘H \| 隐藏其他 ⌥⌘H \| 全部显示 \| - \| 退出 BrowserFlip ⌘Q` |
+
+Owner が指定した 7 項目と順序が一致している。`サービス >` の `>` は実サブメニューが付いていることを示す(Avalonia が `NSApplication.servicesMenu` に登録したもの)。
+
+**言語切り替えは起動時だけでなく実行中も反映される。** 同一プロセス内で `Language` を en → ja → zh-CN と切り替え、各段でメニューバーを読み直した結果が上表である。これは Owner の指摘 3 件目が「切り替え時の欠陥」であるため、起動時の確認だけでは不十分だと判断したことによる。
+
+**ネイティブ項目が BrowserFlip に配線されていることの確認:** `-[NSMenu performActionForItemAtIndex:]`(AppKit 自身が選択を配送する経路)で「BrowserFlip について」を選択し、**BrowserFlip 自身の About ウィンドウが開いたこと**を確認した。ラベルが正しいことと、項目が動くことは別の主張である。
+
+### 英語の終了ラベルについて
+
+製品既存の `Menu_Exit` は英語で `Exit BrowserFlip` である(Windows の語彙)。macOS の標準は `Quit` なので、プロトタイプ側の `Menu_QuitApp` を追加した。日本語・中国語の文言は `Menu_Exit` と同一で、英語のみ異なる。**製品の `Strings.resx` は変更していない。**
+
+## 9.4 自動検証(チェック 14)
+
+| | 内容 | 根拠 |
+| --- | --- | --- |
+| チェック 14(新規) | `[NSApp mainMenu]` を読み出し、全項目のタイトル・ショートカット・サブメニュー有無を記録。期待ラベルの欠落、英語のまま残った項目、`Avalonia` を名乗る項目、`設定…` の `⌘,` 欠落、About 項目の未配線を **FAIL** | 公開 AppKit API のみ |
+
+macOS 以外では `UNSUPPORTED`(アプリケーション レベルのメニュー バーは macOS だけのもの)。
+
+**意図的に壊して確認した(Adopt の呼び出しを削除し、日本語 UI で実行):**
+
+```
+FAIL 14. Application menu (macOS menu bar)
+  ... | Services > | - | Hide BrowserFlip [⌘H] | Hide Others [⌥⌘Q] | Show All | - | Quit [⌘Q];
+  UI culture=ja; MISSING: サービス | BrowserFlip を隠す | ほかを隠す | すべてを表示 | BrowserFlip を終了;
+  NOT TRANSLATED: Services | Hide BrowserFlip | Hide Others | Show All | Quit
+RESULT: FAIL (1 failing)   pass=12 pending=0 skipped=1 unsupported=0
+```
+
+`capability-report.json` も `(14, 'FAIL')`、`ExitCode=2` になる。復元後は `(14, 'PASS')`、`ExitCode=0`。**レポート本体と終了コードの両方が動くことを確認済み**(前ラウンドでチェック 13 が JSON に入っていなかった誤りを繰り返さないため)。
+
+### 回帰テスト
+
+| ファイル | 内容 |
+| --- | --- |
+| `ApplicationMenuAttachTests` | **`Initialize()` だけで** メニューが `Application` に付いていること。macOS 以外では付かないこと。`Name` が `BrowserFlip` であること |
+| `MacApplicationMenuTests` | 項目構成・順序・`⌘,`・ハンドラー・3 言語のラベル・英語残留なし・アクセス キー記号なし・Avalonia 追記項目の引き取り・`⌥⌘H` 補正・上流改名時に誤ラベルしないこと・ラベル再読込で区切りとハンドラーが壊れないこと |
+| `AboutWindowTests` | 製品名とバージョン表示、`Avalonia` を名乗らないこと、他ウィンドウでの言語変更に追従すること、閉じたら購読を外すこと、閉じるボタンが実クリックで動くこと |
+
+**`ApplicationMenuAttachTests` は意図的に壊して確認した。** 前ラウンドと同じ誤り(`OnFrameworkInitializationCompleted` へ移動)を入れると
+
+```
+BrowserFlip.Prototype.Tests.ApplicationMenuAttachTests.Initialize_alone_attaches_the_application_menu_on_macos [FAIL]
+失敗!  -失敗: 1、合格: 1
+```
+
+## 9.5 未検証のまま残ること
+
+- **Owner 自身の目視**。本節の表は BrowserFlip がプロセス内から読み出した値であり、画面写真ではない
+- 各項目の実動作のうち、`サービス` / `BrowserFlip を隠す` / `ほかを隠す` / `すべてを表示` は **Avalonia の実装をそのまま使っている**。ラベルとショートカットは読み出して確認したが、動作そのものは Owner の操作で確認されたい
+- x86-64 実機(Rosetta 未導入のため、ABI 分岐は論証のみ)
